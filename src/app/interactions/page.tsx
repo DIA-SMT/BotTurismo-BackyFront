@@ -44,6 +44,8 @@ export default function InteractionsPage() {
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
     const [expandedRow, setExpanded] = useState<number | null>(null)
+    // refreshKey: incrementing this forces a refetch even if other deps haven't changed
+    const [refreshKey, setRefreshKey] = useState(0)
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -63,14 +65,18 @@ export default function InteractionsPage() {
             const { data, count } = await query
             if (data) setRows(data)
             if (count !== null) setTotal(count)
+        } catch (e) {
+            console.error('Error fetching interactions:', e)
         } finally {
             setLoading(false)
         }
-    }, [page, intentFilter, langFilter, dateFrom, dateTo, search])
+    }, [page, intentFilter, langFilter, dateFrom, dateTo, search, refreshKey])
 
     useEffect(() => { fetchData() }, [fetchData])
 
     const totalPages = Math.ceil(total / PAGE_SIZE)
+
+    const hasFilters = !!(intentFilter || langFilter || dateFrom || dateTo || search)
 
     return (
         <>
@@ -79,8 +85,12 @@ export default function InteractionsPage() {
                     <h2>💬 Interacciones del Bot</h2>
                     <p>{total.toLocaleString('es-AR')} interacciones registradas</p>
                 </div>
-                <button className="btn btn-secondary" onClick={fetchData} disabled={loading}>
-                    <RefreshCw size={14} />
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => setRefreshKey(k => k + 1)}
+                    disabled={loading}
+                >
+                    <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
                     Actualizar
                 </button>
             </div>
@@ -89,7 +99,12 @@ export default function InteractionsPage() {
                 <div className="table-container">
                     {/* Toolbar / Filters */}
                     <div className="table-toolbar">
-                        <div className="flex items-center gap-2" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '0 12px', height: 36, flex: 1, maxWidth: 320 }}>
+                        {/* Row 1: search + refresh icon */}
+                        <div className="flex items-center gap-2" style={{
+                            background: 'var(--bg-2)', border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)', padding: '0 12px',
+                            height: 36, flex: 1, minWidth: 140
+                        }}>
                             <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                             <input
                                 className="input"
@@ -100,16 +115,26 @@ export default function InteractionsPage() {
                             />
                         </div>
 
-                        <SlidersHorizontal size={16} style={{ color: 'var(--text-muted)' }} />
+                        <SlidersHorizontal size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
 
-                        <select className="select" value={intentFilter} onChange={e => { setIntent(e.target.value); setPage(0) }}>
+                        <select
+                            className="select"
+                            style={{ minWidth: 100, flex: '0 1 auto' }}
+                            value={intentFilter}
+                            onChange={e => { setIntent(e.target.value); setPage(0) }}
+                        >
                             <option value="">Todos los intents</option>
                             {INTENTS.map(k => (
                                 <option key={k} value={k}>{INTENT_LABELS[k].emoji} {INTENT_LABELS[k].label}</option>
                             ))}
                         </select>
 
-                        <select className="select" value={langFilter} onChange={e => { setLang(e.target.value); setPage(0) }}>
+                        <select
+                            className="select"
+                            style={{ minWidth: 90, flex: '0 1 auto' }}
+                            value={langFilter}
+                            onChange={e => { setLang(e.target.value); setPage(0) }}
+                        >
                             {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
                         </select>
 
@@ -119,7 +144,7 @@ export default function InteractionsPage() {
                             value={dateFrom}
                             onChange={e => { setDateFrom(e.target.value); setPage(0) }}
                             title="Desde"
-                            style={{ width: 140 }}
+                            style={{ width: 130, flexShrink: 0 }}
                         />
                         <input
                             type="date"
@@ -127,10 +152,10 @@ export default function InteractionsPage() {
                             value={dateTo}
                             onChange={e => { setDateTo(e.target.value); setPage(0) }}
                             title="Hasta"
-                            style={{ width: 140 }}
+                            style={{ width: 130, flexShrink: 0 }}
                         />
 
-                        {(intentFilter || langFilter || dateFrom || dateTo || search) && (
+                        {hasFilters && (
                             <button
                                 className="btn btn-secondary"
                                 onClick={() => { setIntent(''); setLang(''); setDateFrom(''); setDateTo(''); setSearch(''); setPage(0) }}
@@ -140,19 +165,19 @@ export default function InteractionsPage() {
                         )}
                     </div>
 
-                    {/* Table */}
-                    <div style={{ overflowX: 'auto' }}>
+                    {/* Scrollable table wrapper */}
+                    <div className="table-scroll">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Fecha / Hora</th>
                                     <th>Turista</th>
                                     <th>Intent</th>
-                                    <th>Idioma</th>
-                                    <th>Origen</th>
-                                    <th>Transporte</th>
-                                    <th>Consulta</th>
-                                    <th>Live Chat</th>
+                                    <th className="interactions-col-lang">Idioma</th>
+                                    <th className="interactions-col-origen">Origen</th>
+                                    <th className="interactions-col-transport">Transporte</th>
+                                    <th className="interactions-col-query">Consulta</th>
+                                    <th className="interactions-col-chat">Live Chat</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -174,10 +199,10 @@ export default function InteractionsPage() {
                                                 <div className="td-muted">{row.chat_id ? `+${row.chat_id}` : '—'}</div>
                                             </td>
                                             <td><IntentBadge intent={row.intent} /></td>
-                                            <td><LangBadge lang={row.language} /></td>
-                                            <td className="td-muted">{row.origen_provincia || '—'}</td>
-                                            <td className="td-muted">{row.medio_transporte || '—'}</td>
-                                            <td style={{ maxWidth: 300 }}>
+                                            <td className="interactions-col-lang"><LangBadge lang={row.language} /></td>
+                                            <td className="interactions-col-origen td-muted">{row.origen_provincia || '—'}</td>
+                                            <td className="interactions-col-transport td-muted">{row.medio_transporte || '—'}</td>
+                                            <td className="interactions-col-query" style={{ maxWidth: 300 }}>
                                                 <span style={{
                                                     display: 'block',
                                                     overflow: 'hidden',
@@ -190,7 +215,7 @@ export default function InteractionsPage() {
                                                     {row.query_text || '—'}
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td className="interactions-col-chat">
                                                 {row.live_chat_url ? (
                                                     <a
                                                         href={row.live_chat_url}
@@ -209,7 +234,7 @@ export default function InteractionsPage() {
                                         {expandedRow === row.id && (
                                             <tr key={`${row.id}-expanded`}>
                                                 <td colSpan={8} style={{ padding: '0 16px 16px', background: 'var(--bg-2)' }}>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, paddingTop: 12 }}>
+                                                    <div className="interactions-expanded-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, paddingTop: 12 }}>
                                                         <div>
                                                             <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Consulta del turista</p>
                                                             <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{row.query_text || '—'}</p>
@@ -229,32 +254,17 @@ export default function InteractionsPage() {
                     </div>
 
                     {/* Pagination */}
-                    <div className="pagination">
-                        <span>
-                            {total > 0
-                                ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total.toLocaleString('es-AR')}`
-                                : '0 resultados'}
-                        </span>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={() => setPage(p => p - 1)}
-                            disabled={page === 0}
-                            style={{ padding: '0 8px' }}
-                        >
-                            <ChevronLeft size={16} />
-                        </button>
-                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                            {page + 1} / {totalPages || 1}
-                        </span>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={() => setPage(p => p + 1)}
-                            disabled={page + 1 >= totalPages}
-                            style={{ padding: '0 8px' }}
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
+                    {totalPages > 1 && (
+                        <div className="pagination">
+                            <button className="btn btn-secondary btn-icon" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
+                                <ChevronLeft size={16} />
+                            </button>
+                            <span>Página {page + 1} de {totalPages}</span>
+                            <button className="btn btn-secondary btn-icon" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </>

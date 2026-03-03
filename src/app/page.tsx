@@ -178,7 +178,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts Row 1 */}
-        <div className="charts-grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        <div className="charts-grid charts-grid-activity">
           {/* Actividad diaria */}
           <div className="chart-card">
             <h3><TrendingUp size={15} /> Actividad Diaria (últimos 30 días)</h3>
