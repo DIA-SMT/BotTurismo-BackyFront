@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "tunnel": "node tunnel.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^0.3.40",
+    "@langchain/openai": "^0.4.4",
+    "@supabase/supabase-js": "^2.48.1",
+    "axios": "^1.8.1",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "qs": "^6.14.0"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2",
+    "ssh2": "^1.17.0"
+  }
+}
