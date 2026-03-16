@@ -4,7 +4,10 @@ const fs = require('fs');
 async function setupTunnel(retryCount = 0) {
     try {
         console.log(`[Túnel] Intentando abrir túnel (Intento ${retryCount + 1})...`);
-        const tunnel = await localtunnel({ port: 3000 });
+        const tunnel = await localtunnel({ 
+            port: 3000,
+            subdomain: 'turismosmt-test' // Intentamos usar un subdominio fijo
+        });
 
         console.log('=========================================');
         console.log('🔗 URL BASE DEL TÚNEL:');

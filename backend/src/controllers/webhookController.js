@@ -4,9 +4,23 @@ const { sendManychatMessages } = require('../services/manychat');
 const { mainAgentProcess } = require('../ai/agent');
 const { visionAnalyzeImage } = require('../ai/vision');
 const { transcribeAudio } = require('../ai/audio');
+const fs = require('fs');
+const path = require('path');
 
 async function handleManyChatWebhook(req, res) {
   const startTime = Date.now();
+  
+  // LOG TEMPORAL PARA DEPUREACIÓN (SOLO LOCAL)
+  try {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      body: req.body
+    };
+    fs.appendFileSync(path.join(__dirname, '../../debug_webhook.log'), JSON.stringify(logEntry, null, 2) + '\n---\n');
+  } catch (logErr) {
+    console.error("Error writing debug log:", logErr);
+  }
+
   console.log("---- INCOMING WEBHOOK ----");
   console.log("Headers:", req.headers);
   console.log("Body completo:", JSON.stringify(req.body, null, 2));
@@ -16,8 +30,8 @@ async function handleManyChatWebhook(req, res) {
   // ID Interno de ManyChat (Numérico, para API calls)
   const subscriberId = body.id || (body.subscriber ? body.subscriber.id : null) || body.subscriber_id;
   
-  // Número de Teléfono/WhatsApp (Para Supabase y lógica de negocio)
-  const phoneNumber = body.subscriber?.whatsapp_id || body.subscriber?.phone || body.subscriber?.subscriber_id || subscriberId;
+  // Número de Teléfono/WhatsApp (Priorizando whatsapp_phone del log)
+  const phoneNumber = body.whatsapp_phone || body.subscriber?.whatsapp_phone || body.subscriber?.whatsapp_id || body.subscriber?.phone || body.subscriber?.subscriber_id || subscriberId;
   
   // 1. Responder rápido con JSON a Manychat para evitar timeouts y permitir mapeo
   res.status(200).json({

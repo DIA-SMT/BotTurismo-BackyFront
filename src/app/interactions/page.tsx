@@ -196,7 +196,7 @@ export default function InteractionsPage() {
                                             </td>
                                             <td>
                                                 <div className="td-text-primary">{row.user_name || '—'}</div>
-                                                <div className="td-muted">{row.chat_id ? `+${row.chat_id}` : '—'}</div>
+                                                <div className="td-muted">{row.chat_id ? `${row.chat_id}` : '—'}</div>
                                             </td>
                                             <td><IntentBadge intent={row.intent} /></td>
                                             <td className="interactions-col-lang"><LangBadge lang={row.language} /></td>
