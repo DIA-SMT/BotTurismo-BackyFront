@@ -59,7 +59,6 @@ async function sendManychatMessages(subscriberId, fullText) {
     const response = await api.post('/sending/sendContent', payload);
     return response.data;
   } catch (err) {
-    console.error('Error sending ManyChat messages:', err?.response?.data || err.message);
     throw err; // Re-throw to handle in controller
   }
 }

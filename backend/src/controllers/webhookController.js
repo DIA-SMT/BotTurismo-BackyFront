@@ -47,6 +47,7 @@ async function handleManyChatWebhook(req, res) {
 
   console.log(`[Webhook] SubscriberId: ${subscriberId}, Phone: ${phoneNumber}`);
 
+
   try {
     let lastInputText = body.last_input_text || '';
     const isImage = /\.(jpeg|jpg|png|gif|webp)$/i.test(lastInputText);

@@ -46,13 +46,25 @@ async function fetchCulturalEvents() {
     }
 
     return upcoming.map(ev => {
-      const nombre = ev.title || ev.nombre || ev.name || 'Evento';
-      const fecha = ev.date || ev.fecha || ev.start_date || '';
-      const lugar = ev.location || ev.lugar || ev.venue || '';
-      const desc = ev.description || ev.descripcion || ev.summary || '';
-      const dateStr = fecha ? new Date(fecha).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' }) : '';
-      return `• ${nombre}${dateStr ? ' — ' + dateStr : ''}${lugar ? ' @ ' + lugar : ''}${desc ? ': ' + desc.substring(0, 100) : ''}`;
-    }).join('\n');
+      const nombre = ev.title || 'Evento';
+      const fechaInicio = ev.start || '';
+      const fechaFin = (Array.isArray(ev.hasta) && ev.hasta.length > 0) ? ev.hasta[0] : '';
+      const pathUrl = ev.url || '';
+      const fullUrl = pathUrl ? `https://comunicacionsmt.gob.ar${pathUrl}` : '';
+      
+      const dateObj = fechaInicio ? new Date(fechaInicio) : null;
+      const dateStr = dateObj ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' }) : '';
+      const timeStr = dateObj ? dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+      const endTimeStr = fechaFin ? new Date(fechaFin).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+      let info = `• ${nombre}`;
+      if (dateStr) info += ` — ${dateStr}`;
+      if (timeStr) info += ` a las ${timeStr}hs`;
+      if (endTimeStr) info += ` (hasta las ${endTimeStr}hs)`;
+      if (fullUrl) info += `\nMás info: ${fullUrl}`;
+      
+      return info;
+    }).join('\n\n');
 
   } catch (e) {
     console.error(`[API] Error fetching events: ${e.code || e.message}`);
