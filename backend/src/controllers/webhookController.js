@@ -7,20 +7,31 @@ const { transcribeAudio } = require('../ai/audio');
 
 async function handleManyChatWebhook(req, res) {
   const startTime = Date.now();
-  // 1. Responder rápido 200 OK a Manychat para evitar timeouts
-  res.status(200).send('OK');
+  // 1. Responder rápido con JSON a Manychat para evitar timeouts y permitir mapeo
+  res.status(200).json({
+    status: 'success',
+    subscriber_id: subscriberId,
+    phone: phoneNumber
+  });
 
   console.log("---- INCOMING WEBHOOK ----");
   console.log("Headers:", req.headers);
   console.log("Body completo:", JSON.stringify(req.body, null, 2));
 
   const body = req.body || {};
+  
+  // ID Interno de ManyChat (Numérico, para API calls)
   const subscriberId = body.id || (body.subscriber ? body.subscriber.id : null) || body.subscriber_id;
+  
+  // Número de Teléfono/WhatsApp (Para Supabase y lógica de negocio)
+  const phoneNumber = body.subscriber?.whatsapp_id || body.subscriber?.phone || body.subscriber?.subscriber_id || subscriberId;
   
   if (!subscriberId) {
     console.log("⚠️ No se detectó subscriberId en el body!");
     return;
   }
+
+  console.log(`[Webhook] SubscriberId: ${subscriberId}, Phone: ${phoneNumber}`);
 
   try {
     let lastInputText = body.last_input_text || '';
@@ -81,7 +92,7 @@ async function handleManyChatWebhook(req, res) {
 
     // 8. Loggear Interacción en Supabase para analíticas
     await logInteraction({
-      chat_id: subscriberId,
+      chat_id: String(phoneNumber).startsWith('+') ? phoneNumber : `+${phoneNumber}`,
       user_name: body.name || body.first_name || '',
       intent: finalResponseJson.intent || 'consulta_general',
       language: finalResponseJson.language || 'es',
