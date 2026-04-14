@@ -266,3 +266,87 @@ INSERT INTO faqs (categoria, pregunta, respuesta, orden) VALUES
 ('general', '¿Cuáles son las actividades gratuitas de la Municipalidad?', 'Todas las actividades que brinda la Municipalidad de San Miguel de Tucumán son totalmente gratuitas.', 1)
 
 ON CONFLICT DO NOTHING;
+-- ============================================================
+-- Solicitudes educativas para bus turistico
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS educational_bus_requests (
+  id                BIGSERIAL PRIMARY KEY,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  institution_name  TEXT NOT NULL,
+  school_address    TEXT NOT NULL,
+  contact_name      TEXT NOT NULL,
+  contact_role      TEXT NOT NULL,
+  contact_phone     TEXT NOT NULL,
+  contact_email     TEXT NOT NULL,
+  student_count     INT NOT NULL CHECK (student_count > 0),
+  grade_year        TEXT NOT NULL,
+  requested_date    DATE NOT NULL,
+  preferred_shift   TEXT NOT NULL CHECK (preferred_shift IN ('manana', 'tarde')),
+  institution_type  TEXT NOT NULL CHECK (institution_type IN ('municipal', 'provincial', 'private')),
+  additional_notes  TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  internal_notes    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_educational_requests_created_at ON educational_bus_requests (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_educational_requests_status ON educational_bus_requests (status);
+CREATE INDEX IF NOT EXISTS idx_educational_requests_requested_date ON educational_bus_requests (requested_date);
+CREATE INDEX IF NOT EXISTS idx_educational_requests_institution_type ON educational_bus_requests (institution_type);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_educational_requests_unique_active_slot
+  ON educational_bus_requests (requested_date, preferred_shift)
+  WHERE status IN ('pending', 'approved');
+
+DROP TRIGGER IF EXISTS educational_bus_requests_updated_at ON educational_bus_requests;
+CREATE TRIGGER educational_bus_requests_updated_at
+  BEFORE UPDATE ON educational_bus_requests
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE educational_bus_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service_role_full_access_educational_bus_requests" ON educational_bus_requests
+  FOR ALL
+  USING (auth.role() = 'service_role');
+
+-- ============================================================
+-- Perfiles administrativos para auth del backoffice
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS admin_profiles (
+  id                    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email                 TEXT,
+  role                  TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin')),
+  must_change_password  BOOLEAN NOT NULL DEFAULT true,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_profiles_role ON admin_profiles (role);
+CREATE INDEX IF NOT EXISTS idx_admin_profiles_must_change_password ON admin_profiles (must_change_password);
+
+DROP TRIGGER IF EXISTS admin_profiles_updated_at ON admin_profiles;
+CREATE TRIGGER admin_profiles_updated_at
+  BEFORE UPDATE ON admin_profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE OR REPLACE FUNCTION handle_new_admin_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.admin_profiles (id, email, role, must_change_password)
+  VALUES (NEW.id, NEW.email, 'admin', true)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created_admin_profile ON auth.users;
+CREATE TRIGGER on_auth_user_created_admin_profile
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_admin_user();
+
+ALTER TABLE admin_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service_role_full_access_admin_profiles" ON admin_profiles
+  FOR ALL
+  USING (auth.role() = 'service_role');
