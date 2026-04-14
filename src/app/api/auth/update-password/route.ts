@@ -13,13 +13,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (accessToken && refreshToken) {
-    const { data, error } = await updatePasswordWithRecoveryTokens(String(accessToken), String(refreshToken), nextPassword)
-    if (error || !data.user) {
+    const { user, error } = await updatePasswordWithRecoveryTokens(String(accessToken), String(refreshToken), nextPassword)
+    if (error || !user) {
       return NextResponse.json({ error: 'No se pudo actualizar la contraseña.' }, { status: 400 })
     }
 
     const supabase = createServerSupabaseClient()
-    await supabase.from('admin_profiles').update({ must_change_password: false }).eq('id', data.user.id)
+    await supabase.from('admin_profiles').update({ must_change_password: false }).eq('id', user.id)
     return NextResponse.json({ ok: true })
   }
 

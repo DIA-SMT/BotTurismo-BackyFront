@@ -1,4 +1,4 @@
-import { createClient, type Session } from '@supabase/supabase-js'
+import { createClient, type AuthError, type Session, type User } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const authKey =
@@ -61,8 +61,15 @@ export async function updatePasswordWithRecoveryTokens(accessToken: string, refr
     access_token: accessToken,
     refresh_token: refreshToken,
   })
-  if (sessionError) return { error: sessionError }
-  return supabase.auth.updateUser({ password })
+  if (sessionError) {
+    return { user: null, error: sessionError } satisfies { user: User | null; error: AuthError | null }
+  }
+
+  const { data, error } = await supabase.auth.updateUser({ password })
+  return {
+    user: data.user ?? null,
+    error,
+  } satisfies { user: User | null; error: AuthError | null }
 }
 
 export function getSessionMaxAge(session: Session) {
