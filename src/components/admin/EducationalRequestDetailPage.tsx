@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import {
+  getCircuitLabel,
+  getGradeYearLabel,
   formatDateTimeToDisplay,
   formatDateToDisplay,
   getInstitutionTypeLabel,
@@ -12,7 +14,7 @@ import {
   type EducationalBusRequest,
   type EducationalBusRequestStatus,
 } from '@/lib/educational-bus-requests'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Download, Save } from 'lucide-react'
 
 function DetailRow({ label, value }: { label: string; value: string | number | null }) {
   return (
@@ -107,11 +109,22 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
               <DetailRow label="Tipo de institución" value={getInstitutionTypeLabel(request.institution_type)} />
               <DetailRow label="Dirección" value={request.school_address} />
               <DetailRow label="Cantidad de alumnos" value={request.student_count} />
-              <DetailRow label="Grado o año" value={request.grade_year} />
+              <DetailRow label="Grado o año" value={getGradeYearLabel(request.grade_year)} />
+              <DetailRow label="Circuito" value={getCircuitLabel(request.circuit)} />
               <DetailRow label="Fecha solicitada" value={formatDateToDisplay(request.requested_date)} />
               <DetailRow label="Turno preferido" value={getShiftLabel(request.preferred_shift)} />
+              <DetailRow label="Nota adjunta" value={request.attachment_name || 'Sin adjunto registrado'} />
               <DetailRow label="Creada el" value={formatDateTimeToDisplay(request.created_at)} />
               <DetailRow label="Observaciones" value={request.additional_notes || '-'} />
+
+              <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', marginTop: 12 }}>
+                {request.attachment_path && !request.attachment_path.startsWith('migracion/') ? (
+                  <a href={`/api/educational-bus-requests/${request.id}/attachment`} className="btn btn-secondary">
+                    <Download size={14} />
+                    Descargar adjunto
+                  </a>
+                ) : null}
+              </div>
             </section>
 
             <section className="chart-card">

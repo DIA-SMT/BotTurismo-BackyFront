@@ -282,18 +282,72 @@ CREATE TABLE IF NOT EXISTS educational_bus_requests (
   contact_email     TEXT NOT NULL,
   student_count     INT NOT NULL CHECK (student_count > 0),
   grade_year        TEXT NOT NULL,
+  circuit           TEXT NOT NULL CHECK (circuit IN ('educativo', 'historico_cultural', 'memoria')),
   requested_date    DATE NOT NULL,
   preferred_shift   TEXT NOT NULL CHECK (preferred_shift IN ('manana', 'tarde')),
   institution_type  TEXT NOT NULL CHECK (institution_type IN ('municipal', 'provincial', 'private')),
+  attachment_name   TEXT NOT NULL,
+  attachment_path   TEXT NOT NULL,
   additional_notes  TEXT,
   status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   internal_notes    TEXT
 );
 
+ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS circuit TEXT;
+UPDATE educational_bus_requests SET circuit = 'educativo' WHERE circuit IS NULL;
+ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET DEFAULT 'educativo';
+ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET NOT NULL;
+ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_path TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'educational_bus_requests_circuit_check'
+  ) THEN
+    ALTER TABLE educational_bus_requests
+      ADD CONSTRAINT educational_bus_requests_circuit_check
+      CHECK (circuit IN ('educativo', 'historico_cultural', 'memoria'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'educational_bus_requests'
+      AND column_name = 'attachment_name'
+  ) THEN
+    UPDATE educational_bus_requests
+    SET attachment_name = COALESCE(attachment_name, 'pendiente.docx')
+    WHERE attachment_name IS NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'educational_bus_requests'
+      AND column_name = 'attachment_path'
+  ) THEN
+    UPDATE educational_bus_requests
+    SET attachment_path = COALESCE(attachment_path, 'migracion/pendiente.docx')
+    WHERE attachment_path IS NULL;
+  END IF;
+END $$;
+
+ALTER TABLE educational_bus_requests ALTER COLUMN attachment_name SET NOT NULL;
+ALTER TABLE educational_bus_requests ALTER COLUMN attachment_path SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_educational_requests_created_at ON educational_bus_requests (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_educational_requests_status ON educational_bus_requests (status);
 CREATE INDEX IF NOT EXISTS idx_educational_requests_requested_date ON educational_bus_requests (requested_date);
 CREATE INDEX IF NOT EXISTS idx_educational_requests_institution_type ON educational_bus_requests (institution_type);
+CREATE INDEX IF NOT EXISTS idx_educational_requests_circuit ON educational_bus_requests (circuit);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_educational_requests_unique_active_slot
   ON educational_bus_requests (requested_date, preferred_shift)
   WHERE status IN ('pending', 'approved');
@@ -308,6 +362,17 @@ ALTER TABLE educational_bus_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_full_access_educational_bus_requests" ON educational_bus_requests
   FOR ALL
   USING (auth.role() = 'service_role');
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+SELECT
+  'educational-bus-request-files',
+  'educational-bus-request-files',
+  false,
+  10485760,
+  ARRAY['application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+WHERE NOT EXISTS (
+  SELECT 1 FROM storage.buckets WHERE id = 'educational-bus-request-files'
+);
 
 -- ============================================================
 -- Perfiles administrativos para auth del backoffice

@@ -2,28 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import {
+  educationalBusAttachmentBucket,
   type EducationalBusRequest,
   type EducationalBusRequestFormData,
   isPastBusinessDate,
   toEducationalBusRequestPayload,
+  validateEducationalBusAttachment,
   validateEducationalBusRequestForm,
 } from '@/lib/educational-bus-requests'
 
-function mapPayloadToFormData(payload: Record<string, unknown>): EducationalBusRequestFormData {
+function mapPayloadToFormData(payload: FormData): EducationalBusRequestFormData {
   return {
-    institutionName: String(payload.institutionName || ''),
-    schoolAddress: String(payload.schoolAddress || ''),
-    contactName: String(payload.contactName || ''),
-    contactRole: String(payload.contactRole || ''),
-    contactPhone: String(payload.contactPhone || ''),
-    contactEmail: String(payload.contactEmail || ''),
-    studentCount: String(payload.studentCount || ''),
-    gradeYear: String(payload.gradeYear || ''),
-    requestedDate: String(payload.requestedDate || ''),
-    preferredShift: String(payload.preferredShift || '') as EducationalBusRequestFormData['preferredShift'],
-    institutionType: String(payload.institutionType || '') as EducationalBusRequestFormData['institutionType'],
-    additionalNotes: String(payload.additionalNotes || ''),
+    circuit: String(payload.get('circuit') || '') as EducationalBusRequestFormData['circuit'],
+    institutionName: String(payload.get('institutionName') || ''),
+    institutionType: String(payload.get('institutionType') || '') as EducationalBusRequestFormData['institutionType'],
+    schoolAddress: String(payload.get('schoolAddress') || ''),
+    contactName: String(payload.get('contactName') || ''),
+    contactRole: String(payload.get('contactRole') || ''),
+    contactPhone: String(payload.get('contactPhone') || ''),
+    contactEmail: String(payload.get('contactEmail') || ''),
+    studentCount: String(payload.get('studentCount') || ''),
+    gradeYear: String(payload.get('gradeYear') || ''),
+    requestedDate: String(payload.get('requestedDate') || ''),
+    preferredShift: String(payload.get('preferredShift') || '') as EducationalBusRequestFormData['preferredShift'],
+    additionalNotes: String(payload.get('additionalNotes') || ''),
   }
+}
+
+function buildAttachmentPath(fileName: string) {
+  const timestamp = Date.now()
+  const randomSegment = Math.random().toString(36).slice(2, 10)
+  const sanitizedFileName = fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+  return `requests/${timestamp}-${randomSegment}-${sanitizedFileName}`
 }
 
 export async function GET(request: NextRequest) {
@@ -58,8 +72,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const payload = mapPayloadToFormData(await request.json())
+  const formData = await request.formData()
+  const payload = mapPayloadToFormData(formData)
+  const attachment = formData.get('attachment')
+  const attachmentFile = attachment instanceof File ? attachment : null
   const errors = validateEducationalBusRequestForm(payload)
+  const attachmentError = validateEducationalBusAttachment(attachmentFile)
+
+  if (attachmentError) {
+    errors.attachment = attachmentError
+  }
 
   if (Object.keys(errors).length > 0) {
     return NextResponse.json({ error: 'Revisá los campos obligatorios.', fieldErrors: errors }, { status: 400 })
@@ -102,16 +124,34 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const attachmentPath = buildAttachmentPath(attachmentFile!.name)
+  const uploadArrayBuffer = await attachmentFile!.arrayBuffer()
+  const { error: uploadError } = await supabase.storage
+    .from(educationalBusAttachmentBucket)
+    .upload(attachmentPath, uploadArrayBuffer, {
+      contentType: attachmentFile!.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      upsert: false,
+    })
+
+  if (uploadError) {
+    return NextResponse.json({ error: 'No se pudo subir el archivo adjunto.' }, { status: 500 })
+  }
+
   const { data, error } = await supabase
     .from('educational_bus_requests')
     .insert({
-      ...toEducationalBusRequestPayload(payload),
+      ...toEducationalBusRequestPayload(payload, {
+        attachmentName: attachmentFile!.name,
+        attachmentPath,
+      }),
       status: 'pending',
     })
     .select('*')
     .single()
 
   if (error) {
+    await supabase.storage.from(educationalBusAttachmentBucket).remove([attachmentPath])
+
     if (error.code === '23505') {
       return NextResponse.json(
         {
@@ -124,6 +164,7 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       )
     }
+
     return NextResponse.json({ error: 'No se pudo registrar la solicitud.' }, { status: 500 })
   }
 

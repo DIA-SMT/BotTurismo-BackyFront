@@ -1,7 +1,9 @@
 import { CalendarRange, School, ShieldCheck } from 'lucide-react'
 import styles from '@/components/educational-bus/form.module.css'
 import { EducationalBusRequestForm } from '@/components/educational-bus/EducationalBusRequestForm'
+import { HistoricalCircuitAccordion } from '@/components/educational-bus/HistoricalCircuitAccordion'
 import { PriorityNotice } from '@/components/educational-bus/PriorityNotice'
+import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
 
 export default function HomePage() {
   return (
@@ -28,7 +30,7 @@ export default function HomePage() {
             </span>
             <h1 className={styles.heroTitle}>Solicitá un turno para que tu institución participe del Bus Turístico Educativo.</h1>
             <p className={styles.heroLead}>
-              Completá el formulario con los datos de la institución, la fecha deseada y la información del grupo. La solicitud será evaluada por el programa según disponibilidad y criterios de prioridad.
+              Completá el formulario con los datos de la institución, la fecha deseada, el circuito solicitado y la información del grupo. La solicitud será evaluada según disponibilidad y criterios de prioridad.
             </p>
 
             <div className={styles.heroStats}>
@@ -42,11 +44,11 @@ export default function HomePage() {
                 <div className={styles.statValue}>
                   <ShieldCheck size={20} />
                 </div>
-                <p className={styles.statLabel}>Formulario claro, validado y fácil de completar desde computadora o celular.</p>
+                <p className={styles.statLabel}>Circuitos, días y turnos guiados por disponibilidad para evitar combinaciones inválidas.</p>
               </div>
               <div className={styles.statItem}>
                 <div className={styles.statValue}>1 paso</div>
-                <p className={styles.statLabel}>Completá la solicitud en un solo formulario con los datos de la institución, el grupo y la fecha deseada.</p>
+                <p className={styles.statLabel}>Completá la solicitud con los datos de la institución, el grupo, el circuito y la fecha deseada.</p>
               </div>
             </div>
           </article>
@@ -55,12 +57,16 @@ export default function HomePage() {
             <PriorityNotice />
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Antes de enviar</p>
-              <p className={styles.sideText}>Tené a mano la fecha tentativa, la cantidad estimada de alumnos y los datos de contacto del responsable institucional.</p>
+              <p className={styles.sideText}>Tené a mano la fecha tentativa, el circuito que querés solicitar, la cantidad estimada de alumnos, los datos de contacto del responsable institucional y la nota modelo completa en formato .docx.</p>
               <ul className={styles.infoList}>
-                <li>Indicá una fecha tentativa y el turno preferido para la visita.</li>
+                <li>Elegí el circuito primero para conocer qué días y turnos están disponibles.</li>
+                <li>Descargá, completá y adjuntá la nota modelo junto con el formulario.</li>
                 <li>Completá correctamente los datos de contacto para facilitar la comunicación.</li>
                 <li>Usá el campo de observaciones si el grupo necesita información o asistencia especial.</li>
               </ul>
+              <a href={educationalBusTemplatePublicPath} download className={styles.templateLink} style={{ marginTop: 18 }}>
+                {educationalBusTemplateLabel}
+              </a>
             </section>
           </div>
         </section>
@@ -68,6 +74,7 @@ export default function HomePage() {
         <section className={styles.layoutSplit}>
           <EducationalBusRequestForm />
           <div className={styles.sideStack}>
+            <HistoricalCircuitAccordion />
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Qué sucede después</p>
               <p className={styles.sideText}>Una vez enviada, la solicitud queda registrada para su evaluación. El equipo responsable podrá confirmar el turno, pedir información adicional o proponer una reprogramación si fuera necesario.</p>

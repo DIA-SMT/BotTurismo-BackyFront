@@ -9,6 +9,12 @@ export const preferredShiftOptions = [
   { value: 'tarde', label: 'Tarde' },
 ] as const
 
+export const circuitOptions = [
+  { value: 'educativo', label: 'Educativo' },
+  { value: 'historico_cultural', label: 'Histórico Cultural' },
+  { value: 'memoria', label: 'Memoria' },
+] as const
+
 export const requestStatusOptions = [
   { value: 'pending', label: 'Pendiente' },
   { value: 'approved', label: 'Aprobada' },
@@ -17,7 +23,9 @@ export const requestStatusOptions = [
 
 export type EducationalInstitutionType = (typeof institutionTypeOptions)[number]['value']
 export type PreferredShift = (typeof preferredShiftOptions)[number]['value']
+export type EducationalBusCircuit = (typeof circuitOptions)[number]['value']
 export type EducationalBusRequestStatus = (typeof requestStatusOptions)[number]['value']
+export type BusinessWeekday = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
 export interface EducationalBusRequestFormData {
   institutionName: string
@@ -31,6 +39,7 @@ export interface EducationalBusRequestFormData {
   requestedDate: string
   preferredShift: PreferredShift | ''
   institutionType: EducationalInstitutionType | ''
+  circuit: EducationalBusCircuit | ''
   additionalNotes: string
 }
 
@@ -46,7 +55,10 @@ export interface EducationalBusRequestPayload {
   requested_date: string
   preferred_shift: PreferredShift
   institution_type: EducationalInstitutionType
+  circuit: EducationalBusCircuit
   additional_notes: string | null
+  attachment_name: string
+  attachment_path: string
 }
 
 export interface EducationalBusRequest extends EducationalBusRequestPayload {
@@ -65,7 +77,7 @@ export interface EducationalBusRequestFilters {
   requestedDate?: string
 }
 
-export type EducationalBusRequestFormErrors = Partial<Record<keyof EducationalBusRequestFormData, string>>
+export type EducationalBusRequestFormErrors = Partial<Record<keyof EducationalBusRequestFormData | 'attachment', string>>
 
 export const contactRoleOptions = [
   'Director/a',
@@ -76,6 +88,63 @@ export const contactRoleOptions = [
   'Preceptor/a',
   'Otro',
 ] as const
+
+export const gradeYearOptions = [
+  { value: 'primer_grado_primaria', label: '1° grado de primaria' },
+  { value: 'segundo_grado_primaria', label: '2° grado de primaria' },
+  { value: 'tercer_grado_primaria', label: '3° grado de primaria' },
+  { value: 'cuarto_grado_primaria', label: '4° grado de primaria' },
+  { value: 'quinto_grado_primaria', label: '5° grado de primaria' },
+  { value: 'sexto_grado_primaria', label: '6° grado de primaria' },
+  { value: 'septimo_grado_primaria', label: '7° grado de primaria' },
+  { value: 'primer_ano_secundaria', label: '1° año de secundaria' },
+  { value: 'segundo_ano_secundaria', label: '2° año de secundaria' },
+  { value: 'tercer_ano_secundaria', label: '3° año de secundaria' },
+  { value: 'cuarto_ano_secundaria', label: '4° año de secundaria' },
+  { value: 'quinto_ano_secundaria', label: '5° año de secundaria' },
+  { value: 'sexto_ano_secundaria', label: '6° año de secundaria' },
+] as const
+
+export const advancedSecondaryGradeValues = new Set<string>([
+  'cuarto_ano_secundaria',
+  'quinto_ano_secundaria',
+  'sexto_ano_secundaria',
+])
+
+export const weekdayLabels: Record<BusinessWeekday, string> = {
+  lunes: 'Lunes',
+  martes: 'Martes',
+  miercoles: 'Miércoles',
+  jueves: 'Jueves',
+  viernes: 'Viernes',
+  sabado: 'Sábado',
+  domingo: 'Domingo',
+}
+
+export const circuitAvailability: Record<EducationalBusCircuit, Partial<Record<BusinessWeekday, PreferredShift[]>>> = {
+  educativo: {
+    martes: ['manana', 'tarde'],
+    miercoles: ['manana', 'tarde'],
+    jueves: ['tarde'],
+    viernes: ['manana'],
+  },
+  historico_cultural: {
+    martes: ['manana'],
+  },
+  memoria: {
+    jueves: ['manana'],
+  },
+}
+
+export const educationalBusAttachmentBucket = 'educational-bus-request-files'
+export const educationalBusTemplatePublicPath = '/nota_modelo_bus_turistico.docx'
+export const educationalBusTemplateLabel = 'Descargar nota modelo (.docx)'
+export const acceptedEducationalBusAttachmentExtensions = ['.docx']
+export const acceptedEducationalBusAttachmentMimeTypes = [
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/octet-stream',
+]
+export const educationalBusAttachmentMaxSizeBytes = 10 * 1024 * 1024
 
 export const initialEducationalBusRequestFormData: EducationalBusRequestFormData = {
   institutionName: '',
@@ -89,6 +158,7 @@ export const initialEducationalBusRequestFormData: EducationalBusRequestFormData
   requestedDate: '',
   preferredShift: '',
   institutionType: '',
+  circuit: '',
   additionalNotes: '',
 }
 
@@ -98,6 +168,15 @@ const buenosAiresDateFormatter = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
+})
+const dateTimeDisplayFormatter = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Buenos_Aires',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
 })
 
 export function buildDateKey(year: number, month: number, day: number) {
@@ -198,14 +277,58 @@ export function getMonthCalendarMatrix(currentMonthKey: string) {
   return matrix
 }
 
+export function getBusinessWeekday(dateString: string): BusinessWeekday | null {
+  const parts = parseBusinessDateParts(dateString)
+  if (!parts) return null
+
+  const dayIndex = new Date(parts.year, parts.month - 1, parts.day).getDay()
+  const days: BusinessWeekday[] = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+  return days[dayIndex] ?? null
+}
+
+export function getAvailableWeekdaysForCircuit(circuit: EducationalBusCircuit | '') {
+  if (!circuit) return [] as BusinessWeekday[]
+  return Object.keys(circuitAvailability[circuit]) as BusinessWeekday[]
+}
+
+export function getAvailableShiftsForCircuitAndDate(circuit: EducationalBusCircuit | '', requestedDate: string) {
+  if (!circuit || !requestedDate) return [] as PreferredShift[]
+  const weekday = getBusinessWeekday(requestedDate)
+  if (!weekday) return [] as PreferredShift[]
+  return circuitAvailability[circuit][weekday] ?? []
+}
+
+export function isAllowedAdvancedSecondaryGrade(gradeYear: string) {
+  return advancedSecondaryGradeValues.has(gradeYear)
+}
+
+export function isCircuitDateAllowed(circuit: EducationalBusCircuit | '', requestedDate: string) {
+  if (!circuit || !requestedDate) return false
+  return getAvailableShiftsForCircuitAndDate(circuit, requestedDate).length > 0
+}
+
 export function isValidPhone(phone: string) {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 8 && digits.length <= 15
 }
 
+export function validateEducationalBusAttachment(file: File | null) {
+  if (!file) return 'Adjunta la nota modelo completa en formato .docx.'
+  if (!file.name.toLowerCase().endsWith('.docx')) return 'El archivo adjunto debe estar en formato .docx.'
+  if (file.size <= 0) return 'El archivo adjunto está vacío.'
+  if (file.size > educationalBusAttachmentMaxSizeBytes) return 'El archivo adjunto supera el tamaño máximo permitido de 10 MB.'
+  if (file.type && !acceptedEducationalBusAttachmentMimeTypes.includes(file.type)) {
+    return 'El archivo adjunto debe ser un documento .docx válido.'
+  }
+  return null
+}
+
 export function validateEducationalBusRequestForm(data: EducationalBusRequestFormData): EducationalBusRequestFormErrors {
   const errors: EducationalBusRequestFormErrors = {}
 
+  if (!data.circuit) {
+    errors.circuit = 'Selecciona un circuito.'
+  }
   if (!data.institutionName.trim()) errors.institutionName = 'Ingresa el nombre de la institución.'
   if (!data.schoolAddress.trim()) errors.schoolAddress = 'Ingresa la dirección de la escuela.'
   if (!data.contactName.trim()) errors.contactName = 'Ingresa el nombre y apellido del responsable.'
@@ -225,21 +348,39 @@ export function validateEducationalBusRequestForm(data: EducationalBusRequestFor
   } else if (!Number.isInteger(Number(data.studentCount)) || Number(data.studentCount) <= 0) {
     errors.studentCount = 'Ingresa una cantidad válida de alumnos.'
   }
-  if (!data.gradeYear.trim()) errors.gradeYear = 'Ingresa el grado o año.'
+  if (!data.gradeYear) {
+    errors.gradeYear = 'Selecciona el grado o año.'
+  }
   if (!data.requestedDate) {
     errors.requestedDate = 'Selecciona una fecha para el turno.'
   } else if (!parseBusinessDateParts(data.requestedDate)) {
     errors.requestedDate = 'Ingresa una fecha válida.'
   } else if (isPastBusinessDate(data.requestedDate)) {
     errors.requestedDate = 'No se permiten fechas pasadas.'
+  } else if (data.circuit && !isCircuitDateAllowed(data.circuit, data.requestedDate)) {
+    errors.requestedDate = 'La fecha elegida no está disponible para el circuito seleccionado.'
   }
-  if (!data.preferredShift) errors.preferredShift = 'Selecciona el turno preferido.'
+  if (!data.preferredShift) {
+    errors.preferredShift = 'Selecciona el turno preferido.'
+  } else if (data.circuit && data.requestedDate) {
+    const allowedShifts = getAvailableShiftsForCircuitAndDate(data.circuit, data.requestedDate)
+    if (!allowedShifts.includes(data.preferredShift)) {
+      errors.preferredShift = 'El turno elegido no está disponible para el circuito y la fecha seleccionados.'
+    }
+  }
   if (!data.institutionType) errors.institutionType = 'Selecciona el tipo de institución.'
+
+  if (data.circuit === 'memoria' && data.gradeYear && !isAllowedAdvancedSecondaryGrade(data.gradeYear)) {
+    errors.gradeYear = 'El circuito Memoria está disponible únicamente para los últimos 3 años del nivel secundario.'
+  }
 
   return errors
 }
 
-export function toEducationalBusRequestPayload(data: EducationalBusRequestFormData): EducationalBusRequestPayload {
+export function toEducationalBusRequestPayload(
+  data: EducationalBusRequestFormData,
+  attachment: { attachmentName: string; attachmentPath: string },
+): EducationalBusRequestPayload {
   return {
     institution_name: data.institutionName.trim(),
     school_address: data.schoolAddress.trim(),
@@ -248,11 +389,14 @@ export function toEducationalBusRequestPayload(data: EducationalBusRequestFormDa
     contact_phone: data.contactPhone.trim(),
     contact_email: data.contactEmail.trim().toLowerCase(),
     student_count: Number(data.studentCount),
-    grade_year: data.gradeYear.trim(),
+    grade_year: data.gradeYear,
     requested_date: data.requestedDate,
     preferred_shift: data.preferredShift as PreferredShift,
     institution_type: data.institutionType as EducationalInstitutionType,
+    circuit: data.circuit as EducationalBusCircuit,
     additional_notes: data.additionalNotes.trim() ? data.additionalNotes.trim() : null,
+    attachment_name: attachment.attachmentName,
+    attachment_path: attachment.attachmentPath,
   }
 }
 
@@ -268,6 +412,14 @@ export function getShiftLabel(shift: PreferredShift) {
   return preferredShiftOptions.find((option) => option.value === shift)?.label || shift
 }
 
+export function getCircuitLabel(circuit: EducationalBusCircuit) {
+  return circuitOptions.find((option) => option.value === circuit)?.label || circuit
+}
+
+export function getGradeYearLabel(gradeYear: string) {
+  return gradeYearOptions.find((option) => option.value === gradeYear)?.label || gradeYear
+}
+
 export function formatDateToDisplay(dateString: string) {
   if (!dateString) return ''
   const [year, month, day] = dateString.slice(0, 10).split('-')
@@ -279,16 +431,7 @@ export function formatDateTimeToDisplay(dateString: string) {
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return dateString
 
-  const parts = new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Buenos_Aires',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(date)
-
+  const parts = dateTimeDisplayFormatter.formatToParts(date)
   const day = parts.find((part) => part.type === 'day')?.value ?? ''
   const month = parts.find((part) => part.type === 'month')?.value ?? ''
   const year = parts.find((part) => part.type === 'year')?.value ?? ''

@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     siteName: 'Bus Turístico Educativo',
     images: [
       {
-        url: '/logo-muni.jpeg',
+        url: '/logoMuni-sm.png',
         width: 235,
         height: 235,
         alt: 'Logo de la Municipalidad de San Miguel de Tucumán',
@@ -49,19 +49,16 @@ export const metadata: Metadata = {
     title: 'Bus Turístico Educativo | Municipalidad de San Miguel de Tucumán',
     description:
       'Solicitud digital de turnos para visitas educativas del Bus Turístico Educativo municipal.',
-    images: ['/logo-muni.jpeg'],
+    images: ['/logoMuni-sm.png'],
   },
   robots: {
     index: true,
     follow: true,
   },
   icons: {
-    icon: [
-      { url: '/icon.jpeg', type: 'image/jpeg' },
-      { url: '/logo-muni.jpeg', type: 'image/jpeg' },
-    ],
-    apple: [{ url: '/icon.jpeg', type: 'image/jpeg' }],
-    shortcut: ['/icon.jpeg'],
+    icon: [{ url: '/logoMuni-sm.png', type: 'image/png' }],
+    apple: [{ url: '/logoMuni-sm.png', type: 'image/png' }],
+    shortcut: ['/logoMuni-sm.png'],
   },
 }
 

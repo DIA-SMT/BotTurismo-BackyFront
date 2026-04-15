@@ -5,6 +5,7 @@ import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   formatDateToDisplay,
+  getCircuitLabel,
   getInstitutionTypeLabel,
   getMonthCalendarMatrix,
   getMonthLabel,
@@ -19,7 +20,7 @@ import {
   type EducationalBusRequestFilters,
   type EducationalBusRequestStatus,
 } from '@/lib/educational-bus-requests'
-import { CalendarDays, ChevronLeft, ChevronRight, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search } from 'lucide-react'
 
 type ViewMode = 'table' | 'calendar'
 
@@ -349,7 +350,7 @@ export default function EducationalRequestsPage() {
                       <tr key={request.id}>
                         <td>
                           <div className="td-text-primary">{request.institution_name}</div>
-                          <div className="td-muted">{request.student_count} alumnos</div>
+                          <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit)}</div>
                         </td>
                         <td>
                           <div className="td-text-primary">{request.contact_name}</div>
@@ -367,8 +368,8 @@ export default function EducationalRequestsPage() {
                           <StatusPill status={request.status} />
                         </td>
                         <td>
-                          <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-                            <a href={`mailto:${request.contact_email}`} className="btn btn-secondary" style={{ height: 32 }}>
+                          <div className="flex items-center gap-2" style={{ flexWrap: 'nowrap', whiteSpace: 'nowrap', gap: 8 }}>
+                            <a href={`mailto:${request.contact_email}`} className="btn btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 13 }}>
                               <Mail size={14} />
                               Mail
                             </a>
@@ -378,13 +379,19 @@ export default function EducationalRequestsPage() {
                                 target="_blank"
                                 rel="noreferrer"
                                 className="btn btn-secondary"
-                                style={{ height: 32 }}
+                                style={{ height: 32, padding: '0 10px', fontSize: 13 }}
                               >
                                 <MessageCircle size={14} />
                                 WhatsApp
                               </a>
                             ) : null}
-                            <Link href={`/admin/solicitudes/${request.id}`} className="btn btn-secondary" style={{ height: 32 }}>
+                            {request.attachment_path && !request.attachment_path.startsWith('migracion/') ? (
+                              <a href={`/api/educational-bus-requests/${request.id}/attachment`} className="btn btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 13 }}>
+                                <Download size={14} />
+                                Adjunto
+                              </a>
+                            ) : null}
+                            <Link href={`/admin/solicitudes/${request.id}`} className="btn btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 13 }}>
                               <Eye size={14} />
                               Ver detalle
                             </Link>
