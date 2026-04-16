@@ -193,6 +193,7 @@
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 24px;
   margin-top: 24px;
+  align-items: start;
 }
 
 .formCard {
@@ -424,12 +425,27 @@
 }
 
 .sideStack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
 }
 
 .sideCard {
   padding: 22px;
+}
+
+.accordionGroup {
+  margin-top: 14px;
+}
+
+.accordionDivider {
+  border-top: 1px solid rgba(99, 102, 241, 0.12);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+
+.accordionItem {
+  display: block;
 }
 
 .accordionTrigger {
@@ -444,6 +460,11 @@
   cursor: pointer;
   text-align: left;
   padding: 0;
+  transition: opacity 180ms ease;
+}
+
+.accordionTrigger:hover {
+  opacity: 0.98;
 }
 
 .accordionTitleWrap {
@@ -471,8 +492,26 @@
   line-height: 1.6;
 }
 
+.accordionAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.18);
+  flex-shrink: 0;
+}
+
+.accordionActionLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
 .accordionChevron {
-  color: #94a3b8;
+  color: currentColor;
   transition: transform 180ms ease, color 180ms ease;
 }
 
@@ -633,6 +672,15 @@
   .sideCard {
     padding: 22px;
     border-radius: 24px;
+  }
+
+  .accordionTrigger {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .accordionAction {
+    align-self: flex-start;
   }
 
   .heroTitle {

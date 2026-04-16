@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS educational_bus_requests (
   contact_email     TEXT NOT NULL,
   student_count     INT NOT NULL CHECK (student_count > 0),
   grade_year        TEXT NOT NULL,
-  circuit           TEXT NOT NULL CHECK (circuit IN ('educativo', 'historico_cultural', 'memoria')),
+  circuit           TEXT NOT NULL CHECK (circuit IN ('historico_cultural', 'memoria')),
   requested_date    DATE NOT NULL,
   preferred_shift   TEXT NOT NULL CHECK (preferred_shift IN ('manana', 'tarde')),
   institution_type  TEXT NOT NULL CHECK (institution_type IN ('municipal', 'provincial', 'private')),
@@ -294,8 +294,8 @@ CREATE TABLE IF NOT EXISTS educational_bus_requests (
 );
 
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS circuit TEXT;
-UPDATE educational_bus_requests SET circuit = 'educativo' WHERE circuit IS NULL;
-ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET DEFAULT 'educativo';
+UPDATE educational_bus_requests SET circuit = 'historico_cultural' WHERE circuit IS NULL OR circuit = 'educativo';
+ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET DEFAULT 'historico_cultural';
 ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET NOT NULL;
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_name TEXT;
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_path TEXT;
@@ -309,8 +309,8 @@ BEGIN
   ) THEN
     ALTER TABLE educational_bus_requests
       ADD CONSTRAINT educational_bus_requests_circuit_check
-      CHECK (circuit IN ('educativo', 'historico_cultural', 'memoria'));
-  END IF;
+      CHECK (circuit IN ('historico_cultural', 'memoria'));
+    END IF;
 END $$;
 
 DO $$

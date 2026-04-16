@@ -222,6 +222,11 @@ export function EducationalBusRequestForm() {
           <p className={styles.circuitNoticeText}>Este circuito está disponible únicamente para los últimos 3 años del nivel secundario.</p>
           <p className={styles.circuitNoticeText}>Disponibilidad limitada: frecuencia de una vez por semana, los jueves por la mañana.</p>
         </div>
+      ) : formData.circuit === 'historico_cultural' ? (
+        <div className={styles.circuitNotice}>
+          <p className={styles.circuitNoticeTitle}>Circuito Histórico Cultural</p>
+          <p className={styles.circuitNoticeText}>Disponible los martes y miércoles por la mañana y la tarde, los jueves por la tarde y los viernes por la mañana.</p>
+        </div>
       ) : null}
 
       {availabilityMessage ? (

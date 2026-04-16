@@ -10,7 +10,6 @@ export const preferredShiftOptions = [
 ] as const
 
 export const circuitOptions = [
-  { value: 'educativo', label: 'Educativo' },
   { value: 'historico_cultural', label: 'Histórico Cultural' },
   { value: 'memoria', label: 'Memoria' },
 ] as const
@@ -122,14 +121,11 @@ export const weekdayLabels: Record<BusinessWeekday, string> = {
 }
 
 export const circuitAvailability: Record<EducationalBusCircuit, Partial<Record<BusinessWeekday, PreferredShift[]>>> = {
-  educativo: {
+  historico_cultural: {
     martes: ['manana', 'tarde'],
     miercoles: ['manana', 'tarde'],
     jueves: ['tarde'],
     viernes: ['manana'],
-  },
-  historico_cultural: {
-    martes: ['manana'],
   },
   memoria: {
     jueves: ['manana'],
