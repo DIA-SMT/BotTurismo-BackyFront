@@ -1,0 +1,31 @@
+name: Supabase Keepalive
+
+# Este workflow asegura que las DB de Supabase Free Tier no sean pausadas por inactividad.
+# Ejecutará una invocación por API de poco consumo una vez al día.
+on:
+  schedule:
+    # Se ejecutará todos los días a las 00:00 UTC
+    - cron: '0 0 * * *'
+  # Permite invocarlo manualmente desde la pestaña "Actions"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Keepalive RPC
+        # Utiliza simples curl POST. Esto asume que generaste la function `public.keepalive()` 
+        # en tu DB acorde a supabase_keepalive_migration.sql
+        run: |
+          HTTP_STATUS=$(curl -s -o response.txt -w "%{http_code}" -X POST "${{ secrets.SUPABASE_PROJECT_URL }}/rest/v1/rpc/keepalive" \
+               -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+               -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+               -H "Content-Type: application/json")
+               
+          echo "Response Status: $HTTP_STATUS"
+          echo "Response Body: $(cat response.txt)"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::Failed to keepalive Supabase. Expected 200 OK, got $HTTP_STATUS"
+            exit 1
+          fi
