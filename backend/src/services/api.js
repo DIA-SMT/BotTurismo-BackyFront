@@ -1,4 +1,6 @@
 const axios = require('axios');
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 
 async function fetchCulturalEvents() {
   try {
@@ -9,15 +11,16 @@ async function fetchCulturalEvents() {
     const url = `https://comunicacionsmt.gob.ar/get_events?start=${startStr}&end=${endStr}`;
     console.log(`[API] Fetching events from: ${url}`);
     
-    const { data: rawResp } = await axios.get(url, {
-      headers: {
-        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        'Accept': "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        'Accept-Language': "en-US,en;q=0.9,es;q=0.8"
-      },
-      timeout: 8000, // 8 segundos
-      validateStatus: () => true // Allow all statuses so we handle 403 ourselves
-    });
+    // Usamos curl en lugar de axios para evitar el bloqueo Cloudflare
+    const { stdout } = await exec(`curl -s "${url}"`, { timeout: 10000 });
+    
+    let rawResp;
+    try {
+      rawResp = JSON.parse(stdout);
+    } catch (parseErr) {
+      console.warn("[API] curl output wasn't valid JSON, fallback to raw string (Cloudflare block?)");
+      rawResp = stdout;
+    }
 
     const isCloudflare = typeof rawResp === 'string' || 
                          (rawResp && Object.keys(rawResp).some(k => typeof rawResp[k] === 'string' && rawResp[k].includes('Cloudflare')));

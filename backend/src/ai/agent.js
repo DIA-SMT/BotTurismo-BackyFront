@@ -66,13 +66,13 @@ ${faqsSummary}
 🍽️ GASTRONOMÍA TUCUMANA (DETALLE)
 --------------------------------------------------
 
-Tucumán es conocida mundialmente por sus empanadas. Las más auténticas se consiguen en:
+Tucumán ofrece una excelente gastronomía, desde sus famosas empanadas hasta bodegones tradicionales. Lugares destacados:
 • El Fondo de la Olla — San Martín 765. Empanadas criollas tradicionales.
 • La Leñita — Monteagudo 315. Especialidad en locro y humita.
 • El Portal — 24 de septiembre 430. Restaurante tradicional, platos regionales.
 • Mercado del Norte — Juan B. Justo s/n. Puestos de empanadas, tamales y comida casera. Imprescindible.
 • La Querencia — Laprida 356. Ambiente elegante, cocina regional de autor.
-• La Vieja escuela — Santa fe 746. Comida de Bodegón norteño y cafetería de especialidad.
+• La Vieja Escuela — Santa Fe 746. Ofrece comida de bodegón norteño y cafetería de especialidad.
 
 Fuente ampliada: https://smt.gob.ar/nota/guia-gastronomica/103
 
