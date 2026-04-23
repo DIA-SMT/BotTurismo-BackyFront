@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -127,7 +127,6 @@ function CalendarCard({
 export default function EducationalRequestsPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const todayKey = useMemo(() => getTodayDateStringInBuenosAires(), [])
   const todayParts = useMemo(() => parseBusinessDateParts(todayKey), [todayKey])
   const initialMonthKey = useMemo(() => {
@@ -168,14 +167,16 @@ export default function EducationalRequestsPage() {
   }, [fetchRequests])
 
   useEffect(() => {
-    if (searchParams.get('saved') !== '1') return
-    setSaveFeedback('Solicitud actualizada correctamente.')
+    if (typeof window === 'undefined') return
 
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('saved') !== '1') return
+
+    setSaveFeedback('Solicitud actualizada correctamente.')
     params.delete('saved')
     const nextQuery = params.toString()
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })
-  }, [pathname, router, searchParams])
+  }, [pathname, router])
 
   const stats = useMemo(() => {
     return {

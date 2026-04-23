@@ -17,6 +17,10 @@ import { buildSimpleXlsxBuffer } from '@/lib/simple-xlsx'
 
 export const runtime = 'nodejs'
 
+type EducationalBusExportRequest = Omit<EducationalBusRequest, 'guides'> & {
+  guides: string | null
+}
+
 function isMissingGuidesColumnError(error: { code?: string; message?: string } | null) {
   if (!error) return false
   return error.code === 'PGRST204' || error.code === '42703' || error.message?.toLowerCase().includes('guides') === true
@@ -28,7 +32,7 @@ function buildExportFileName(from: string, to: string) {
   return `buses-educativos-aprobados-${fromDay}-${fromMonth}-${fromYear}_a_${toDay}-${toMonth}-${toYear}.xlsx`
 }
 
-function buildExportRows(requests: EducationalBusRequest[]) {
+function buildExportRows(requests: EducationalBusExportRequest[]) {
   const header = [
     'ID',
     'Fecha de creación',
@@ -97,7 +101,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServerSupabaseClient()
-  let { data, error } = await supabase
+  let data: EducationalBusExportRequest[] | null = null
+  let error: { code?: string; message?: string } | null = null
+
+  const primaryQuery = await supabase
     .from('educational_bus_requests')
     .select(
       'id, created_at, updated_at, status, circuit, requested_date, preferred_shift, institution_type, institution_name, school_address, student_count, grade_year, contact_name, contact_role, contact_phone, contact_email, additional_notes, internal_notes, guides',
@@ -108,8 +115,11 @@ export async function GET(request: NextRequest) {
     .order('requested_date', { ascending: true })
     .order('preferred_shift', { ascending: true })
 
+  data = (primaryQuery.data || []) as EducationalBusExportRequest[]
+  error = primaryQuery.error
+
   if (error && isMissingGuidesColumnError(error)) {
-    ;({ data, error } = await supabase
+    const fallbackQuery = await supabase
       .from('educational_bus_requests')
       .select(
         'id, created_at, updated_at, status, circuit, requested_date, preferred_shift, institution_type, institution_name, school_address, student_count, grade_year, contact_name, contact_role, contact_phone, contact_email, additional_notes, internal_notes',
@@ -118,7 +128,13 @@ export async function GET(request: NextRequest) {
       .gte('requested_date', from)
       .lte('requested_date', to)
       .order('requested_date', { ascending: true })
-      .order('preferred_shift', { ascending: true }))
+      .order('preferred_shift', { ascending: true })
+
+    data = ((fallbackQuery.data || []) as Array<Omit<EducationalBusExportRequest, 'guides'>>).map((request) => ({
+      ...request,
+      guides: null,
+    }))
+    error = fallbackQuery.error
   }
 
   if (error) {
@@ -128,7 +144,7 @@ export async function GET(request: NextRequest) {
   const workbookBuffer = buildSimpleXlsxBuffer([
     {
       name: 'Solicitudes aprobadas',
-      rows: buildExportRows((data || []) as EducationalBusRequest[]),
+      rows: buildExportRows(data || []),
     },
   ])
 
