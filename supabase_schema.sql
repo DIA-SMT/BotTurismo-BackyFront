@@ -266,6 +266,234 @@ INSERT INTO faqs (categoria, pregunta, respuesta, orden) VALUES
 ('general', '¿Cuáles son las actividades gratuitas de la Municipalidad?', 'Todas las actividades que brinda la Municipalidad de San Miguel de Tucumán son totalmente gratuitas.', 1)
 
 ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- Seed: Museos y espacios culturales (MUSEOS ABRIL 2026)
+-- ============================================================
+
+WITH museum_faqs (categoria, pregunta, respuesta, orden) AS (
+  VALUES
+  ('museos', $$¿Cuál es el horario y costo de entrada de Casa Histórica en San Miguel de Tucumán?$$, $$Dirección: Congreso 141.
+Horarios: lunes cerrado. Martes a viernes de 9:00 a 13:00 y de 15:00 a 19:00. Sábados, domingos y feriados de 9:00 a 19:00.
+Visitas guiadas: 10:00, 11:30, 16:00 y 17:30.
+Luz y sonido: viernes y sábados a las 19:30.
+Entrada: museo gratuito. Espectáculo Luz y Sonido: entrada general $8.000.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 1),
+  ('museos', $$¿Cuáles son los horarios de Casa de Gobierno en San Miguel de Tucumán?$$, $$Dirección: ingreso por calle San Martín.
+Horarios: lunes a viernes, excepto feriados.
+Visitas guiadas: 9:00, 10:30, 12:00, 14:00, 15:00 y 16:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 2),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Folklórico en San Miguel de Tucumán?$$, $$Dirección: Av. 24 de Septiembre 565.
+Horarios: martes a sábados de 9:00 a 12:30 y de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 3),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Casa Padilla en San Miguel de Tucumán?$$, $$Dirección: 25 de Mayo 36.
+Horarios: lunes a viernes de 9:00 a 12:30 y de 17:00 a 19:00. Sábados de 9:00 a 12:00 y de 16:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 4),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo de Arte Sacro en San Miguel de Tucumán?$$, $$Dirección: Congreso de Tucumán 53.
+Horarios: cerrado hasta nuevo aviso.
+Entrada: general $2.000. Martes jubilados gratis. Menores de 12 años gratis.
+Contacto: 381 2542562.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 5),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Histórico Nacional Nicolás Avellaneda en San Miguel de Tucumán?$$, $$Dirección: Congreso de Tucumán 56.
+Horarios: martes a sábados de 9:00 a 12:30 y de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 6),
+  ('museos', $$¿Cuáles son los horarios del Archivo Histórico en San Miguel de Tucumán?$$, $$Dirección: 25 de Mayo 487.
+Horarios: lunes a viernes de 8:30 a 16:00.
+Entrada: gratuita.
+Visitas escolares: solicitar guiados al 3865332301.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 7),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Iramain en San Miguel de Tucumán?$$, $$Dirección: Entre Ríos 27.
+Horarios: martes a viernes de 9:00 a 12:30 y de 15:00 a 19:00. Sábados de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 8),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo de Ciencias Naturales Miguel Lillo en San Miguel de Tucumán?$$, $$Dirección: Miguel Lillo 251.
+Horarios: lunes de 10:30 a 12:30. Martes a viernes de 8:30 a 12:30 y de 14:30 a 18:30. Sábados de 16:00 a 20:00.
+Entrada: con la misma entrada se ingresa a todos los sectores.
+Visitas guiadas / reservas: 4863121.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 9),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Histórico Dr. Miguel Lillo en San Miguel de Tucumán?$$, $$Horarios: martes a viernes de 8:30 a 12:30.
+Entrada: escolares con turno $4.000. General adultos y mayores de 5 años $5.000. Menores de 5 años y jubilados sin cargo.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 10),
+  ('museos', $$¿Cuáles son los horarios del Jardín Botánico Miguel Lillo en San Miguel de Tucumán?$$, $$Horarios: lunes de 10:00 a 12:30. Martes a viernes de 8:30 a 12:30 y de 14:30 a 18:30. Sábados de 16:00 a 20:00. Domingos cerrado.
+Reservas escolares: 4863121.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 11),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo de la Industria Azucarera en San Miguel de Tucumán?$$, $$Dirección: Parque 9 de Julio.
+Horarios: lunes a viernes de 9:00 a 12:30 y de 15:00 a 18:30. Sábados y domingos de 9:00 a 13:00 y de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 12),
+  ('museos', $$¿Cuál es el horario y costo de entrada del MUNT en San Miguel de Tucumán?$$, $$Dirección: San Martín 1545.
+Horarios: lunes a viernes de 9:00 a 12:30 y de 14:00 a 19:00. Sábados, domingos y feriados de 15:30 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 13),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Casa Belgraniana en San Miguel de Tucumán?$$, $$Dirección: Bernabé Aráoz 681.
+Horarios: martes a viernes de 9:00 a 12:30 y de 15:00 a 18:30. Sábados, domingos y feriados de 9:00 a 13:00 y de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 14),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Casa de la Ciudad en San Miguel de Tucumán?$$, $$Dirección: Av. Salta 532.
+Horarios: martes a viernes de 9:00 a 12:30 y de 15:00 a 18:30. Sábados y domingos de 9:00 a 13:00 y de 15:00 a 19:00.
+Entrada: gratuita.
+Contacto: 3815394297.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 15),
+  ('museos', $$¿Cuál es el horario y costo de entrada de la Casa Natal de Mercedes Sosa en San Miguel de Tucumán?$$, $$Dirección: Pje. Miguel Calixto del Corro 344.
+Horarios: martes a viernes de 9:00 a 12:30 y de 15:00 a 18:30. Sábados y domingos de 9:00 a 13:00 y de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 16),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Centro Cultural Alberto Rougés en San Miguel de Tucumán?$$, $$Dirección: Laprida 31.
+Horarios: de 8:00 a 13:00 y de 16:00 a 21:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 17),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Jardín Botánico y Reserva Experimental Horco Molle en Yerba Buena?$$, $$Dirección: al final de Av. Perón, pie del cerro.
+Horarios: todos los días de 9:00 a 19:00. Últimos guiados a las 17:30. Grupos no mayores a 10 personas.
+Entrada: jardín gratis. Reserva: menores $3.500, mayores $4.500, solo efectivo. Consultar delegaciones.
+Reservas / contacto: visitas con reserva previa al 3814250936 o botanicohorcomolle@csnat.unt.edu.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 18),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Jardín Botánico Percy Hill en Yerba Buena?$$, $$Dirección: Perú 1100.
+Horarios: lunes a viernes de 8:00 a 19:00. Sábados y domingos de 15:00 a 19:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 19),
+  ('museos', $$¿Cuáles son los horarios de Cristo Bendicente en San Javier?$$, $$Actividad: luz, sonido e imagen.
+Horarios: miércoles a domingo a las 20:30 y 21:30.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 20),
+  ('museos', $$¿Cuáles son los horarios del Museo Ferroviario en Tafí Viejo?$$, $$Dirección: Av. Sáenz Peña 200.
+Horarios: miércoles de 17:00 a 21:00 y sábados de 9:00 a 13:00.
+Contacto: 381 601-4648. Encargado: Tony Martínez.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 21),
+  ('museos', $$¿Cuál es el horario y costo de entrada del MAC Museo Arqueológico El Cadillal?$$, $$Horarios: lunes a domingos de 10:00 a 18:00.
+Entrada: adultos $1.000. Menores de 5 a 16 años y jubilados $500.
+Contacto: 2336474526.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 22),
+  ('museos', $$¿Cuáles son los horarios del Monasterio Benedictino en El Siambón?$$, $$Horarios: todos los días de 8:00 a 20:00.
+Entrada: gratuita.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 23),
+  ('museos', $$¿Cuál es el horario y costo de entrada de las Ruinas de San José de Lules?$$, $$Horarios: lunes a domingo de 8:00 a 13:00.
+Entrada: gratuita.
+Contacto: 3814011547.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 24),
+  ('museos', $$¿Cuál es el horario y costo de entrada de la Reserva Arqueológica Los Menhires en El Mollar?$$, $$Horarios: martes a sábados de 9:00 a 19:00. Domingos y lunes de 9:00 a 14:00. Feriados de 9:00 a 12:00.
+Entrada: gratuita.
+Contacto: 3815149840.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 25),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Jesuítico de La Banda en Tafí del Valle?$$, $$Horarios: lunes a viernes de 8:00 a 18:00. Sábados y domingos de 8:00 a 18:30.
+Entrada: general $3.000. Jubilados y estudiantes $1.500. Residentes: entrada libre.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 26),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Experiencia Estancia Los Cuartos en Tafí del Valle?$$, $$Horarios: lunes a viernes a las 11:00 y 12:00. Sábados y domingos a las 11:00, 12:00 y 13:00.
+Entrada: general $6.000. Jubilados $3.000. Menores de 6 a 12 años $2.000.
+Contacto: 3814435800.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 27),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Casa Duende en Tafí del Valle?$$, $$Horarios: todos los días de 10:00 a 13:00 y de 15:00 a 19:00.
+Entrada: $4.000.
+Reservas: 3815226341.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 28),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Pachamama en Amaicha del Valle?$$, $$Horarios: lunes a domingo de 9:00 a 18:00.
+Entrada: $7.000. Extranjeros $10.000.
+Contacto: 3816813935. Encargada: Romina Cruz.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 29),
+  ('museos', $$¿Cuál es el horario y costo de entrada de la Ciudad Sagrada Ruinas de Quilmes?$$, $$Horarios: lunes a domingo de 8:00 a 18:00.
+Entrada: nacionales $7.000. Extranjeros $12.000. Jubilados y escuelas $5.000.
+Contacto: 3815684199.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 30),
+  ('museos', $$¿Cuáles son los horarios del CIQ Centro de Interpretación Quilmes?$$, $$Horarios: todos los días de 9:00 a 17:30.
+Contacto: 3815684149.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 31),
+  ('museos', $$¿Cuáles son los horarios de La Aparición Divina en San Pedro de Colalao?$$, $$Actividad: espectáculo Gruta Virgen de Lourdes.
+Horarios: miércoles a domingo a las 20:00 y 20:30.
+Entrada: libre y gratuita.
+Condición: se suspende por lluvia.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 32),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Arqueológico Dr. Manuel A. García Salemi en San Pedro de Colalao?$$, $$Horarios: martes a domingo de 9:30 a 13:30 y de 15:00 a 20:00.
+Entrada: colaborativa $500.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 33),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Arqueológico de Ibatín?$$, $$Horarios: lunes a sábado de 8:00 a 18:00.
+Entrada: libre.
+Contacto: 3863694908.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 34),
+  ('museos', $$¿Cuál es el horario y costo de entrada del Museo Sanmartiniano en Burruyacú?$$, $$Horarios: martes a sábados de 9:00 a 13:00.
+Entrada: libre.
+Contacto: 3815657436.
+Información vigente según documento MUSEOS ABRIL 2026.$$ , 35)
+),
+updated AS (
+  UPDATE faqs current_faq
+  SET respuesta = museum_faqs.respuesta,
+      orden = museum_faqs.orden,
+      activo = true,
+      updated_at = NOW()
+  FROM museum_faqs
+  WHERE current_faq.categoria = museum_faqs.categoria
+    AND current_faq.pregunta = museum_faqs.pregunta
+  RETURNING current_faq.pregunta
+)
+INSERT INTO faqs (categoria, pregunta, respuesta, orden, activo)
+SELECT categoria, pregunta, respuesta, orden, true
+FROM museum_faqs
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM faqs current_faq
+  WHERE current_faq.categoria = museum_faqs.categoria
+    AND current_faq.pregunta = museum_faqs.pregunta
+);
+
+-- ============================================================
+-- Seed: VIII Asamblea Nacional RAMCC
+-- ============================================================
+
+WITH assembly_faqs (categoria, pregunta, respuesta, orden) AS (
+  VALUES
+  ('asamblea', $$¿Qué es la VIII Asamblea Nacional de Intendentes RAMCC?$$, $$Es el encuentro federal más importante de gobiernos locales comprometidos con la acción climática y el desarrollo sostenible. Se trata de la 8ª edición nacional de la Asamblea de la Red Argentina de Municipios frente al Cambio Climático (RAMCC), un espacio para intercambiar estrategias de acción climática municipal, compartir experiencias de gestión y acordar políticas públicas locales para enfrentar el cambio climático.$$ , 1),
+  ('asamblea', $$¿Cuándo y dónde se realiza la VIII Asamblea Nacional RAMCC?$$, $$La VIII Asamblea Nacional se realiza los días 23, 24 y 25 de abril de 2026 en San Miguel de Tucumán, en el Sheraton Tucumán Hotel.$$ , 2),
+  ('asamblea', $$¿Por qué es histórica esta edición?$$, $$Es la primera vez que la Asamblea Nacional se realiza en Tucumán y en el norte del país, consolidando una mirada federal de la gestión climática local. Además, coincide con los 210 años de la Declaración de la Independencia Argentina.$$ , 3),
+  ('asamblea', $$¿Qué es la RAMCC?$$, $$La RAMCC (Red Argentina de Municipios frente al Cambio Climático) reúne a gobiernos locales de todo el país comprometidos con la acción climática y el desarrollo sostenible. Fortalece la acción climática local desde el año 2010 y cuenta con más de 200 municipios miembros.$$ , 4),
+  ('asamblea', $$¿Cuál es el contacto para consultas sobre el evento?$$, $$Las consultas pueden realizarse a través del correo electrónico: maguero@ramcc.net.$$ , 5),
+  ('asamblea', $$¿Cuál es el cronograma de la Asamblea?$$, $$El evento se desarrolla en tres días. Jueves 23 de abril: acreditaciones, bienvenida y primer encuentro en la ciudad anfitriona, con recepción de participantes, sugerencias de visitas turísticas y culturales, recorridos vinculados a la historia nacional y actividades por los 210 años de la Declaración de la Independencia Argentina. Viernes 24 de abril: jornada central con exposiciones, talleres, mesas temáticas y rondas de negocios público-privadas. Sábado 25 de abril: recorridos territoriales y visitas técnicas para conocer experiencias locales de políticas públicas ambientales, proyectos municipales, intercambio con equipos técnicos y aprendizajes replicables para otros territorios.$$ , 6),
+  ('asamblea', $$¿Está disponible el cronograma detallado?$$, $$El cronograma detallado se actualiza semanalmente. El programa completo estará disponible próximamente. Se recomienda mantenerse atento a las comunicaciones oficiales.$$ , 7),
+  ('asamblea', $$¿Qué tipo de actividades se realizan en la Asamblea?$$, $$La Asamblea incluye mesas temáticas, actividades plenarias, rondas de negocios, talleres y clínicas de gestión municipal, exposiciones ágiles orientadas a la acción climática municipal, y renovación del Consejo Nacional. También participan organismos internacionales aliados.$$ , 8),
+  ('asamblea', $$¿Qué son las exposiciones ágiles?$$, $$Son formatos dinámicos y participativos que optimizan el tiempo de las exposiciones y favorecen un intercambio directo y efectivo entre gobiernos locales. Las presentaciones están pensadas para compartir experiencias concretas, aprendizajes clave y resultados replicables, fortaleciendo la acción climática municipal.$$ , 9),
+  ('asamblea', $$¿Participan organismos internacionales?$$, $$Sí. La Asamblea cuenta con la participación de actores internacionales que acompañan y potencian los procesos de planificación e implementación climática liderados por los gobiernos locales.$$ , 10),
+  ('asamblea', $$¿Qué son las Rondas de Negocios?$$, $$Son instancias de articulación público-privada entre municipios y empresas que ofrecen soluciones innovadoras orientadas a impulsar los Planes Locales de Acción Climática. Es un espacio clave para visibilizar propuestas ante líderes municipales de toda Argentina.$$ , 11),
+  ('asamblea', $$¿Cuándo y cómo se realizan las Rondas de Negocios?$$, $$Las rondas se realizarán el viernes 24 de abril, de 11:30 a 13:00, en los salones del Hotel Sheraton. Están organizadas en tres bloques de 30 minutos cada uno, con rotación de participantes municipales.$$ , 12),
+  ('asamblea', $$¿Quién puede participar como empresa en las Rondas de Negocios?$$, $$La participación está exclusivamente destinada a empresas auspiciantes de la VIII Asamblea. Pueden participar empresas que ofrezcan soluciones vinculadas a la acción climática municipal: energías renovables, gestión de residuos, transporte sostenible, infraestructura verde, tecnología ambiental, eficiencia energética y propuestas orientadas a la sostenibilidad urbana y el desarrollo local.$$ , 13),
+  ('asamblea', $$¿Cómo se registra una empresa para participar en las Rondas de Negocios?$$, $$El proceso incluye completar el formulario online, adjuntar la documentación solicitada, recibir confirmación de participación y asignación de mesa, y acceder a la plataforma de gestión de reuniones.$$ , 14),
+  ('asamblea', $$¿Los participantes municipales pueden ver información de las empresas antes del evento?$$, $$Sí. Todos los participantes municipales registrados podrán visualizar previamente en el sistema la información de las empresas participantes, incluyendo descripción de sus soluciones, datos de contacto y la agenda de reuniones confirmadas.$$ , 15),
+  ('asamblea', $$¿Hay límite de cupos para empresas en las Rondas de Negocios?$$, $$Sí, los cupos son limitados para garantizar la calidad de los encuentros. Se prioriza el orden de inscripción y el cumplimiento de los requisitos.$$ , 16),
+  ('asamblea', $$¿Qué incluye la participación como empresa en las Rondas de Negocios?$$, $$La participación incluye mesa asignada durante los tres bloques, acceso a la plataforma de gestión de reuniones, material promocional en el espacio (hasta 50 folletos o brochures) y networking con más de 150 funcionarios municipales esperados.$$ , 17),
+  ('asamblea', $$¿Cuáles son los requisitos para participar como empresa?$$, $$Los requisitos son completar el formulario de inscripción antes del 15 de abril, presentar perfil empresarial y descripción de productos o servicios, ofrecer soluciones vinculadas a la acción climática municipal y contar con un representante con capacidad de toma de decisiones.$$ , 18),
+  ('asamblea', $$¿Cómo me inscribo al evento?$$, $$La inscripción se realiza según el perfil del participante, municipio o empresa, desde el sitio web oficial: asamblea.ramcc.net.$$ , 19),
+  ('asamblea', $$¿Cuál es el sitio web oficial de la VIII Asamblea Nacional RAMCC?$$, $$El sitio web oficial del evento es asamblea.ramcc.net. Allí se publica información para inscripción, cronograma y comunicaciones oficiales.$$ , 20),
+  ('asamblea', $$¿Quiénes pueden participar en la Asamblea?$$, $$Pueden participar intendentes, jefes comunales, equipos técnicos municipales, organismos internacionales aliados y empresas auspiciantes.$$ , 21),
+  ('asamblea', $$¿Qué visitas están programadas para el sábado?$$, $$El sábado 25 de abril a las 9:00 están programadas dos visitas técnicas municipales: 1) Campus Educativo Ambiental Dra. Yolanda Ortiz y 2) Parque 9 de Julio, con recorrido del Museo a Cielo Abierto.$$ , 22),
+  ('asamblea', $$¿Qué es el Campus Educativo Ambiental Dra. Yolanda Ortiz?$$, $$Es el primer campus educativo ambiental de su tipo en Argentina. Cuenta con 3 aulas inmersivas temáticas (Agua, Aire y Tierra), 1 microcine, 1 sala de conferencias, 1 sala de juegos con tecnologías modernas y 1 huerta agroecológica. Lleva el nombre de la Dra. Yolanda Ortiz, primera Secretaria de Recursos Naturales y Ambiente Humano de Argentina y del continente, nacida en San Miguel de Tucumán. Está orientado a fortalecer capacidades locales frente al cambio climático y el desarrollo sostenible.$$ , 23),
+  ('asamblea', $$¿Qué es el Parque 9 de Julio?$$, $$Es uno de los espacios verdes más emblemáticos de San Miguel de Tucumán, considerado un pulmón urbano fundamental. Combina áreas de recreación, sectores deportivos, espacios históricos y entornos naturales. Posee una fuerte impronta histórica y patrimonial. El recorrido se enmarca en el Museo a Cielo Abierto.$$ , 24),
+  ('asamblea', $$¿Cómo se organizan las visitas y cómo me inscribo?$$, $$Las visitas son en grupos reducidos con guías especializados y transporte incluido. Los detalles de inscripción y capacidad estarán disponibles próximamente. Para más información: comunicacion@ramcc.net.$$ , 25),
+  ('asamblea', $$¿Por qué San Miguel de Tucumán es la ciudad anfitriona?$$, $$San Miguel de Tucumán es una ciudad comprometida con la sostenibilidad ambiental y referente en políticas ambientales y acción climática. Es la cuna de la independencia argentina, lo que hace especialmente significativa su elección en el año de los 210 años de la Declaración de la Independencia.$$ , 26),
+  ('asamblea', $$¿Qué información turística y práctica está disponible para los asistentes?$$, $$El sitio del evento ofrece Circuito Turístico con los principales atractivos históricos y culturales; Gastronomía y Hotelería con guía completa de restaurantes y hoteles; e Información Práctica sobre transporte, servicios, clima y recomendaciones para la estadía.$$ , 27),
+  ('asamblea', $$¿Quiénes son los disertantes confirmados?$$, $$Entre los disertantes confirmados, según lista al 22 de abril de 2026, se encuentran: Rossana Chahla, Osvaldo Jaldo, Damián Biss, Soledad Martínez, Leonardo Raimundo, Uta Dirksen, Nicolas Enrique Cuesta, Rosario Romero, Daniel Passerini, Augusto Carreras, Maximiliano Gomez, Verónica Irizar, Carolina Basualdo, Pablo Macchiarola, Gerardo Merino, Pablo Antonio García, Karina Faccioli, Diego Costarelli, Julián Álvarez y Verónica Inés Espíndola. Nuevos disertantes serán anunciados próximamente.$$ , 28),
+  ('asamblea', $$¿Cuántos municipios e intendentes participan en la Asamblea?$$, $$La RAMCC cuenta con más de 200 municipios miembros. Para la VIII Asamblea Nacional están confirmados 92 intendentes participantes, según lista al 22 de abril de 2026, provenientes de Buenos Aires, Catamarca, Chaco, Chubut, Corrientes, Córdoba, Entre Ríos, Jujuy, La Pampa, Mendoza, Misiones, Neuquén, Río Negro, Salta, San Juan, San Luis, Santa Fe, Santiago del Estero y Tucumán. Los municipios se distinguen entre miembros de la RAMCC y no miembros. Las confirmaciones adicionales se publican periódicamente en el sitio oficial del evento.$$ , 29)
+),
+updated AS (
+  UPDATE faqs current_faq
+  SET respuesta = assembly_faqs.respuesta,
+      orden = assembly_faqs.orden,
+      activo = true,
+      updated_at = NOW()
+  FROM assembly_faqs
+  WHERE current_faq.categoria = assembly_faqs.categoria
+    AND current_faq.pregunta = assembly_faqs.pregunta
+  RETURNING current_faq.pregunta
+)
+INSERT INTO faqs (categoria, pregunta, respuesta, orden, activo)
+SELECT categoria, pregunta, respuesta, orden, true
+FROM assembly_faqs
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM faqs current_faq
+  WHERE current_faq.categoria = assembly_faqs.categoria
+    AND current_faq.pregunta = assembly_faqs.pregunta
+);
 -- ============================================================
 -- Solicitudes educativas para bus turistico
 -- ============================================================
@@ -290,7 +518,8 @@ CREATE TABLE IF NOT EXISTS educational_bus_requests (
   attachment_path   TEXT NOT NULL,
   additional_notes  TEXT,
   status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  internal_notes    TEXT
+  internal_notes    TEXT,
+  guides            TEXT
 );
 
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS circuit TEXT;
@@ -299,6 +528,7 @@ ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET DEFAULT 'historico
 ALTER TABLE educational_bus_requests ALTER COLUMN circuit SET NOT NULL;
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_name TEXT;
 ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS attachment_path TEXT;
+ALTER TABLE educational_bus_requests ADD COLUMN IF NOT EXISTS guides TEXT;
 
 DO $$
 BEGIN

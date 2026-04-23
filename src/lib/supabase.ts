@@ -66,6 +66,8 @@ export const CATEGORIAS: Record<string, { label: string; emoji: string; color: s
   gastronomia:  { label: 'Gastronomía',     emoji: '🍽️',  color: '#f59e0b' },
   alojamiento:  { label: 'Alojamiento',     emoji: '🏨',  color: '#8b5cf6' },
   atracciones:  { label: 'Atracciones',     emoji: '🏛️',  color: '#ec4899' },
+  museos:       { label: 'Museos',          emoji: '🏛️',  color: '#14b8a6' },
+  asamblea:     { label: 'Asamblea',        emoji: '🌱',  color: '#22c55e' },
   servicios:    { label: 'Servicios',       emoji: '💱',  color: '#06b6d4' },
   nocturna:     { label: 'Vida Nocturna',   emoji: '🍺',  color: '#f97316' },
   salud:        { label: 'Salud',           emoji: '🏥',  color: '#ef4444' },

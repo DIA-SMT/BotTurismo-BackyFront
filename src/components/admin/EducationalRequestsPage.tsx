@@ -1,12 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   formatDateToDisplay,
   getCircuitLabel,
   getInstitutionTypeLabel,
+  getMonthBounds,
   getMonthCalendarMatrix,
   getMonthLabel,
   getRequestStatusLabel,
@@ -123,12 +125,16 @@ function CalendarCard({
 }
 
 export default function EducationalRequestsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const todayKey = useMemo(() => getTodayDateStringInBuenosAires(), [])
   const todayParts = useMemo(() => parseBusinessDateParts(todayKey), [todayKey])
   const initialMonthKey = useMemo(() => {
     if (!todayParts) return buildMonthKey(new Date().getFullYear(), new Date().getMonth() + 1)
     return buildMonthKey(todayParts.year, todayParts.month)
   }, [todayParts])
+  const initialMonthBounds = useMemo(() => getMonthBounds(initialMonthKey), [initialMonthKey])
 
   const [filters, setFilters] = useState<EducationalBusRequestFilters>({})
   const [requests, setRequests] = useState<EducationalBusRequest[]>([])
@@ -136,6 +142,11 @@ export default function EducationalRequestsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [currentMonthKey, setCurrentMonthKey] = useState(initialMonthKey)
   const [selectedDate, setSelectedDate] = useState(todayKey)
+  const [exportFrom, setExportFrom] = useState(initialMonthBounds?.startDate || todayKey)
+  const [exportTo, setExportTo] = useState(initialMonthBounds?.endDate || todayKey)
+  const [exporting, setExporting] = useState(false)
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null)
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -155,6 +166,16 @@ export default function EducationalRequestsPage() {
   useEffect(() => {
     fetchRequests()
   }, [fetchRequests])
+
+  useEffect(() => {
+    if (searchParams.get('saved') !== '1') return
+    setSaveFeedback('Solicitud actualizada correctamente.')
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('saved')
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
 
   const stats = useMemo(() => {
     return {
@@ -210,6 +231,44 @@ export default function EducationalRequestsPage() {
     })
   }, [requestsByDate, selectedDate])
 
+  const handleExportApproved = async () => {
+    if (!exportFrom || !exportTo) {
+      setExportFeedback('Seleccioná el rango de fechas para exportar.')
+      return
+    }
+
+    if (exportFrom > exportTo) {
+      setExportFeedback('La fecha desde no puede ser mayor que la fecha hasta.')
+      return
+    }
+
+    setExporting(true)
+    setExportFeedback(null)
+
+    try {
+      const response = await fetch(`/api/educational-bus-requests/export?from=${encodeURIComponent(exportFrom)}&to=${encodeURIComponent(exportTo)}`)
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.error || 'No se pudo exportar el archivo.')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `buses-educativos-aprobados-${formatDateToDisplay(exportFrom)}-a-${formatDateToDisplay(exportTo)}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setExportFeedback('Exportación generada correctamente.')
+    } catch (error) {
+      setExportFeedback(error instanceof Error ? error.message : 'No se pudo exportar el archivo.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -224,6 +283,12 @@ export default function EducationalRequestsPage() {
       </div>
 
       <div className="page-body">
+        {saveFeedback ? (
+          <div className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: 16 }}>
+            {saveFeedback}
+          </div>
+        ) : null}
+
         <div className="stats-grid">
           <div className="stat-card" style={{ '--card-color': '#0ea5e9', '--card-color-bg': 'rgba(14,165,233,0.15)' } as CSSProperties}>
             <div className="card-icon">ALL</div>
@@ -309,8 +374,23 @@ export default function EducationalRequestsPage() {
                   <ChevronRight size={14} />
                 </button>
               </div>
-            ) : null}
+            ) : (
+              <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <input type="date" className="input" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} style={{ width: 150 }} />
+                <input type="date" className="input" value={exportTo} onChange={(event) => setExportTo(event.target.value)} style={{ width: 150 }} />
+                <button className="btn btn-primary" onClick={handleExportApproved} disabled={exporting}>
+                  <Download size={14} />
+                  {exporting ? 'Exportando...' : 'Exportar aprobadas'}
+                </button>
+              </div>
+            )}
           </div>
+
+          {exportFeedback ? (
+            <div className="badge" style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--info)', margin: '0 16px 12px' }}>
+              {exportFeedback}
+            </div>
+          ) : null}
 
           {viewMode === 'table' ? (
             <div className="table-scroll">
@@ -351,6 +431,7 @@ export default function EducationalRequestsPage() {
                         <td>
                           <div className="td-text-primary">{request.institution_name}</div>
                           <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit)}</div>
+                          {request.guides ? <div className="td-muted">Guías: {request.guides}</div> : null}
                         </td>
                         <td>
                           <div className="td-text-primary">{request.contact_name}</div>
@@ -450,6 +531,7 @@ export default function EducationalRequestsPage() {
                         <p className="td-text-primary" style={{ marginTop: 12 }}>{request.institution_name}</p>
                         <p className="td-muted">{request.contact_name}</p>
                         <p className="td-muted">{getInstitutionTypeLabel(request.institution_type)}</p>
+                        {request.guides ? <p className="td-muted">Guías: {request.guides}</p> : null}
                         <Link href={`/admin/solicitudes/${request.id}`} className="btn btn-secondary" style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
                           <Eye size={14} />
                           Abrir detalle

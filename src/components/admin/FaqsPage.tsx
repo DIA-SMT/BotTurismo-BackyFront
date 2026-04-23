@@ -200,6 +200,7 @@ export default function FaqsPage() {
     if (!byCat[faq.categoria]) byCat[faq.categoria] = []
     byCat[faq.categoria].push(faq)
   })
+  const categoryKeys = Array.from(new Set([...Object.keys(CATEGORIAS), ...faqs.map((faq) => faq.categoria)]))
 
   const activeCount = faqs.filter((faq) => faq.activo).length
   const totalCount = faqs.length
@@ -233,7 +234,8 @@ export default function FaqsPage() {
 
         <div className="category-filters">
           <button className={`cat-filter ${catFilter === '' ? 'active' : ''}`} onClick={() => setCatFilter('')}>Todas</button>
-          {Object.entries(CATEGORIAS).map(([key, value]) => {
+          {categoryKeys.map((key) => {
+            const value = CATEGORIAS[key] || { label: key, emoji: '•', color: '#6366f1' }
             const count = faqs.filter((faq) => faq.categoria === key && (showInactive || faq.activo)).length
             if (count === 0) return null
             return (

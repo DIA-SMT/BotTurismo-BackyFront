@@ -25,6 +25,10 @@ export type PreferredShift = (typeof preferredShiftOptions)[number]['value']
 export type EducationalBusCircuit = (typeof circuitOptions)[number]['value']
 export type EducationalBusRequestStatus = (typeof requestStatusOptions)[number]['value']
 export type BusinessWeekday = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
+export type PublicAvailabilityShiftStatus = 'available' | 'occupied' | 'disabled' | 'past'
+
+export const minimumStudentCount = 15
+export const maximumStudentCount = 44
 
 export interface EducationalBusRequestFormData {
   institutionName: string
@@ -66,6 +70,7 @@ export interface EducationalBusRequest extends EducationalBusRequestPayload {
   updated_at: string
   status: EducationalBusRequestStatus
   internal_notes: string | null
+  guides: string | null
 }
 
 export interface EducationalBusRequestFilters {
@@ -77,6 +82,28 @@ export interface EducationalBusRequestFilters {
 }
 
 export type EducationalBusRequestFormErrors = Partial<Record<keyof EducationalBusRequestFormData | 'attachment', string>>
+
+export interface PublicAvailabilityShift {
+  shift: PreferredShift
+  status: PublicAvailabilityShiftStatus
+}
+
+export interface PublicAvailabilityDay {
+  dateKey: string
+  weekday: BusinessWeekday | null
+  isPast: boolean
+  isCircuitDay: boolean
+  allowedShifts: PreferredShift[]
+  occupiedShifts: PreferredShift[]
+  availableShifts: PreferredShift[]
+  shifts: PublicAvailabilityShift[]
+}
+
+export interface PublicAvailabilityResponse {
+  circuit: EducationalBusCircuit
+  month: string
+  days: PublicAvailabilityDay[]
+}
 
 export const contactRoleOptions = [
   'Director/a',
@@ -273,6 +300,23 @@ export function getMonthCalendarMatrix(currentMonthKey: string) {
   return matrix
 }
 
+export function getMonthBounds(monthKey: string) {
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthKey)
+  if (!monthMatch) return null
+
+  const year = Number(monthMatch[1])
+  const month = Number(monthMatch[2])
+  if (!year || month < 1 || month > 12) return null
+
+  const lastDay = getDaysInMonth(year, month)
+  return {
+    year,
+    month,
+    startDate: buildDateKey(year, month, 1),
+    endDate: buildDateKey(year, month, lastDay),
+  }
+}
+
 export function getBusinessWeekday(dateString: string): BusinessWeekday | null {
   const parts = parseBusinessDateParts(dateString)
   if (!parts) return null
@@ -298,6 +342,11 @@ export function isAllowedAdvancedSecondaryGrade(gradeYear: string) {
   return advancedSecondaryGradeValues.has(gradeYear)
 }
 
+export function isValidStudentCount(value: string | number) {
+  const numberValue = typeof value === 'number' ? value : Number(value)
+  return Number.isInteger(numberValue) && numberValue >= minimumStudentCount && numberValue <= maximumStudentCount
+}
+
 export function isCircuitDateAllowed(circuit: EducationalBusCircuit | '', requestedDate: string) {
   if (!circuit || !requestedDate) return false
   return getAvailableShiftsForCircuitAndDate(circuit, requestedDate).length > 0
@@ -306,6 +355,50 @@ export function isCircuitDateAllowed(circuit: EducationalBusCircuit | '', reques
 export function isValidPhone(phone: string) {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 8 && digits.length <= 15
+}
+
+export function buildMonthlyAvailability(
+  circuit: EducationalBusCircuit,
+  monthKey: string,
+  occupiedByDate: Record<string, PreferredShift[]>,
+): PublicAvailabilityResponse | null {
+  const bounds = getMonthBounds(monthKey)
+  if (!bounds) return null
+
+  const days: PublicAvailabilityDay[] = []
+
+  for (let day = 1; day <= getDaysInMonth(bounds.year, bounds.month); day += 1) {
+    const dateKey = buildDateKey(bounds.year, bounds.month, day)
+    const weekday = getBusinessWeekday(dateKey)
+    const allowedShifts = weekday ? circuitAvailability[circuit][weekday] ?? [] : []
+    const occupiedShifts = occupiedByDate[dateKey] || []
+    const isPast = isPastBusinessDate(dateKey)
+    const isCircuitDay = allowedShifts.length > 0
+    const availableShifts = allowedShifts.filter((shift) => !isPast && !occupiedShifts.includes(shift))
+
+    days.push({
+      dateKey,
+      weekday,
+      isPast,
+      isCircuitDay,
+      allowedShifts,
+      occupiedShifts,
+      availableShifts,
+      shifts: preferredShiftOptions.map((option) => {
+        let status: PublicAvailabilityShiftStatus = 'available'
+        if (!allowedShifts.includes(option.value)) status = 'disabled'
+        else if (isPast) status = 'past'
+        else if (occupiedShifts.includes(option.value)) status = 'occupied'
+        return { shift: option.value, status }
+      }),
+    })
+  }
+
+  return {
+    circuit,
+    month: monthKey,
+    days,
+  }
 }
 
 export function validateEducationalBusAttachment(file: File | null) {
@@ -341,8 +434,8 @@ export function validateEducationalBusRequestForm(data: EducationalBusRequestFor
   }
   if (!data.studentCount.trim()) {
     errors.studentCount = 'Ingresa la cantidad de alumnos.'
-  } else if (!Number.isInteger(Number(data.studentCount)) || Number(data.studentCount) <= 0) {
-    errors.studentCount = 'Ingresa una cantidad válida de alumnos.'
+  } else if (!isValidStudentCount(data.studentCount)) {
+    errors.studentCount = `La cantidad de alumnos debe ser entre ${minimumStudentCount} y ${maximumStudentCount}.`
   }
   if (!data.gradeYear) {
     errors.gradeYear = 'Selecciona el grado o año.'
@@ -416,6 +509,12 @@ export function getGradeYearLabel(gradeYear: string) {
   return gradeYearOptions.find((option) => option.value === gradeYear)?.label || gradeYear
 }
 
+export function getEducationalLevelLabel(gradeYear: string) {
+  if (gradeYear.includes('primaria')) return 'Primario'
+  if (gradeYear.includes('secundaria')) return 'Secundario'
+  return getGradeYearLabel(gradeYear)
+}
+
 export function formatDateToDisplay(dateString: string) {
   if (!dateString) return ''
   const [year, month, day] = dateString.slice(0, 10).split('-')
@@ -444,4 +543,8 @@ export function getMonthLabel(date: Date) {
     month: 'long',
     year: 'numeric',
   }).format(date)
+}
+
+export function formatEducationalBusExportSlot(dateString: string, shift: PreferredShift) {
+  return `${formatDateToDisplay(dateString)} turno ${getShiftLabel(shift).toLowerCase()}`
 }

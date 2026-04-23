@@ -1,4 +1,3 @@
-import { CalendarRange, School, ShieldCheck } from 'lucide-react'
 import styles from '@/components/educational-bus/form.module.css'
 import { EducationalBusRequestForm } from '@/components/educational-bus/EducationalBusRequestForm'
 import { CircuitInfoAccordionGroup } from '@/components/educational-bus/HistoricalCircuitAccordion'
@@ -17,70 +16,33 @@ export default function HomePage() {
             </div>
             <div>
               <p className={styles.brandTitle}>Bus Turístico Educativo</p>
-              <p className={styles.brandText}>Solicitud de turnos para visitas educativas de instituciones de San Miguel de Tucumán.</p>
+              <p className={styles.brandText}>Completá el formulario para solicitar un turno institucional.</p>
             </div>
           </div>
         </header>
 
-        <section className={styles.heroGrid}>
-          <article className={styles.heroCard}>
-            <span className={styles.eyebrow}>
-              <CalendarRange size={16} />
-              Solicitud digital de turnos
-            </span>
-            <h1 className={styles.heroTitle}>Solicitá un turno para que tu institución participe del Bus Turístico Educativo.</h1>
-            <p className={styles.heroLead}>
-              Completá el formulario con los datos de la institución, la fecha deseada, el circuito solicitado y la información del grupo. La solicitud será evaluada según disponibilidad y criterios de prioridad.
-            </p>
-
-            <div className={styles.heroStats}>
-              <div className={styles.statItem}>
-                <div className={styles.statValue}>
-                  <School size={20} />
-                </div>
-                <p className={styles.statLabel}>Pensado para escuelas y otras instituciones educativas que deseen organizar una visita.</p>
-              </div>
-              <div className={styles.statItem}>
-                <div className={styles.statValue}>
-                  <ShieldCheck size={20} />
-                </div>
-                <p className={styles.statLabel}>Circuitos, días y turnos guiados por disponibilidad para evitar combinaciones inválidas.</p>
-              </div>
-              <div className={styles.statItem}>
-                <div className={styles.statValue}>1 paso</div>
-                <p className={styles.statLabel}>Completá la solicitud con los datos de la institución, el grupo, el circuito y la fecha deseada.</p>
-              </div>
-            </div>
-          </article>
-
+        <section className={styles.layoutSplit}>
+          <EducationalBusRequestForm />
           <div className={styles.sideStack}>
-            <PriorityNotice />
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Antes de enviar</p>
-              <p className={styles.sideText}>Tené a mano la fecha tentativa, el circuito que querés solicitar, la cantidad estimada de alumnos, los datos de contacto del responsable institucional y la nota modelo completa en formato .docx.</p>
               <ul className={styles.infoList}>
-                <li>Elegí el circuito primero para conocer qué días y turnos están disponibles.</li>
-                <li>Descargá, completá y adjuntá la nota modelo junto con el formulario.</li>
-                <li>Completá correctamente los datos de contacto para facilitar la comunicación.</li>
-                <li>Usá el campo de observaciones si el grupo necesita información o asistencia especial.</li>
+                <li>Elegí el circuito para ver turnos disponibles.</li>
+                <li>Completá los datos de contacto.</li>
+                <li>Adjuntá la nota modelo en .docx.</li>
               </ul>
               <a href={educationalBusTemplatePublicPath} download className={styles.templateLink} style={{ marginTop: 18 }}>
                 {educationalBusTemplateLabel}
               </a>
             </section>
-          </div>
-        </section>
-
-        <section className={styles.layoutSplit}>
-          <EducationalBusRequestForm />
-          <div className={styles.sideStack}>
+            <PriorityNotice />
             <CircuitInfoAccordionGroup
               items={[
                 {
                   id: 'historico-cultural',
                   iconName: 'landmark',
                   title: 'Circuito Histórico Cultural',
-                  summary: 'Recorrido por espacios emblemáticos que conectan historia, cultura, industria e identidad tucumana.',
+                  summary: 'Historia, cultura e identidad tucumana.',
                   paragraphs: [
                     'El presente circuito histórico-cultural propone un recorrido por espacios emblemáticos de la ciudad de San Miguel de Tucumán que permiten comprender la identidad local a través de su historia, su cultura y su desarrollo productivo.',
                     'A lo largo del itinerario, los visitantes podrán conocer distintos aspectos que conforman el patrimonio tucumano, desde su pasado industrial hasta sus expresiones artísticas y su legado histórico nacional.',
@@ -92,7 +54,7 @@ export default function HomePage() {
                   id: 'memoria',
                   iconName: 'users',
                   title: 'Circuito de la Memoria',
-                  summary: 'Historia reciente, trabajadores y luchas sociales en Tucumán, con eje en las conmemoraciones de 2026.',
+                  summary: 'Historia reciente y luchas sociales.',
                   paragraphs: [
                     'Historia de los trabajadores. A través del recorrido por algunas calles de esta ciudad, intentaremos identificar algunos de los procesos y actores significativos de nuestra historia reciente.',
                     'La particularidad de este recorrido reside en que los lugares que visitaremos son emblemáticos o simbólicos de procesos mucho más grandes. Desde aquí buscamos reconstruir la historia de Tucumán a partir de la organización de los trabajadores, las grandes luchas y eventos que sucedieron.',
@@ -104,12 +66,8 @@ export default function HomePage() {
             />
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Qué sucede después</p>
-              <p className={styles.sideText}>Una vez enviada, la solicitud queda registrada para su evaluación. El equipo responsable podrá confirmar el turno, pedir información adicional o proponer una reprogramación si fuera necesario.</p>
-              <ul className={styles.infoList}>
-                <li>La recepción de la solicitud no implica confirmación automática del turno.</li>
-                <li>La asignación dependerá del cupo disponible y la prioridad correspondiente.</li>
-                <li>Es importante revisar periódicamente los canales de contacto informados.</li>
-              </ul>
+              <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
+              <p className={styles.sideText}>Si necesitás cancelar un turno confirmado, avisá con 48 horas de anticipación a turismo@smt.gob.ar.</p>
             </section>
           </div>
         </section>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import {
   getCircuitLabel,
@@ -28,9 +29,11 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
 }
 
 export default function EducationalRequestDetailPage({ requestId }: { requestId: string }) {
+  const router = useRouter()
   const [request, setRequest] = useState<EducationalBusRequest | null>(null)
   const [status, setStatus] = useState<EducationalBusRequestStatus>('pending')
   const [internalNotes, setInternalNotes] = useState('')
+  const [guides, setGuides] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -44,6 +47,7 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
       setRequest(result.data)
       setStatus(result.data.status)
       setInternalNotes(result.data.internal_notes || '')
+      setGuides(result.data.guides || '')
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'No se pudo cargar la solicitud.')
     } finally {
@@ -64,12 +68,13 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status, internalNotes }),
+        body: JSON.stringify({ status, internalNotes, guides }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo actualizar la solicitud.')
       setRequest(result.data)
-      setFeedback('Cambios guardados correctamente.')
+      router.push('/admin/solicitudes?saved=1')
+      router.refresh()
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'No se pudo actualizar la solicitud.')
     } finally {
@@ -151,6 +156,20 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
               <div className="form-group">
                 <label>Notas internas</label>
                 <textarea className="input" style={{ width: '100%', minHeight: 130 }} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} placeholder="Comentarios internos para seguimiento del caso." />
+              </div>
+
+              <div className="form-group">
+                <label>Guías</label>
+                <input
+                  className="input"
+                  style={{ width: '100%' }}
+                  value={guides}
+                  onChange={(event) => setGuides(event.target.value)}
+                  placeholder="Nombre del guía o nombres separados por coma."
+                />
+                <p className="td-muted" style={{ marginTop: 8 }}>
+                  Campo opcional para asignación operativa.
+                </p>
               </div>
 
               {feedback ? (

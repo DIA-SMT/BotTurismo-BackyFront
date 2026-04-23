@@ -11,6 +11,11 @@ function blocksAvailability(status: string) {
   return status === 'pending' || status === 'approved'
 }
 
+function isMissingGuidesColumnError(error: { code?: string; message?: string } | null) {
+  if (!error) return false
+  return error.code === 'PGRST204' || error.code === '42703' || error.message?.toLowerCase().includes('guides') === true
+}
+
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) {
@@ -38,14 +43,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const body = await request.json()
   const status = String(body.status || '')
   const internalNotes = typeof body.internalNotes === 'string' ? body.internalNotes.trim() : undefined
+  const guides = typeof body.guides === 'string' ? body.guides.trim() : undefined
 
   if (status && !isValidStatus(status)) {
     return NextResponse.json({ error: 'Estado inválido.' }, { status: 400 })
   }
 
-  const updatePayload: Record<string, string> = {}
+  const updatePayload: Record<string, string | null> = {}
   if (status) updatePayload.status = status
   if (internalNotes !== undefined) updatePayload.internal_notes = internalNotes
+  if (guides !== undefined) updatePayload.guides = guides || null
 
   if (Object.keys(updatePayload).length === 0) {
     return NextResponse.json({ error: 'No hay cambios para guardar.' }, { status: 400 })
@@ -94,12 +101,24 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     }
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('educational_bus_requests')
     .update(updatePayload)
     .eq('id', Number(id))
     .select('*')
     .single()
+
+  if (error && Object.prototype.hasOwnProperty.call(updatePayload, 'guides') && isMissingGuidesColumnError(error)) {
+    const fallbackPayload = { ...updatePayload }
+    delete fallbackPayload.guides
+
+    ;({ data, error } = await supabase
+      .from('educational_bus_requests')
+      .update(fallbackPayload)
+      .eq('id', Number(id))
+      .select('*')
+      .single())
+  }
 
   if (error || !data) {
     if (error?.code === '23505') {

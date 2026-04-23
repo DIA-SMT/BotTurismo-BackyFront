@@ -64,7 +64,7 @@ export function CircuitInfoAccordionGroup({
   return (
     <section className={styles.sideCard}>
       <p className={styles.sideTitle}>{groupTitle}</p>
-      <p className={styles.sideText}>Tocá cada circuito para desplegar la información completa, sus objetivos y condiciones de participación.</p>
+      <p className={styles.sideText}>Tocá cada circuito para ver más información.</p>
       <div className={styles.accordionGroup}>
         {items.map((item, index) => (
           <div key={item.id} className={index > 0 ? styles.accordionDivider : undefined}>
