@@ -86,6 +86,28 @@ function getMonthKeyFromDateKey(dateKey: string) {
   return dateKey.slice(0, 7)
 }
 
+const monthSelectLabels = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+
+function getFirstWeekStartKeyForMonth(monthKey: string) {
+  return getWeekStartDateKey(`${monthKey}-01`)
+}
+
+function buildMonthOptions(fromMonthKey: string, count: number) {
+  const [yearText, monthText] = fromMonthKey.split('-')
+  const baseYear = Number(yearText)
+  const baseMonth = Number(monthText)
+  return Array.from({ length: count }, (_, index) => {
+    const monthIndex = baseMonth - 1 + index
+    const year = baseYear + Math.floor(monthIndex / 12)
+    const month = (monthIndex % 12) + 1
+    const value = buildMonthKey(year, month)
+    return { value, label: `${monthSelectLabels[month - 1]} ${year}` }
+  })
+}
+
 function AvailabilityCalendar({
   currentWeekStartKey,
   selectedDate,
@@ -93,6 +115,7 @@ function AvailabilityCalendar({
   availabilityByDate,
   disabled,
   loading,
+  monthOptions,
   onMonthChange,
   onWeekChange,
   onSelectSlot,
@@ -103,14 +126,21 @@ function AvailabilityCalendar({
   availabilityByDate: Record<string, PublicAvailabilityDay>
   disabled: boolean
   loading: boolean
+  monthOptions: Array<{ value: string; label: string }>
   onMonthChange: (monthKey: string) => void
   onWeekChange: (weekStartKey: string) => void
   onSelectSlot: (dateKey: string, shift: PreferredShift) => void
 }) {
   const weekDays = useMemo(() => buildWeekDays(currentWeekStartKey), [currentWeekStartKey])
+  const currentMonthKey = getMonthKeyFromDateKey(currentWeekStartKey)
   const handleWeekChange = (nextWeekStartKey: string) => {
     onWeekChange(nextWeekStartKey)
     onMonthChange(getMonthKeyFromDateKey(nextWeekStartKey))
+  }
+  const handleMonthSelect = (monthKey: string) => {
+    const nextWeekStartKey = getFirstWeekStartKeyForMonth(monthKey)
+    onWeekChange(nextWeekStartKey)
+    onMonthChange(monthKey)
   }
 
   const renderDayCard = ({
@@ -185,6 +215,25 @@ function AvailabilityCalendar({
         <div className={styles.calendarEmptyNotice}>Consultando turnos disponibles...</div>
       ) : null}
 
+      <div className={styles.publicCalendarMonthRow}>
+        <label className={styles.publicCalendarMonthLabel}>Ir al mes</label>
+        <select
+          className={styles.publicCalendarMonthSelect}
+          value={monthOptions.some((option) => option.value === currentMonthKey) ? currentMonthKey : ''}
+          onChange={(event) => handleMonthSelect(event.target.value)}
+          disabled={disabled}
+        >
+          {monthOptions.some((option) => option.value === currentMonthKey) ? null : (
+            <option value="">Seleccionar mes</option>
+          )}
+          {monthOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className={styles.publicCalendarHeader}>
         <button type="button" className={styles.calendarNavButton} onClick={() => handleWeekChange(shiftWeekStartKey(currentWeekStartKey, -1))} disabled={disabled}>
           ‹
@@ -216,6 +265,7 @@ export function EducationalBusRequestForm() {
   const formCardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  const monthOptions = useMemo(() => buildMonthOptions(getTodayDateStringInBuenosAires().slice(0, 7), 24), [])
   const selectedWeekday = useMemo(() => getBusinessWeekday(formData.requestedDate), [formData.requestedDate])
   const availableWeekdays = useMemo(() => getAvailableWeekdaysForCircuit(formData.circuit), [formData.circuit])
   const selectedDayAvailability = formData.requestedDate ? availabilityByDate[formData.requestedDate] : undefined
@@ -589,6 +639,7 @@ export function EducationalBusRequestForm() {
               availabilityByDate={availabilityByDate}
               disabled={!formData.circuit}
               loading={availabilityLoading}
+              monthOptions={monthOptions}
               onMonthChange={setCurrentMonthKey}
               onWeekChange={setCurrentWeekStartKey}
               onSelectSlot={handleSelectAvailabilitySlot}

@@ -386,6 +386,40 @@
   animation: slideUp 220ms ease;
 }
 
+.publicCalendarMonthRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.publicCalendarMonthLabel {
+  color: #c7d2fe;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.publicCalendarMonthSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  background: rgba(99, 102, 241, 0.12);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.publicCalendarMonthSelect:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.publicCalendarMonthSelect option {
+  color: #0f172a;
+}
+
 .publicCalendarHeader {
   display: flex;
   align-items: center;

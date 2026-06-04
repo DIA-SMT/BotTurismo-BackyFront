@@ -233,6 +233,14 @@ export function isPastBusinessDate(dateString: string) {
   return buildDateKey(parts.year, parts.month, parts.day) < getTodayDateStringInBuenosAires()
 }
 
+// Bloqueo temporal de reservas: todos los turnos se muestran ocupados desde hoy
+// hasta el 31 de agosto de 2026 inclusive. Septiembre de 2026 en adelante queda disponible.
+export const fullyBookedUntilDate = '2026-08-31'
+
+export function isWithinFullyBookedWindow(dateKey: string) {
+  return dateKey >= getTodayDateStringInBuenosAires() && dateKey <= fullyBookedUntilDate
+}
+
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month, 0).getDate()
 }
@@ -371,8 +379,9 @@ export function buildMonthlyAvailability(
     const dateKey = buildDateKey(bounds.year, bounds.month, day)
     const weekday = getBusinessWeekday(dateKey)
     const allowedShifts = weekday ? circuitAvailability[circuit][weekday] ?? [] : []
-    const occupiedShifts = occupiedByDate[dateKey] || []
     const isPast = isPastBusinessDate(dateKey)
+    const isFullyBooked = isWithinFullyBookedWindow(dateKey)
+    const occupiedShifts = isFullyBooked ? [...allowedShifts] : occupiedByDate[dateKey] || []
     const isCircuitDay = allowedShifts.length > 0
     const availableShifts = allowedShifts.filter((shift) => !isPast && !occupiedShifts.includes(shift))
 
