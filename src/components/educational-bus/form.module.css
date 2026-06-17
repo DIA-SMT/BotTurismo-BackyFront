@@ -39,23 +39,15 @@
   min-width: 0;
 }
 
-.brandMark {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px 999px 999px 8px;
-  display: inline-grid;
-  place-items: center;
+.brandLogo {
+  width: 148px;
+  height: auto;
+  display: block;
   flex: 0 0 auto;
-  background: var(--brand-blue);
-  color: #fff;
-  font-size: 0.74rem;
-  font-weight: 900;
-  letter-spacing: 0;
-  transform: rotate(-12deg);
+  object-fit: contain;
 }
 
-.brandTitle,
-.brandText {
+.brandTitle {
   display: block;
   line-height: 1.15;
 }
@@ -64,13 +56,6 @@
   color: var(--brand-blue);
   font-size: 1.23rem;
   font-weight: 800;
-}
-
-.brandText {
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 600;
 }
 
 .nav {
@@ -962,6 +947,10 @@
 
   .brandTitle {
     font-size: 1rem;
+  }
+
+  .brandLogo {
+    width: 118px;
   }
 
   .headerAction {
