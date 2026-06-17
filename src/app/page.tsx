@@ -9,10 +9,10 @@ export default function HomePage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <a className={styles.brand} href="#inicio" aria-label="Ir al inicio">
-          <span className={styles.brandMark} aria-hidden="true">BT</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-muni.jpeg" alt="" className={styles.brandLogo} />
           <span>
             <span className={styles.brandTitle}>Bus Turístico Educativo</span>
-            <span className={styles.brandText}>San Miguel de Tucumán</span>
           </span>
         </a>
 
