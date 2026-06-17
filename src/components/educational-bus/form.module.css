@@ -39,14 +39,50 @@
   min-width: 0;
 }
 
+.muniBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .brandLogo {
-  width: 148px;
-  height: auto;
+  width: 42px;
+  height: 42px;
   display: block;
   flex: 0 0 auto;
   object-fit: contain;
 }
 
+.muniText {
+  display: grid;
+  gap: 0;
+  color: #3b3f45;
+  line-height: 0.96;
+}
+
+.muniText span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.muniText strong {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.brandDivider {
+  width: 1px;
+  height: 34px;
+  background: rgba(37, 137, 234, 0.22);
+  flex: 0 0 auto;
+}
+
+.productBrand,
 .brandTitle {
   display: block;
   line-height: 1.15;
@@ -950,7 +986,16 @@
   }
 
   .brandLogo {
-    width: 118px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .muniText strong {
+    font-size: 0.84rem;
+  }
+
+  .muniText span {
+    font-size: 0.54rem;
   }
 
   .headerAction {

@@ -9,9 +9,17 @@ export default function HomePage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <a className={styles.brand} href="#inicio" aria-label="Ir al inicio">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-muni.jpeg" alt="" className={styles.brandLogo} />
-          <span>
+          <span className={styles.muniBrand}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-muni.jpeg" alt="" className={styles.brandLogo} />
+            <span className={styles.muniText}>
+              <span>Ciudad</span>
+              <strong>San Miguel</strong>
+              <strong>de Tucumán</strong>
+            </span>
+          </span>
+          <span className={styles.brandDivider} aria-hidden="true" />
+          <span className={styles.productBrand}>
             <span className={styles.brandTitle}>Bus Turístico Educativo</span>
           </span>
         </a>
