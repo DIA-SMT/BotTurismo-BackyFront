@@ -256,7 +256,7 @@ export default function FaqsPage() {
         ) : Object.entries(byCat).map(([cat, items]) => {
           const catInfo = CATEGORIAS[cat] || { label: cat, emoji: '•', color: '#6366f1' }
           return (
-            <div key={cat} style={{ marginBottom: 28 }}>
+            <div key={cat} style={{ marginBottom: 28, borderLeft: '3px solid var(--accent)', paddingLeft: 14 }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ background: `${catInfo.color}22`, color: catInfo.color, padding: '4px 12px', borderRadius: 20, fontSize: 12 }}>
                   {catInfo.label}

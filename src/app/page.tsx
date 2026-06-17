@@ -7,23 +7,68 @@ import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@
 export default function HomePage() {
   return (
     <main className={styles.page}>
-      <div className={styles.shell}>
-        <header className={styles.header}>
-          <div className={styles.brand}>
-            <div className={styles.brandLogoWrap}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/Logo%20SMT%20blanco%402x.png" alt="Ciudad SMT" className={styles.brandLogo} />
-            </div>
-            <div>
-              <p className={styles.brandTitle}>Bus Turístico Educativo</p>
-              <p className={styles.brandText}>Completá el formulario para solicitar un turno institucional.</p>
-            </div>
-          </div>
-        </header>
+      <header className={styles.header}>
+        <a className={styles.brand} href="#inicio" aria-label="Ir al inicio">
+          <span className={styles.brandMark} aria-hidden="true">BT</span>
+          <span>
+            <span className={styles.brandTitle}>Bus Turístico Educativo</span>
+            <span className={styles.brandText}>San Miguel de Tucumán</span>
+          </span>
+        </a>
 
-        <section className={styles.layoutSplit}>
+        <nav className={styles.nav} aria-label="Navegación principal">
+          <a href="#solicitud">Reservar turno</a>
+          <a href="#circuitos">Circuitos</a>
+          <a href="/login">Iniciar sesión</a>
+        </nav>
+
+        <a className={styles.headerAction} href="#solicitud">
+          Solicitar turno
+        </a>
+      </header>
+
+      <section id="inicio" className={styles.hero}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/landing-hero-bus.png" alt="" className={styles.heroImage} />
+        <div className={styles.heroOverlay} />
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>Turismo educativo municipal</p>
+          <h1 className={styles.heroTitle}>Reservá una experiencia educativa por la ciudad</h1>
+          <p className={styles.heroLead}>
+            Solicitá un turno institucional para recorrer San Miguel de Tucumán en el Bus Turístico Educativo.
+          </p>
+          <div className={styles.heroActions}>
+            <a className={styles.primaryCta} href="#solicitud">
+              Solicitar turno
+            </a>
+            <a className={styles.secondaryCta} href="#circuitos">
+              Ver circuitos
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div className={styles.assuranceBar}>
+        <span>Servicio educativo municipal</span>
+        <strong>Turnos sujetos a cupo, prioridad y disponibilidad</strong>
+      </div>
+
+      <div className={styles.shell}>
+        <section className={styles.cityPrompt} aria-label="Circuitos disponibles">
+          <p>Elegí el recorrido educativo para tu institución</p>
+          <div className={styles.circuitPreviewGrid}>
+            <a className={styles.circuitPreviewCard} href="#solicitud">
+              <span>Circuito Histórico Cultural</span>
+            </a>
+            <a className={styles.circuitPreviewCard} href="#solicitud">
+              <span>Circuito de la Memoria</span>
+            </a>
+          </div>
+        </section>
+
+        <section id="solicitud" className={styles.layoutSplit}>
           <EducationalBusRequestForm />
-          <div className={styles.sideStack}>
+          <aside className={styles.sideStack} id="circuitos">
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Antes de enviar</p>
               <ul className={styles.infoList}>
@@ -69,7 +114,7 @@ export default function HomePage() {
               <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
               <p className={styles.sideText}>Si necesitás cancelar un turno confirmado, avisá con 48 horas de anticipación a turismo@smt.gob.ar.</p>
             </section>
-          </div>
+          </aside>
         </section>
       </div>
     </main>

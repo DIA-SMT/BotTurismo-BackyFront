@@ -12,18 +12,18 @@ import { MessageSquare, Users, Globe, TrendingUp, RefreshCw } from 'lucide-react
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316', '#ef4444', '#84cc16']
+const COLORS = ['#126ff5', '#2589ea', '#28469f', '#3c74d8', '#10b981', '#f59e0b', '#ef4444', '#6b8fe8', '#8fb9ff']
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div style={{
-      background: '#1e2035', border: '1px solid rgba(99,102,241,0.3)',
-      borderRadius: 8, padding: '10px 14px', fontSize: 12
+      background: '#ffffff', border: '1px solid rgba(37,137,234,0.24)',
+      borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: '0 18px 45px rgba(21,39,60,0.12)'
     }}>
-      <p style={{ color: '#94a3b8', marginBottom: 4 }}>{label}</p>
+      <p style={{ color: '#68737d', marginBottom: 4 }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color || '#f1f5f9', fontWeight: 600 }}>
+        <p key={i} style={{ color: p.color || '#080808', fontWeight: 600 }}>
           {p.name}: {p.value}
         </p>
       ))}
@@ -77,7 +77,7 @@ export default function DashboardPage() {
     ...i,
     label: INTENT_LABELS[i.intent]?.label || i.intent,
     emoji: INTENT_LABELS[i.intent]?.emoji || '💬',
-    fill: INTENT_LABELS[i.intent]?.color || '#6366f1',
+    fill: INTENT_LABELS[i.intent]?.color || '#126ff5',
   }))
 
   const actividadChartData = actividad.slice(-30).map(a => ({
@@ -122,19 +122,19 @@ export default function DashboardPage() {
       <div className="page-body">
         {/* KPI Cards */}
         <div className="stats-grid">
-          <div className="stat-card" style={{ '--card-color': '#6366f1', '--card-color-bg': 'rgba(99,102,241,0.15)' } as any}>
+          <div className="stat-card" style={{ '--card-color': '#126ff5', '--card-color-bg': 'rgba(18,111,245,0.12)' } as any}>
             <div className="card-icon">💬</div>
             <div className="card-value">{totalInteracciones.toLocaleString('es-AR')}</div>
             <div className="card-label">Total Interacciones</div>
             <div className="card-sub">desde el inicio</div>
           </div>
-          <div className="stat-card" style={{ '--card-color': '#10b981', '--card-color-bg': 'rgba(16,185,129,0.15)' } as any}>
+          <div className="stat-card" style={{ '--card-color': '#2589ea', '--card-color-bg': 'rgba(37,137,234,0.12)' } as any}>
             <div className="card-icon">👥</div>
             <div className="card-value">{totalTuristas.toLocaleString('es-AR')}</div>
             <div className="card-label">Turistas Únicos</div>
             <div className="card-sub">por número de WhatsApp</div>
           </div>
-          <div className="stat-card" style={{ '--card-color': '#06b6d4', '--card-color-bg': 'rgba(6,182,212,0.15)' } as any}>
+          <div className="stat-card" style={{ '--card-color': '#28469f', '--card-color-bg': 'rgba(40,70,159,0.12)' } as any}>
             <div className="card-icon">🌐</div>
             <div className="card-value">{pctInternacional}%</div>
             <div className="card-label">Turistas Internacionales</div>
@@ -162,16 +162,16 @@ export default function DashboardPage() {
                 <AreaChart data={actividadChartData}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2589ea" stopOpacity={0.24} />
+                      <stop offset="95%" stopColor="#2589ea" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.1)" />
-                  <XAxis dataKey="dia" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(37,137,234,0.12)" />
+                  <XAxis dataKey="dia" tick={{ fill: '#68737d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#68737d', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="total_consultas" name="Consultas" stroke="#6366f1" strokeWidth={2} fill="url(#colorTotal)" />
-                  <Area type="monotone" dataKey="turistas_unicos" name="Turistas únicos" stroke="#10b981" strokeWidth={2} fill="none" />
+                  <Area type="monotone" dataKey="total_consultas" name="Consultas" stroke="#126ff5" strokeWidth={2} fill="url(#colorTotal)" />
+                  <Area type="monotone" dataKey="turistas_unicos" name="Turistas únicos" stroke="#2589ea" strokeWidth={2} fill="none" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend formatter={(v) => <span style={{ fontSize: 11, color: '#94a3b8' }}>{v}</span>} />
+                  <Legend formatter={(v) => <span style={{ fontSize: 11, color: '#68737d' }}>{v}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -208,8 +208,8 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={intentChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <XAxis type="number" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="label" width={130} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tick={{ fill: '#68737d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="label" width={130} tick={{ fill: '#68737d', fontSize: 12 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="total" name="Total" radius={[0, 6, 6, 0]}>
                     {intentChartData.map((entry, index) => (
@@ -229,11 +229,11 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={franjaChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.1)" />
-                  <XAxis dataKey="hora" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(37,137,234,0.12)" />
+                  <XAxis dataKey="hora" tick={{ fill: '#68737d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#68737d', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="total" name="Consultas" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="total" name="Consultas" fill="#126ff5" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

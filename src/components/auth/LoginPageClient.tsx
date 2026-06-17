@@ -73,7 +73,7 @@ export default function LoginPageClient() {
     <main className={styles.page}>
       <section className={styles.card}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/Logo%20SMT%20blanco%402x.png" alt="Ciudad SMT" className={styles.logo} />
+        <img src="/logo-muni.jpeg" alt="Ciudad SMT" className={styles.logo} />
         <h1 className={styles.title}>{recoverMode ? 'Recuperar contraseña' : 'Acceso al panel'}</h1>
         <p className={styles.text}>
           {recoverMode

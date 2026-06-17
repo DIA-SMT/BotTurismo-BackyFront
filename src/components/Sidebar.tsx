@@ -60,7 +60,7 @@ export default function Sidebar({ currentUserEmail }: { currentUserEmail?: strin
         <div className="sidebar-logo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/Logo%20SMT%20blanco%402x.png"
+            src="/logo-muni.jpeg"
             alt="Logo SMT"
             style={{ width: 160, height: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto 10px' }}
           />

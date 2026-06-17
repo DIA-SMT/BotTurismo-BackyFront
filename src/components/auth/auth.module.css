@@ -1,38 +1,52 @@
 .page {
+  --brand-blue: #2589ea;
+  --brand-blue-strong: #126ff5;
+  --brand-blue-deep: #28469f;
+  --brand-blue-dark: #1f367d;
+  --brand-blue-soft: #eef6ff;
+  --text-strong: #080808;
+  --text-main: #1f2933;
+  --text-muted: #68737d;
+  --border-soft: #e3e8ef;
+  --surface: #ffffff;
+
   min-height: 100vh;
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 25%),
-    radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.14), transparent 22%),
-    linear-gradient(180deg, #08090f 0%, #0f1020 50%, #121427 100%);
+    linear-gradient(112deg, rgba(37, 137, 234, 0.92) 0%, rgba(37, 137, 234, 0.86) 42%, rgba(37, 137, 234, 0.42) 58%, rgba(37, 137, 234, 0.06) 76%),
+    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.24), transparent 26%),
+    linear-gradient(135deg, #f8fbff 0%, #ffffff 52%, #eef6ff 100%);
   padding: 24px;
 }
 
 .card {
   width: min(100%, 460px);
-  background: linear-gradient(180deg, rgba(15, 16, 32, 0.94), rgba(22, 24, 41, 0.94));
-  border: 1px solid rgba(99, 102, 241, 0.14);
-  border-radius: 24px;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
-  padding: 28px;
-  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(19, 58, 121, 0.18);
+  padding: 32px;
+  color: var(--text-main);
+  backdrop-filter: blur(14px) saturate(1.08);
 }
 
 .logo {
   width: 148px;
   display: block;
   margin-bottom: 20px;
+  filter: none;
 }
 
 .title {
-  font-size: 1.8rem;
+  color: var(--text-strong);
+  font-size: 1.9rem;
   font-weight: 800;
   margin-bottom: 8px;
 }
 
 .text {
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-bottom: 20px;
   line-height: 1.6;
 }
@@ -45,40 +59,55 @@
 .label {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-main);
   display: block;
   margin-bottom: 6px;
 }
 
 .input {
   width: 100%;
-  border-radius: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.14);
-  background: rgba(8, 9, 15, 0.86);
-  color: #f1f5f9;
+  border-radius: 6px;
+  border: 1px solid #d8e1ec;
+  background: #fbfcff;
+  color: var(--text-main);
   padding: 14px 16px;
   outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+  border-color: var(--brand-blue);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 137, 234, 0.14);
 }
 
 .button {
   width: 100%;
   border: none;
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 14px 16px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 46%, #06b6d4 100%);
+  background: var(--brand-blue-strong);
   color: white;
   font-weight: 800;
+  box-shadow: 0 16px 30px rgba(18, 111, 245, 0.22);
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--brand-blue-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(18, 111, 245, 0.28);
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .linkButton {
   background: transparent;
   border: none;
-  color: #67e8f9;
+  color: var(--brand-blue-deep);
   padding: 0;
   font-weight: 700;
   text-align: left;
@@ -91,13 +120,13 @@
 }
 
 .error {
-  background: rgba(239, 68, 68, 0.12);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.16);
+  background: #fff3f1;
+  color: #a94033;
+  border: 1px solid rgba(216, 90, 72, 0.2);
 }
 
 .success {
-  background: rgba(16, 185, 129, 0.12);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: #eefaf4;
+  color: #136c4d;
+  border: 1px solid rgba(27, 148, 105, 0.18);
 }
