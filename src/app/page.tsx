@@ -2,16 +2,18 @@ import styles from '@/components/educational-bus/form.module.css'
 import { EducationalBusRequestForm } from '@/components/educational-bus/EducationalBusRequestForm'
 import { CircuitInfoAccordionGroup } from '@/components/educational-bus/HistoricalCircuitAccordion'
 import { PriorityNotice } from '@/components/educational-bus/PriorityNotice'
+import { MouseExperience } from '@/components/MouseExperience'
 import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
 
 export default function HomePage() {
   return (
     <main className={styles.page}>
+      <MouseExperience />
       <header className={styles.header}>
         <a className={styles.brand} href="#inicio" aria-label="Ir al inicio">
           <span className={styles.muniBrand}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-muni.jpeg" alt="" className={styles.brandLogo} />
+            <img src="/logoMuni-sm.png" alt="" className={styles.brandLogo} />
             <span className={styles.muniText}>
               <span>Ciudad</span>
               <strong>San Miguel</strong>
@@ -27,6 +29,7 @@ export default function HomePage() {
         <nav className={styles.nav} aria-label="Navegación principal">
           <a href="#solicitud">Reservar turno</a>
           <a href="#circuitos">Circuitos</a>
+          <a href="/galeria">Galería</a>
           <a href="/login">Iniciar sesión</a>
         </nav>
 
@@ -37,7 +40,7 @@ export default function HomePage() {
 
       <section id="inicio" className={styles.hero}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/landing-hero-bus.png" alt="" className={styles.heroImage} />
+        <img src="/bus2.jpg" alt="" className={styles.heroImage} />
         <div className={styles.heroOverlay} />
         <div className={styles.heroContent}>
           <p className={styles.eyebrow}>Turismo educativo municipal</p>
@@ -65,10 +68,10 @@ export default function HomePage() {
         <section className={styles.cityPrompt} aria-label="Circuitos disponibles">
           <p>Elegí el recorrido educativo para tu institución</p>
           <div className={styles.circuitPreviewGrid}>
-            <a className={styles.circuitPreviewCard} href="#solicitud">
+            <a className={styles.circuitPreviewCard} href="#solicitud" data-mouse-tilt>
               <span>Circuito Histórico Cultural</span>
             </a>
-            <a className={styles.circuitPreviewCard} href="#solicitud">
+            <a className={styles.circuitPreviewCard} href="#solicitud" data-mouse-tilt>
               <span>Circuito de la Memoria</span>
             </a>
           </div>

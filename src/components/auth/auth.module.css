@@ -32,10 +32,12 @@
 }
 
 .logo {
-  width: 148px;
+  width: 112px;
+  height: 112px;
   display: block;
-  margin-bottom: 20px;
-  filter: none;
+  margin: 0 auto 20px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .title {

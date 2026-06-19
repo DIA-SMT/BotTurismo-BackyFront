@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Bot, HelpCircle, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
+import { Bot, Camera, HelpCircle, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
 
 const navItems = [
   { href: '/admin', icon: LayoutDashboard, label: 'Resumen' },
   { href: '/admin/interactions', icon: MessageSquare, label: 'Interacciones' },
   { href: '/admin/faqs', icon: HelpCircle, label: 'Preguntas frecuentes' },
   { href: '/admin/solicitudes', icon: HelpCircle, label: 'Solicitudes educativas' },
+  { href: '/admin/fotos', icon: Camera, label: 'Books de fotos' },
 ]
 
 export default function Sidebar({ currentUserEmail }: { currentUserEmail?: string }) {
@@ -60,9 +61,9 @@ export default function Sidebar({ currentUserEmail }: { currentUserEmail?: strin
         <div className="sidebar-logo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-muni.jpeg"
-            alt="Logo SMT"
-            style={{ width: 160, height: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto 10px' }}
+            src="/logoMuni-sm.png"
+            alt="Municipalidad de San Miguel de Tucumán"
+            className="sidebar-brand-logo"
           />
           <h1>Bus turístico educativo</h1>
           <p>Panel de monitoreo y gestión</p>
