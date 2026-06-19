@@ -73,7 +73,7 @@ export default function LoginPageClient() {
     <main className={styles.page}>
       <section className={styles.card}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-muni.jpeg" alt="Ciudad SMT" className={styles.logo} />
+        <img src="/logoMuni-sm.png" alt="Municipalidad de San Miguel de Tucumán" className={styles.logo} />
         <h1 className={styles.title}>{recoverMode ? 'Recuperar contraseña' : 'Acceso al panel'}</h1>
         <p className={styles.text}>
           {recoverMode

@@ -90,11 +90,21 @@ select {
 }
 
 .sidebar-logo {
-  padding: 24px 20px 20px;
+  padding: 22px 20px 20px;
   border-bottom: 1px solid var(--border);
   background:
-    linear-gradient(145deg, rgba(37, 137, 234, 0.1), rgba(255, 255, 255, 0) 58%),
+    radial-gradient(circle at 50% 10%, rgba(37, 137, 234, 0.14), transparent 54%),
     var(--bg-1);
+}
+
+.sidebar-brand-logo {
+  width: 116px;
+  height: 116px;
+  display: block;
+  margin: 0 auto 14px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: saturate(1.04);
 }
 
 .sidebar-logo .logo-icon {
@@ -111,16 +121,18 @@ select {
 }
 
 .sidebar-logo h1 {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   color: var(--text-primary);
   line-height: 1.3;
+  text-align: center;
 }
 
 .sidebar-logo p {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
+  text-align: center;
 }
 
 .sidebar-nav {
@@ -1339,6 +1351,227 @@ textarea.input {
   background: var(--bg-2);
   border-radius: 14px;
   padding: 14px;
+}
+
+/* Books de fotos */
+.photo-book-message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  margin-bottom: 18px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.photo-book-message.success {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.photo-book-message.error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.photo-book-message button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.photo-book-form {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--shadow);
+}
+
+.photo-book-form-header,
+.photo-book-form-actions,
+.photo-book-card-top,
+.photo-book-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.photo-book-form-header {
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.photo-book-form-header h3 {
+  font-size: 17px;
+}
+
+.photo-book-form-header p {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.photo-book-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0 16px;
+}
+
+.photo-book-description,
+.photo-book-files {
+  grid-column: 1 / -1;
+}
+
+.photo-dropzone {
+  min-height: 118px;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed #b9cce2;
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--accent-deep) !important;
+  cursor: pointer;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.photo-dropzone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.photo-book-form-actions {
+  justify-content: flex-end;
+}
+
+.photo-book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.photo-book-card {
+  padding: 19px;
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--shadow);
+}
+
+.photo-book-card.expired {
+  border-top-color: var(--text-muted);
+  opacity: .72;
+}
+
+.photo-book-card-top {
+  justify-content: space-between;
+  margin-bottom: 13px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.photo-book-status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #047857;
+}
+
+.photo-book-status.expired {
+  background: #eef1f4;
+  color: #64748b;
+}
+
+.photo-book-card h3 {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.photo-book-date,
+.photo-book-expiry,
+.photo-book-description-text {
+  margin-top: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.photo-book-description-text {
+  color: var(--text-muted);
+}
+
+.photo-book-expiry {
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.photo-book-actions {
+  flex-wrap: wrap;
+}
+
+.photo-book-actions .btn {
+  padding: 0 11px;
+}
+
+.photo-share-modal {
+  max-width: 460px;
+}
+
+.photo-share-modal .modal-header p {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.photo-qr {
+  width: min(100%, 320px);
+  display: block;
+  margin: 0 auto 16px;
+}
+
+.photo-share-link {
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .photo-book-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-book-description,
+  .photo-book-files {
+    grid-column: auto;
+  }
+
+  .photo-book-form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .photo-book-form-actions .btn {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 1200px) {
