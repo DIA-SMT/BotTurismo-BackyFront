@@ -12,6 +12,10 @@
 El panel administrativo queda disponible en `/admin/fotos`. Cada book genera un
 enlace y un QR con acceso a `/fotos/[token]`.
 
+Cada book admite hasta 30 fotos. Desde el panel se puede gestionar un book ya
+creado para corregir título, fecha o descripción y agregar fotos faltantes sin
+cambiar el enlace ni el QR existente.
+
 Los ciudadanos no necesitan iniciar sesión. Pueden entrar desde la opción
 `Galería` del encabezado o desde `/galeria`, elegir la fecha del recorrido y
 abrir cualquiera de los books vigentes publicados para ese día.
