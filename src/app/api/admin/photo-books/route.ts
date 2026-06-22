@@ -1,15 +1,8 @@
-import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import {
-  MAX_PHOTOS_PER_BOOK,
-  MAX_PHOTO_SIZE_BYTES,
-  PHOTO_BOOK_BUCKET,
-  sanitizeFileName,
-} from '@/lib/photo-books'
+import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
+import { uploadPhotoFilesToBook, validatePhotoFiles } from '@/lib/photo-book-upload'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
-
-const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
 
 export async function GET() {
   const admin = await getAuthenticatedAdminFromCookies()
@@ -18,7 +11,7 @@ export async function GET() {
   const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('photo_books')
-    .select('*, photo_book_photos(id, storage_path, original_name, size_bytes, sort_order)')
+    .select('*, photo_book_photos(id, storage_path, original_name, mime_type, size_bytes, sort_order)')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -44,13 +37,9 @@ export async function POST(request: NextRequest) {
   if (photos.length === 0 || photos.length > MAX_PHOTOS_PER_BOOK) {
     return NextResponse.json({ error: `Seleccioná entre 1 y ${MAX_PHOTOS_PER_BOOK} fotos.` }, { status: 400 })
   }
-  const invalidPhoto = photos.find((photo) => !ALLOWED_IMAGE_TYPES.has(photo.type) || photo.size > MAX_PHOTO_SIZE_BYTES)
-  if (invalidPhoto) {
-    return NextResponse.json(
-      { error: `La foto "${invalidPhoto.name}" no es válida o supera los 15 MB.` },
-      { status: 400 },
-    )
-  }
+
+  const validationError = validatePhotoFiles(photos)
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
   const supabase = createServerSupabaseClient()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -64,33 +53,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudo crear el book de fotos.' }, { status: 500 })
   }
 
-  const uploadedPaths: string[] = []
-  const photoRows = []
-
-  try {
-    for (const [index, photo] of photos.entries()) {
-      const storagePath = `${book.id}/${String(index + 1).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
-      const bytes = Buffer.from(await photo.arrayBuffer())
-      const { error: uploadError } = await supabase.storage
-        .from(PHOTO_BOOK_BUCKET)
-        .upload(storagePath, bytes, { contentType: photo.type, upsert: false })
-
-      if (uploadError) throw uploadError
-      uploadedPaths.push(storagePath)
-      photoRows.push({
-        book_id: book.id,
-        storage_path: storagePath,
-        original_name: photo.name,
-        mime_type: photo.type,
-        size_bytes: photo.size,
-        sort_order: index,
-      })
-    }
-
-    const { error: photoRowsError } = await supabase.from('photo_book_photos').insert(photoRows)
-    if (photoRowsError) throw photoRowsError
-  } catch {
-    if (uploadedPaths.length) await supabase.storage.from(PHOTO_BOOK_BUCKET).remove(uploadedPaths)
+  const uploadResult = await uploadPhotoFilesToBook({ supabase, bookId: book.id, photos, startSortOrder: 0 })
+  if (uploadResult.error) {
     await supabase.from('photo_books').delete().eq('id', book.id)
     return NextResponse.json({ error: 'No se pudieron subir todas las fotos. No se guardó el book.' }, { status: 500 })
   }
@@ -103,4 +67,3 @@ export async function POST(request: NextRequest) {
     },
   }, { status: 201 })
 }
-

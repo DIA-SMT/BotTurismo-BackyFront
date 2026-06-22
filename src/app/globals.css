@@ -1453,6 +1453,12 @@ textarea.input {
   opacity: 0;
 }
 
+.photo-dropzone.disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  border-style: solid;
+}
+
 .photo-book-form-actions {
   justify-content: flex-end;
 }
@@ -1531,6 +1537,87 @@ textarea.input {
   max-width: 460px;
 }
 
+.photo-book-edit-modal {
+  max-width: 760px;
+  max-height: min(90vh, 820px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.photo-book-edit-modal .modal-body {
+  overflow-y: auto;
+}
+
+.photo-book-modal-subtitle {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.photo-book-modal-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.photo-book-modal-section:first-child {
+  padding-top: 0;
+}
+
+.photo-book-modal-section:last-child {
+  border-bottom: 0;
+}
+
+.photo-book-modal-section h4 {
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.photo-book-helper {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.photo-book-current-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.photo-book-current-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+
+.photo-book-current-item span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent-deep);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.photo-book-current-item p {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .photo-share-modal .modal-header p {
   color: var(--text-muted);
   font-size: 12px;
@@ -1571,6 +1658,10 @@ textarea.input {
 
   .photo-book-form-actions .btn {
     justify-content: center;
+  }
+
+  .photo-book-edit-modal {
+    max-height: 94vh;
   }
 }
 

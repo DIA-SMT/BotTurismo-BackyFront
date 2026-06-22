@@ -1,7 +1,8 @@
 export const PHOTO_BOOK_BUCKET = 'tour-photo-books'
 export const PHOTO_BOOK_LIFETIME_DAYS = 7
-export const MAX_PHOTOS_PER_BOOK = 60
+export const MAX_PHOTOS_PER_BOOK = 30
 export const MAX_PHOTO_SIZE_BYTES = 15 * 1024 * 1024
+export const ALLOWED_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'] as const
 
 export interface PhotoBookPhoto {
   id: string
@@ -38,4 +39,3 @@ export function sanitizeFileName(name: string) {
 
   return `${base || 'foto'}${extension}`
 }
-
