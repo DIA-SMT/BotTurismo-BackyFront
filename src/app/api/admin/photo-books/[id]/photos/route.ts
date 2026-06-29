@@ -1,8 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
+import { MAX_PHOTOS_PER_BOOK, PHOTO_BOOK_BUCKET } from '@/lib/photo-books'
 import { uploadPhotoFilesToBook, validatePhotoFiles } from '@/lib/photo-book-upload'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
+
+export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const admin = await getAuthenticatedAdminFromCookies()
+  if (!admin) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+
+  const { id } = await context.params
+  const supabase = createServerSupabaseClient()
+  const { data: photos, error } = await supabase
+    .from('photo_book_photos')
+    .select('id, original_name, storage_path, sort_order')
+    .eq('book_id', id)
+    .order('sort_order', { ascending: true })
+
+  if (error) return NextResponse.json({ error: 'No se pudieron cargar las previsualizaciones.' }, { status: 500 })
+
+  const previews = await Promise.all((photos || []).map(async (photo) => {
+    const { data } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUrl(photo.storage_path, 60 * 60)
+    return {
+      id: photo.id,
+      name: photo.original_name,
+      preview_url: data?.signedUrl || '',
+      sort_order: photo.sort_order,
+    }
+  }))
+
+  return NextResponse.json({ data: previews.filter((photo) => photo.preview_url) })
+}
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await getAuthenticatedAdminFromCookies()

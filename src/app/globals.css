@@ -1459,6 +1459,65 @@ textarea.input {
   border-style: solid;
 }
 
+.photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.photo-preview-grid.current {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.photo-preview-item {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-1);
+  box-shadow: 0 8px 22px rgba(21, 39, 60, .07);
+}
+
+.photo-preview-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+  object-fit: cover;
+  background: var(--bg-3);
+}
+
+.photo-preview-item figcaption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-preview-item figcaption span {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent-deep);
+  font-weight: 800;
+}
+
+.photo-preview-loading {
+  padding: 30px 10px;
+}
+
 .photo-book-form-actions {
   justify-content: flex-end;
 }

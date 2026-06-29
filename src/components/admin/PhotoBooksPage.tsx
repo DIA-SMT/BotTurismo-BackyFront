@@ -25,6 +25,37 @@ interface ShareModalData {
 
 const dateFormatter = new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium' })
 
+interface CurrentPhotoPreview {
+  id: string
+  name: string
+  preview_url: string
+  sort_order: number
+}
+
+function SelectedPhotoPreviews({ files }: { files: File[] }) {
+  const [previews, setPreviews] = useState<Array<{ name: string; url: string }>>([])
+
+  useEffect(() => {
+    const nextPreviews = files.map((file) => ({ name: file.name, url: URL.createObjectURL(file) }))
+    setPreviews(nextPreviews)
+    return () => nextPreviews.forEach((preview) => URL.revokeObjectURL(preview.url))
+  }, [files])
+
+  if (previews.length === 0) return null
+
+  return (
+    <div className="photo-preview-grid" aria-label="Previsualización de fotos seleccionadas">
+      {previews.map((preview, index) => (
+        <figure className="photo-preview-item" key={`${preview.name}-${index}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview.url} alt={`Previsualización ${index + 1}: ${preview.name}`} />
+          <figcaption><span>{index + 1}</span>{preview.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
 function sortPhotos(book: Book) {
   return [...(book.photo_book_photos || [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 }
@@ -47,6 +78,8 @@ export default function PhotoBooksPage() {
   const [editTourDate, setEditTourDate] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [morePhotos, setMorePhotos] = useState<File[]>([])
+  const [currentPhotoPreviews, setCurrentPhotoPreviews] = useState<CurrentPhotoPreview[]>([])
+  const [loadingPhotoPreviews, setLoadingPhotoPreviews] = useState(false)
 
   const fetchBooks = useCallback(async () => {
     setLoading(true)
@@ -94,12 +127,29 @@ export default function PhotoBooksPage() {
     setShowForm(false)
   }
 
+  const loadCurrentPhotoPreviews = async (bookId: string) => {
+    setLoadingPhotoPreviews(true)
+    try {
+      const response = await fetch(`/api/admin/photo-books/${bookId}/photos`, { cache: 'no-store' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudieron cargar las previsualizaciones.')
+      setCurrentPhotoPreviews(result.data || [])
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : 'No se pudieron cargar las previsualizaciones.', type: 'error' })
+      setCurrentPhotoPreviews([])
+    } finally {
+      setLoadingPhotoPreviews(false)
+    }
+  }
+
   const openEditModal = (book: Book) => {
     setEditBook(book)
     setEditTitle(book.title)
     setEditTourDate(book.tour_date)
     setEditDescription(book.description || '')
     setMorePhotos([])
+    setCurrentPhotoPreviews([])
+    loadCurrentPhotoPreviews(book.id)
   }
 
   const createBook = async (event: React.FormEvent) => {
@@ -178,6 +228,7 @@ export default function PhotoBooksPage() {
 
       updateBookInState(result.data)
       setMorePhotos([])
+      await loadCurrentPhotoPreviews(editBook.id)
       if (showSuccessMessage) setMessage({ text: `${result.added_count || morePhotos.length} fotos agregadas al book.`, type: 'success' })
       return true
     } catch (error) {
@@ -269,6 +320,7 @@ export default function PhotoBooksPage() {
                     onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, MAX_PHOTOS_PER_BOOK))}
                   />
                 </label>
+                <SelectedPhotoPreviews files={photos} />
               </div>
             </div>
             <div className="photo-book-form-actions">
@@ -371,6 +423,7 @@ export default function PhotoBooksPage() {
                     onChange={(event) => setMorePhotos(Array.from(event.target.files || []).slice(0, remainingSlots))}
                   />
                 </label>
+                <SelectedPhotoPreviews files={morePhotos} />
                 <button className="btn btn-primary mt-4" onClick={() => addPhotosToBook()} disabled={uploadingMore || morePhotos.length === 0 || selectedBookExpired}>
                   {uploadingMore ? <><span className="spinner" /> Agregando...</> : <><Upload size={15} /> Agregar fotos</>}
                 </button>
@@ -378,14 +431,21 @@ export default function PhotoBooksPage() {
 
               <div className="photo-book-modal-section">
                 <h4>Fotos actuales</h4>
-                <div className="photo-book-current-list">
-                  {sortPhotos(editBook).map((photo, index) => (
-                    <div key={photo.id} className="photo-book-current-item">
-                      <span>{String(index + 1).padStart(2, '0')}</span>
-                      <p>{photo.original_name}</p>
-                    </div>
-                  ))}
-                </div>
+                {loadingPhotoPreviews ? (
+                  <div className="loading-state photo-preview-loading"><span className="spinner" /> Cargando fotos...</div>
+                ) : currentPhotoPreviews.length ? (
+                  <div className="photo-preview-grid current">
+                    {currentPhotoPreviews.map((photo, index) => (
+                      <figure className="photo-preview-item" key={photo.id}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo.preview_url} alt={`Foto ${index + 1}: ${photo.name}`} loading="lazy" />
+                        <figcaption><span>{index + 1}</span>{photo.name}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="photo-book-helper">No hay fotos disponibles para previsualizar.</p>
+                )}
               </div>
             </div>
           </div>
