@@ -2,6 +2,7 @@ import styles from '@/components/educational-bus/form.module.css'
 import { EducationalBusRequestForm } from '@/components/educational-bus/EducationalBusRequestForm'
 import { CircuitInfoAccordionGroup } from '@/components/educational-bus/HistoricalCircuitAccordion'
 import { PriorityNotice } from '@/components/educational-bus/PriorityNotice'
+import { HeroMedia } from '@/components/educational-bus/HeroMedia'
 import { MouseExperience } from '@/components/MouseExperience'
 import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
 
@@ -39,8 +40,7 @@ export default function HomePage() {
       </header>
 
       <section id="inicio" className={styles.hero}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/bus2.jpg" alt="" className={styles.heroImage} />
+        <HeroMedia />
         <div className={styles.heroOverlay} />
         <div className={styles.heroContent}>
           <p className={styles.eyebrow}>Turismo educativo municipal</p>

@@ -20,6 +20,7 @@ build/
 out/
 tunnel_url.txt
 *.log
+*.tsbuildinfo
 
 # Project specific
 manychat_node.json
