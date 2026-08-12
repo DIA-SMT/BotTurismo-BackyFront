@@ -84,6 +84,7 @@ export default function HomePage() {
               <p className={styles.sideTitle}>Antes de enviar</p>
               <ul className={styles.infoList}>
                 <li>Elegí el circuito para ver turnos disponibles.</li>
+                <li>Los lunes los museos están cerrados: no hay recorridos.</li>
                 <li>Completá los datos de contacto.</li>
                 <li>Adjuntá la nota modelo en .docx.</li>
               </ul>

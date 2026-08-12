@@ -215,6 +215,10 @@ function AvailabilityCalendar({
         <div className={styles.calendarEmptyNotice}>Consultando turnos disponibles...</div>
       ) : null}
 
+      <p className={styles.museumsClosedNotice}>
+        Importante: los días lunes los museos permanecen cerrados, por lo que no hay recorridos disponibles.
+      </p>
+
       <div className={styles.publicCalendarMonthRow}>
         <label className={styles.publicCalendarMonthLabel}>Ir al mes</label>
         <select
