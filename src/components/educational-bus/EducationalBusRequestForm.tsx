@@ -17,7 +17,6 @@ import {
   gradeYearOptions,
   initialEducationalBusRequestFormData,
   institutionTypeOptions,
-  isAllowedAdvancedSecondaryGrade,
   maximumStudentCount,
   minimumStudentCount,
   preferredShiftOptions,
@@ -270,7 +269,6 @@ export function EducationalBusRequestForm() {
   const availableWeekdays = useMemo(() => getAvailableWeekdaysForCircuit(formData.circuit), [formData.circuit])
   const selectedDayAvailability = formData.requestedDate ? availabilityByDate[formData.requestedDate] : undefined
   const availableShifts = selectedDayAvailability?.availableShifts || []
-  const isMemoryCircuit = formData.circuit === 'memoria'
 
   useEffect(() => {
     if (!formData.circuit) {
@@ -354,25 +352,6 @@ export function EducationalBusRequestForm() {
 
     setAvailabilityMessage(null)
   }, [availableShifts.length, availableWeekdays, formData.circuit, formData.requestedDate, selectedWeekday])
-
-  useEffect(() => {
-    if (!isMemoryCircuit) {
-      setErrors((current) => {
-        if (!current.gradeYear?.includes('Memoria')) return current
-        const next = { ...current }
-        delete next.gradeYear
-        return next
-      })
-      return
-    }
-
-    if (formData.gradeYear && !isAllowedAdvancedSecondaryGrade(formData.gradeYear)) {
-      setErrors((current) => ({
-        ...current,
-        gradeYear: 'El circuito Memoria está disponible únicamente para los últimos 3 años del nivel secundario.',
-      }))
-    }
-  }, [formData.gradeYear, isMemoryCircuit])
 
   const updateField = <K extends keyof EducationalBusRequestFormData>(field: K, value: EducationalBusRequestFormData[K]) => {
     setFormData((current) => ({ ...current, [field]: value }))
@@ -532,13 +511,7 @@ export function EducationalBusRequestForm() {
         </a>
       </div>
 
-      {isMemoryCircuit ? (
-        <div className={styles.circuitNotice}>
-          <p className={styles.circuitNoticeTitle}>Circuito Memoria</p>
-          <p className={styles.circuitNoticeText}>Este circuito está disponible únicamente para los últimos 3 años del nivel secundario.</p>
-          <p className={styles.circuitNoticeText}>Disponibilidad limitada: frecuencia de una vez por semana, los jueves por la mañana.</p>
-        </div>
-      ) : formData.circuit === 'historico_cultural' ? (
+      {formData.circuit === 'historico_cultural' ? (
         <div className={styles.circuitNotice}>
           <p className={styles.circuitNoticeTitle}>Circuito Histórico Cultural</p>
           <p className={styles.circuitNoticeText}>Disponible los martes y miércoles por la mañana y la tarde, los jueves por la tarde y los viernes por la mañana.</p>
@@ -614,8 +587,8 @@ export function EducationalBusRequestForm() {
             <Select value={formData.gradeYear} onChange={(event) => updateField('gradeYear', event.target.value)} hasError={Boolean(errors.gradeYear)}>
               <option value="">Seleccionar</option>
               {gradeYearOptions.map((option) => (
-                <option key={option.value} value={option.value} disabled={isMemoryCircuit && !isAllowedAdvancedSecondaryGrade(option.value)}>
-                  {option.label}{isMemoryCircuit && !isAllowedAdvancedSecondaryGrade(option.value) ? ' - no disponible para Memoria' : ''}
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </Select>

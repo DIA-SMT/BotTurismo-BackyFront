@@ -26,6 +26,14 @@ Para probar localmente con ManyChat:
 - `backend/`: Servidor Express, lógica de IA y servicios de integración.
 - `dashboard/`: (Opcional) Interfaz de administración de FAQs e interacciones.
 - `supabase_schema.sql`: Estructura de tablas y vistas para Supabase.
+- `supabase_tourist_bus_migration.sql`: Salidas y reservas del Bus Turístico (ejecutar una vez en el SQL Editor de Supabase).
+
+## 🚌 Sitio público (Next.js)
+
+- `/`: Landing selectora — elegí entre Bus Turístico y Bus Educativo.
+- `/turistico`: Circuitos para turistas y vecinos. Salidas programadas con cupos en tiempo real, reserva auto-confirmada y contenido en español e inglés (toggle ES/EN).
+- `/educativo`: Solicitud de turnos institucionales para escuelas (Circuito Histórico Cultural).
+- `/admin/turistico`: Panel para crear salidas (circuito + fecha + hora + cupo), ver inscriptos, cancelar reservas y exportar a Excel.
 
 ## 🛠️ Tecnologías
 - **Backend:** Node.js, Express.

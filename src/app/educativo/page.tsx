@@ -1,0 +1,117 @@
+import type { Metadata } from 'next'
+import styles from '@/components/educational-bus/form.module.css'
+import { EducationalBusRequestForm } from '@/components/educational-bus/EducationalBusRequestForm'
+import { CircuitInfoAccordionGroup } from '@/components/educational-bus/HistoricalCircuitAccordion'
+import { PriorityNotice } from '@/components/educational-bus/PriorityNotice'
+import { HeroMedia } from '@/components/educational-bus/HeroMedia'
+import { MouseExperience } from '@/components/MouseExperience'
+import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
+
+export const metadata: Metadata = {
+  title: 'Bus Educativo | San Miguel de Tucumán',
+  description:
+    'Solicitá un turno institucional para recorrer San Miguel de Tucumán en el Bus Turístico Educativo. Turnos de lunes a viernes para escuelas e instituciones.',
+}
+
+export default function EducationalBusPage() {
+  return (
+    <main className={styles.page}>
+      <MouseExperience />
+      <header className={styles.header}>
+        <a className={styles.brand} href="#inicio" aria-label="Ir al inicio">
+          <span className={styles.muniBrand}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logoMuni-sm.png" alt="" className={styles.brandLogo} />
+            <span className={styles.muniText}>
+              <span>Ciudad</span>
+              <strong>San Miguel</strong>
+              <strong>de Tucumán</strong>
+            </span>
+          </span>
+          <span className={styles.brandDivider} aria-hidden="true" />
+          <span className={styles.productBrand}>
+            <span className={styles.brandTitle}>Bus Educativo</span>
+          </span>
+        </a>
+
+        <nav className={styles.nav} aria-label="Navegación principal">
+          <a href="#solicitud">Reservar turno</a>
+          <a href="#circuitos">Circuitos</a>
+          <a href="/turistico">Bus turístico</a>
+          <a href="/galeria">Galería</a>
+          <a href="/login">Iniciar sesión</a>
+        </nav>
+
+        <a className={styles.headerAction} href="#solicitud">
+          Solicitar turno
+        </a>
+      </header>
+
+      <section id="inicio" className={styles.hero}>
+        <HeroMedia />
+        <div className={styles.heroOverlay} />
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>Turismo educativo municipal</p>
+          <h1 className={styles.heroTitle}>Reservá una experiencia educativa por la ciudad</h1>
+          <p className={styles.heroLead}>
+            Solicitá un turno institucional para recorrer San Miguel de Tucumán en el Bus Turístico Educativo.
+          </p>
+          <div className={styles.heroActions}>
+            <a className={styles.primaryCta} href="#solicitud">
+              Solicitar turno
+            </a>
+            <a className={styles.secondaryCta} href="#circuitos">
+              Ver circuitos
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div className={styles.assuranceBar}>
+        <span>Servicio educativo municipal</span>
+        <strong>Turnos sujetos a cupo, prioridad y disponibilidad</strong>
+      </div>
+
+      <div className={styles.shell}>
+        <section id="solicitud" className={styles.layoutSplit}>
+          <EducationalBusRequestForm />
+          <aside className={styles.sideStack} id="circuitos">
+            <section className={styles.sideCard}>
+              <p className={styles.sideTitle}>Antes de enviar</p>
+              <ul className={styles.infoList}>
+                <li>Elegí una fecha para ver los turnos disponibles.</li>
+                <li>Completá los datos de contacto.</li>
+                <li>Adjuntá la nota modelo en .docx.</li>
+              </ul>
+              <a href={educationalBusTemplatePublicPath} download className={styles.templateLink} style={{ marginTop: 18 }}>
+                {educationalBusTemplateLabel}
+              </a>
+            </section>
+            <PriorityNotice />
+            <CircuitInfoAccordionGroup
+              items={[
+                {
+                  id: 'historico-cultural',
+                  iconName: 'landmark',
+                  title: 'Circuito Histórico Cultural',
+                  summary: 'Historia, cultura e identidad tucumana.',
+                  paragraphs: [
+                    'El presente circuito histórico-cultural propone un recorrido por espacios emblemáticos de la ciudad de San Miguel de Tucumán que permiten comprender la identidad local a través de su historia, su cultura y su desarrollo productivo.',
+                    'A lo largo del itinerario, los visitantes podrán conocer distintos aspectos que conforman el patrimonio tucumano, desde su pasado industrial hasta sus expresiones artísticas y su legado histórico nacional.',
+                    'El recorrido incluye la visita al Museo de la Industria Azucarera, la Casa Natal de Mercedes Sosa, el Museo Casa de la Ciudad y la Casa Solar Belgraniana, articulando turismo, educación y patrimonio en una propuesta integral.',
+                    'Esta experiencia permite no solo recorrer espacios significativos, sino también reflexionar sobre la construcción de la identidad tucumana y la importancia de preservar ese legado para las futuras generaciones.',
+                  ],
+                },
+              ]}
+            />
+            <section className={styles.sideCard}>
+              <p className={styles.sideTitle}>Qué sucede después</p>
+              <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
+              <p className={styles.sideText}>Si necesitás cancelar un turno confirmado, avisá con 48 horas de anticipación a turismo@smt.gob.ar.</p>
+            </section>
+          </aside>
+        </section>
+      </div>
+    </main>
+  )
+}

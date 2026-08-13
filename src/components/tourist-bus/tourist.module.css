@@ -1,0 +1,267 @@
+.langToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(37, 137, 234, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.langButton {
+  border: 0;
+  background: transparent;
+  color: #68737d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.langButton:hover {
+  color: #126ff5;
+}
+
+.langButtonActive,
+.langButtonActive:hover {
+  background: #2589ea;
+  color: #fff;
+}
+
+.departuresSection {
+  display: grid;
+  gap: 18px;
+}
+
+.departuresHeader {
+  display: grid;
+  gap: 6px;
+  max-width: 720px;
+}
+
+.departuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.departureCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(12, 28, 46, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.departureCard:hover {
+  transform: translateY(-3px);
+  border-color: rgba(37, 137, 234, 0.4);
+  box-shadow: 0 18px 36px rgba(12, 28, 46, 0.1);
+}
+
+.departureDate {
+  color: #126ff5;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.departureTitle {
+  color: #080808;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.departureMeta {
+  display: grid;
+  gap: 4px;
+  color: #68737d;
+  font-size: 0.86rem;
+}
+
+.departureFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.seatsBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: #e8f6ec;
+  color: #1c7c3c;
+}
+
+.seatsBadgeLow {
+  background: #fdf1e2;
+  color: #b25e09;
+}
+
+.seatsBadgeNone {
+  background: #fdecec;
+  color: #b42323;
+}
+
+.departureButton {
+  border: 0;
+  border-radius: 12px;
+  padding: 9px 18px;
+  background: #126ff5;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.departureButton:hover {
+  background: #28469f;
+  transform: translateY(-1px);
+}
+
+.departureButton:disabled {
+  background: #c7ced6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.emptyNotice {
+  padding: 26px;
+  border: 1px dashed rgba(37, 137, 234, 0.4);
+  border-radius: 16px;
+  background: #eef6ff;
+  color: #1f2933;
+  font-size: 0.95rem;
+}
+
+.catalogSection {
+  display: grid;
+  gap: 18px;
+  margin-top: 46px;
+}
+
+.catalogGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.catalogCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(12, 28, 46, 0.05);
+}
+
+.catalogIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #eef6ff;
+  color: #126ff5;
+}
+
+.catalogName {
+  color: #080808;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.catalogSummary {
+  color: #68737d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.catalogMeta {
+  display: grid;
+  gap: 5px;
+  color: #1f2933;
+  font-size: 0.85rem;
+}
+
+.catalogMeta strong {
+  color: #28469f;
+}
+
+.catalogToggle {
+  align-self: flex-start;
+  border: 1px solid rgba(37, 137, 234, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #126ff5;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 15px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.catalogToggle:hover {
+  background: #eef6ff;
+}
+
+.catalogDetails {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+  color: #1f2933;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.highlightsList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: #1f2933;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.officeHours {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #68737d;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 640px) {
+  .departureFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .departureButton {
+    width: 100%;
+  }
+}

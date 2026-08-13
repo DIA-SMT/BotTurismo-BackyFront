@@ -11,8 +11,12 @@ export const preferredShiftOptions = [
 
 export const circuitOptions = [
   { value: 'historico_cultural', label: 'Histórico Cultural' },
-  { value: 'memoria', label: 'Memoria' },
 ] as const
+
+// Circuitos que ya no se ofrecen pero existen en solicitudes históricas.
+const legacyCircuitLabels: Record<string, string> = {
+  memoria: 'Memoria',
+}
 
 export const requestStatusOptions = [
   { value: 'pending', label: 'Pendiente' },
@@ -154,9 +158,6 @@ export const circuitAvailability: Record<EducationalBusCircuit, Partial<Record<B
     jueves: ['tarde'],
     viernes: ['manana'],
   },
-  memoria: {
-    jueves: ['manana'],
-  },
 }
 
 export const educationalBusAttachmentBucket = 'educational-bus-request-files'
@@ -181,7 +182,9 @@ export const initialEducationalBusRequestFormData: EducationalBusRequestFormData
   requestedDate: '',
   preferredShift: '',
   institutionType: '',
-  circuit: '',
+  // Con un único circuito activo lo dejamos preseleccionado para que
+  // el calendario de disponibilidad cargue de entrada.
+  circuit: 'historico_cultural',
   additionalNotes: '',
 }
 
@@ -468,10 +471,6 @@ export function validateEducationalBusRequestForm(data: EducationalBusRequestFor
   }
   if (!data.institutionType) errors.institutionType = 'Selecciona el tipo de institución.'
 
-  if (data.circuit === 'memoria' && data.gradeYear && !isAllowedAdvancedSecondaryGrade(data.gradeYear)) {
-    errors.gradeYear = 'El circuito Memoria está disponible únicamente para los últimos 3 años del nivel secundario.'
-  }
-
   return errors
 }
 
@@ -510,8 +509,10 @@ export function getShiftLabel(shift: PreferredShift) {
   return preferredShiftOptions.find((option) => option.value === shift)?.label || shift
 }
 
-export function getCircuitLabel(circuit: EducationalBusCircuit) {
-  return circuitOptions.find((option) => option.value === circuit)?.label || circuit
+export function getCircuitLabel(circuit: EducationalBusCircuit | string) {
+  return (
+    circuitOptions.find((option) => option.value === circuit)?.label || legacyCircuitLabels[circuit] || circuit
+  )
 }
 
 export function getGradeYearLabel(gradeYear: string) {
