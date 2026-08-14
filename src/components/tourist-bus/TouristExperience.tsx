@@ -63,12 +63,19 @@ function getDepartureDisplayTitle(departure: TouristDepartureAvailability, langu
   return circuit ? circuit.content[language].name : departure.title
 }
 
+// Agrupa salidas por circuito del catálogo; las personalizadas se agrupan por título.
+function getDepartureCircuitKey(departure: TouristDepartureAvailability) {
+  return departure.circuit_slug || `custom:${departure.title}`
+}
+
 export function TouristExperience() {
   const [language, setLanguage] = useState<TouristLanguage>('es')
   const [departures, setDepartures] = useState<TouristDepartureAvailability[]>([])
   const [departuresLoading, setDeparturesLoading] = useState(true)
   const [departuresFailed, setDeparturesFailed] = useState(false)
   const [formData, setFormData] = useState<TouristBookingFormData>(initialTouristBookingFormData)
+  const [selectedCircuitKey, setSelectedCircuitKey] = useState('')
+  const [circuitError, setCircuitError] = useState(false)
   const [errors, setErrors] = useState<TouristBookingFormErrors>({})
   const [submitState, setSubmitState] = useState<SubmitState>({ type: 'idle' })
   const [submitting, setSubmitting] = useState(false)
@@ -112,10 +119,37 @@ export function TouristExperience() {
     [departures],
   )
 
+  const circuitGroups = useMemo(() => {
+    const groups = new Map<string, string>()
+    for (const departure of bookableDepartures) {
+      const key = getDepartureCircuitKey(departure)
+      if (!groups.has(key)) groups.set(key, getDepartureDisplayTitle(departure, language))
+    }
+    return Array.from(groups.entries()).map(([key, label]) => ({ key, label }))
+  }, [bookableDepartures, language])
+
+  const circuitDepartures = useMemo(
+    () => bookableDepartures.filter((departure) => getDepartureCircuitKey(departure) === selectedCircuitKey),
+    [bookableDepartures, selectedCircuitKey],
+  )
+
   const selectedDeparture = useMemo(
     () => departures.find((departure) => String(departure.id) === formData.departureId) || null,
     [departures, formData.departureId],
   )
+
+  // Si al refrescar los cupos el circuito o la salida elegida dejaron de estar
+  // disponibles, se limpia la selección para no reservar sobre datos viejos.
+  useEffect(() => {
+    if (selectedCircuitKey && !circuitGroups.some((group) => group.key === selectedCircuitKey)) {
+      setSelectedCircuitKey('')
+      setFormData((current) => (current.departureId ? { ...current, departureId: '' } : current))
+      return
+    }
+    if (formData.departureId && !circuitDepartures.some((departure) => String(departure.id) === formData.departureId)) {
+      setFormData((current) => ({ ...current, departureId: '' }))
+    }
+  }, [circuitDepartures, circuitGroups, formData.departureId, selectedCircuitKey])
 
   const maxPeopleForSelection = selectedDeparture
     ? Math.min(maximumPeoplePerBooking, selectedDeparture.remaining)
@@ -134,7 +168,31 @@ export function TouristExperience() {
     })
   }
 
+  const handleCircuitChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextKey = event.target.value
+    setSelectedCircuitKey(nextKey)
+    setCircuitError(false)
+
+    const departuresForCircuit = bookableDepartures.filter(
+      (departure) => getDepartureCircuitKey(departure) === nextKey,
+    )
+    setFormData((current) => ({
+      ...current,
+      // Con una sola salida disponible para el circuito, se elige directamente.
+      departureId: departuresForCircuit.length === 1 ? String(departuresForCircuit[0].id) : '',
+    }))
+    setErrors((current) => {
+      if (!current.departureId) return current
+      const next = { ...current }
+      delete next.departureId
+      return next
+    })
+  }
+
   const selectDeparture = (departureId: number) => {
+    const departure = departures.find((item) => item.id === departureId)
+    if (departure) setSelectedCircuitKey(getDepartureCircuitKey(departure))
+    setCircuitError(false)
     setFormData((current) => ({ ...current, departureId: String(departureId) }))
     setErrors((current) => {
       if (!current.departureId) return current
@@ -150,7 +208,8 @@ export function TouristExperience() {
     setSubmitState({ type: 'idle' })
 
     const validationErrors = validateTouristBookingForm(formData)
-    if (Object.keys(validationErrors).length > 0) {
+    if (!selectedCircuitKey) setCircuitError(true)
+    if (Object.keys(validationErrors).length > 0 || !selectedCircuitKey) {
       setErrors(validationErrors)
       return
     }
@@ -184,6 +243,8 @@ export function TouristExperience() {
           : '',
       })
       setFormData(initialTouristBookingFormData)
+      setSelectedCircuitKey('')
+      setCircuitError(false)
       setErrors({})
       void loadDepartures()
     } catch {
@@ -351,6 +412,22 @@ export function TouristExperience() {
             <form onSubmit={handleSubmit} noValidate>
               <div className={formStyles.grid}>
                 <FormField
+                  label={copy.circuitField}
+                  required
+                  error={circuitError ? copy.circuitRequired : undefined}
+                  className={formStyles.gridFull}
+                >
+                  <Select value={selectedCircuitKey} onChange={handleCircuitChange} hasError={circuitError}>
+                    <option value="">{copy.circuitPlaceholder}</option>
+                    {circuitGroups.map((group) => (
+                      <option key={group.key} value={group.key}>
+                        {group.label}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+
+                <FormField
                   label={copy.departureField}
                   required
                   error={errors.departureId ? copy.fieldErrors[errors.departureId] : undefined}
@@ -359,12 +436,15 @@ export function TouristExperience() {
                   <Select
                     value={formData.departureId}
                     onChange={updateField('departureId')}
+                    disabled={!selectedCircuitKey}
                     hasError={Boolean(errors.departureId)}
                   >
-                    <option value="">{copy.departurePlaceholder}</option>
-                    {bookableDepartures.map((departure) => (
+                    <option value="">
+                      {selectedCircuitKey ? copy.departurePlaceholder : copy.departureSelectCircuitFirst}
+                    </option>
+                    {circuitDepartures.map((departure) => (
                       <option key={departure.id} value={String(departure.id)}>
-                        {formatDepartureDate(departure.departure_date, language)} · {formatDepartureTime(departure.departure_time)} h — {getDepartureDisplayTitle(departure, language)} ({copy.seatsLeft(departure.remaining)})
+                        {formatDepartureDate(departure.departure_date, language)} · {formatDepartureTime(departure.departure_time)} h ({copy.seatsLeft(departure.remaining)})
                       </option>
                     ))}
                   </Select>

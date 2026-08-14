@@ -24,8 +24,12 @@ export interface TouristPageCopy {
   bookCta: string
   formTitle: string
   formLead: string
+  circuitField: string
+  circuitPlaceholder: string
+  circuitRequired: string
   departureField: string
   departurePlaceholder: string
+  departureSelectCircuitFirst: string
   fullNameField: string
   fullNamePlaceholder: string
   emailField: string
@@ -77,8 +81,12 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bookCta: 'Reservar',
     formTitle: 'Reservá tu lugar',
     formLead: 'Completá tus datos y confirmá al instante. La reserva es gratuita.',
+    circuitField: 'Circuito',
+    circuitPlaceholder: 'Elegí un circuito',
+    circuitRequired: 'Elegí un circuito.',
     departureField: 'Salida',
-    departurePlaceholder: 'Elegí una salida',
+    departurePlaceholder: 'Elegí fecha y horario',
+    departureSelectCircuitFirst: 'Primero elegí un circuito',
     fullNameField: 'Nombre y apellido',
     fullNamePlaceholder: 'Ej: Ana Pérez',
     emailField: 'Correo electrónico',
@@ -147,8 +155,12 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bookCta: 'Book',
     formTitle: 'Book your seat',
     formLead: 'Fill in your details and get instant confirmation. Booking is free.',
+    circuitField: 'Circuit',
+    circuitPlaceholder: 'Choose a circuit',
+    circuitRequired: 'Choose a circuit.',
     departureField: 'Departure',
-    departurePlaceholder: 'Choose a departure',
+    departurePlaceholder: 'Choose date and time',
+    departureSelectCircuitFirst: 'First choose a circuit',
     fullNameField: 'Full name',
     fullNamePlaceholder: 'E.g. Jane Smith',
     emailField: 'Email',
