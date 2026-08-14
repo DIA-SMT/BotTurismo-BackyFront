@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import formStyles from '@/components/educational-bus/form.module.css'
 import styles from './tourist.module.css'
-import { HeroMedia } from '@/components/educational-bus/HeroMedia'
+import { TouristHeroMedia } from './TouristHeroMedia'
 import { MouseExperience } from '@/components/MouseExperience'
 import { FormField } from '@/components/educational-bus/FormField'
 import { Input } from '@/components/educational-bus/Input'
@@ -316,7 +316,7 @@ export function TouristExperience() {
       </header>
 
       <section id="inicio" className={formStyles.hero}>
-        <HeroMedia />
+        <TouristHeroMedia />
         <div className={formStyles.heroOverlay} />
         <div className={formStyles.heroContent}>
           <p className={formStyles.eyebrow}>{copy.eyebrow}</p>
