@@ -35,6 +35,20 @@ Para probar localmente con ManyChat:
 - `/educativo`: Solicitud de turnos institucionales para escuelas (Circuito Histórico Cultural).
 - `/admin/turistico`: Panel para crear salidas (circuito + fecha + hora + cupo), ver inscriptos, cancelar reservas y exportar a Excel.
 
+### 📧 Mail de confirmación de reservas (opcional)
+
+Al confirmarse una reserva del bus turístico se envía un correo al turista (en su idioma, ES o EN). Requiere configurar SMTP en el `.env` (o en las variables de Vercel); si falta, la reserva funciona igual y solo se omite el correo.
+
+```
+SMTP_HOST=smtp.ejemplo.com
+SMTP_PORT=587
+SMTP_USER=usuario@smt.gob.ar
+SMTP_PASS=xxxxxxxx
+SMTP_FROM="Bus Turístico SMT <turismo@smt.gob.ar>"   # opcional, default: SMTP_USER
+SMTP_SECURE=false                                     # opcional, "true" para puerto 465
+SMTP_REPLY_TO=turismo@smt.gob.ar                      # opcional
+```
+
 ## 🛠️ Tecnologías
 - **Backend:** Node.js, Express.
 - **IA:** LangChain, OpenRouter (Gemini Flash & Pro).

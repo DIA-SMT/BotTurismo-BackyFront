@@ -41,6 +41,7 @@ export interface TouristPageCopy {
   submittingLabel: string
   successTitle: string
   successBody: (title: string, dateLabel: string) => string
+  successEmailNote: string
   circuitsTitle: string
   circuitsLead: string
   scheduleLabel: string
@@ -99,6 +100,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     successTitle: '¡Reserva confirmada!',
     successBody: (title, dateLabel) =>
       `Tu lugar para "${title}" (${dateLabel}) quedó confirmado. Presentate 10 minutos antes de la salida.`,
+    successEmailNote: 'Te enviamos un correo con los detalles de tu reserva.',
     circuitsTitle: 'Nuestros circuitos',
     circuitsLead:
       'Una propuesta integral para descubrir la ciudad desde su historia, su arte y su gente. Las salidas disponibles de cada circuito se publican en la sección de arriba.',
@@ -173,6 +175,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     successTitle: 'Booking confirmed!',
     successBody: (title, dateLabel) =>
       `Your seat for "${title}" (${dateLabel}) is confirmed. Please arrive 10 minutes before departure.`,
+    successEmailNote: 'We sent you an email with your booking details.',
     circuitsTitle: 'Our circuits',
     circuitsLead:
       'A complete way to discover the city through its history, art and people. Available departures for each circuit are published in the section above.',

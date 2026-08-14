@@ -55,7 +55,7 @@ const circuitIcons: Record<TouristCircuitIcon, typeof Landmark> = {
 
 type SubmitState =
   | { type: 'idle' }
-  | { type: 'success'; title: string; dateLabel: string }
+  | { type: 'success'; title: string; dateLabel: string; emailSent: boolean }
   | { type: 'error'; code: TouristBookingApiErrorCode }
 
 function getDepartureDisplayTitle(departure: TouristDepartureAvailability, language: TouristLanguage) {
@@ -222,7 +222,11 @@ export function TouristExperience() {
         body: JSON.stringify({ ...formData, language }),
       })
       const payload = (await response.json().catch(() => null)) as
-        | { code?: TouristBookingApiErrorCode; fieldErrors?: TouristBookingFormErrors }
+        | {
+            code?: TouristBookingApiErrorCode
+            fieldErrors?: TouristBookingFormErrors
+            data?: { emailSent?: boolean }
+          }
         | null
 
       if (!response.ok) {
@@ -241,6 +245,7 @@ export function TouristExperience() {
         dateLabel: bookedDeparture
           ? `${formatDepartureDate(bookedDeparture.departure_date, language)} · ${formatDepartureTime(bookedDeparture.departure_time)} h`
           : '',
+        emailSent: Boolean(payload?.data?.emailSent),
       })
       setFormData(initialTouristBookingFormData)
       setSelectedCircuitKey('')
@@ -402,7 +407,7 @@ export function TouristExperience() {
               <StatusBanner
                 tone="success"
                 title={copy.successTitle}
-                description={copy.successBody(submitState.title, submitState.dateLabel)}
+                description={`${copy.successBody(submitState.title, submitState.dateLabel)}${submitState.emailSent ? ` ${copy.successEmailNote}` : ''}`}
               />
             ) : null}
             {submitState.type === 'error' ? (

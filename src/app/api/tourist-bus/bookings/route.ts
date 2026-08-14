@@ -3,10 +3,15 @@ import { createServerSupabaseClient } from '@/lib/server-supabase'
 import {
   toTouristBookingRpcParams,
   validateTouristBookingForm,
+  type TouristBooking,
   type TouristBookingApiErrorCode,
   type TouristBookingFormData,
+  type TouristDeparture,
   type TouristLanguage,
 } from '@/lib/tourist-bus'
+import { isBookingEmailConfigured, sendTouristBookingConfirmationEmail } from '@/lib/tourist-booking-email'
+
+export const runtime = 'nodejs'
 
 const errorStatusByCode: Record<Exclude<TouristBookingApiErrorCode, 'VALIDATION' | 'SERVER'>, number> = {
   NOT_FOUND: 404,
@@ -68,5 +73,26 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  return NextResponse.json({ data: { booking: result.booking, remaining: result.remaining ?? null } }, { status: 201 })
+  // Correo de confirmación: se intenta después de asegurar la reserva y
+  // nunca la bloquea (si falla o no hay SMTP configurado, emailSent = false).
+  let emailSent = false
+  if (isBookingEmailConfigured() && result.booking) {
+    const { data: departure } = await supabase
+      .from('tourist_departures')
+      .select('*')
+      .eq('id', Number(formData.departureId))
+      .single()
+
+    if (departure) {
+      emailSent = await sendTouristBookingConfirmationEmail({
+        booking: result.booking as TouristBooking,
+        departure: departure as TouristDeparture,
+      })
+    }
+  }
+
+  return NextResponse.json(
+    { data: { booking: result.booking, remaining: result.remaining ?? null, emailSent } },
+    { status: 201 },
+  )
 }
