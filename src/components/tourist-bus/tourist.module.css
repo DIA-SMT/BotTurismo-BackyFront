@@ -1,3 +1,14 @@
+/* Overlay más liviano que el del educativo: deja ver mejor las fotos. */
+.heroOverlayLight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(7, 31, 65, 0.64) 0%, rgba(10, 52, 101, 0.46) 37%, rgba(12, 68, 128, 0.14) 68%, rgba(10, 48, 91, 0.02) 100%),
+    linear-gradient(180deg, rgba(5, 22, 46, 0.04) 45%, rgba(5, 27, 57, 0.5) 100%);
+  pointer-events: none;
+}
+
 .heroSlide {
   position: absolute;
   inset: 0;

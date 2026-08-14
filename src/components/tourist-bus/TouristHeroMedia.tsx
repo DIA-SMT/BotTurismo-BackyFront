@@ -3,12 +3,9 @@
 import { useEffect, useState } from 'react'
 import formStyles from '@/components/educational-bus/form.module.css'
 import styles from './tourist.module.css'
+import { touristHeroImages as heroImages } from '@/lib/tourist-circuits'
 
 const slideIntervalMs = 7000
-
-// Imágenes en public/. El slideshow alterna con fundido suave; con
-// prefers-reduced-motion queda fija la primera.
-const heroImages = ['/hero-turistico-plaza.jpg', '/hero-turistico-cadillal.jpg']
 
 export function TouristHeroMedia() {
   const [activeIndex, setActiveIndex] = useState(0)

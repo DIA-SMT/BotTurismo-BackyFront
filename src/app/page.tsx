@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Bus, GraduationCap } from 'lucide-react'
 import styles from './landing.module.css'
-import { HeroMedia } from '@/components/educational-bus/HeroMedia'
+import { LandingHeroBackground } from '@/components/landing/LandingHeroBackground'
 
 export const metadata: Metadata = {
   title: 'Bus Turístico de San Miguel de Tucumán',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main className={styles.page}>
-      <HeroMedia />
+      <LandingHeroBackground variant="split" />
       <div className={styles.overlay} />
 
       <header className={styles.topBar}>
@@ -41,7 +41,7 @@ export default function HomePage() {
         </p>
 
         <div className={styles.choiceGrid}>
-          <Link href="/turistico" className={styles.choiceCard}>
+          <Link href="/turistico" className={`${styles.choiceCard} ${styles.choiceCardTourist}`}>
             <span className={styles.choiceIcon}>
               <Bus size={26} strokeWidth={1.9} />
             </span>
@@ -57,7 +57,7 @@ export default function HomePage() {
             <span className={styles.choiceCta}>Reservar lugar →</span>
           </Link>
 
-          <Link href="/educativo" className={styles.choiceCard}>
+          <Link href="/educativo" className={`${styles.choiceCard} ${styles.choiceCardEducational}`}>
             <span className={styles.choiceIcon}>
               <GraduationCap size={26} strokeWidth={1.9} />
             </span>

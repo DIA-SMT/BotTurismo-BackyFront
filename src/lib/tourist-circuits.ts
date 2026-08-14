@@ -388,6 +388,15 @@ export const touristCircuitCatalog: TouristCircuit[] = [
   },
 ]
 
+// Imágenes de los heros (público turista y landing). Para sumar una nueva:
+// guardarla optimizada en public/ y agregarla acá.
+export const touristHeroImages = [
+  '/hero-turistico-plaza.jpg',
+  '/hero-turistico-casa-historica.jpg',
+  '/hero-turistico-cadillal.jpg',
+  '/hero-turistico-folklore.jpg',
+]
+
 export function getTouristCircuitBySlug(slug: string | null | undefined) {
   if (!slug) return null
   return touristCircuitCatalog.find((circuit) => circuit.slug === slug) || null

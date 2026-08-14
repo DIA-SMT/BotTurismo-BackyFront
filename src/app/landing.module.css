@@ -10,13 +10,97 @@
   color: #fff;
 }
 
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  background: #0f4fa2;
+}
+
+.bgMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.bgSlide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1);
+  transition: opacity 1600ms ease-in-out, transform 8500ms ease-out;
+}
+
+.bgSlideActive {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.bgSplit {
+  display: flex;
+}
+
+.bgHalf {
+  position: relative;
+  flex: 1 1 50%;
+  overflow: hidden;
+}
+
+.bgEducational {
+  flex: 1 1 calc(50% + 8vw);
+  margin-left: -8vw;
+  clip-path: polygon(8vw 0, 100% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(-8px 0 22px rgba(3, 14, 31, 0.55));
+}
+
+.bgHalfVeil {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 25, 52, 0.22);
+  transition: background 320ms ease;
+  pointer-events: none;
+}
+
+.page:has(.choiceCardTourist:hover) .bgTourist .bgHalfVeil,
+.page:has(.choiceCardTourist:focus-visible) .bgTourist .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.08);
+}
+
+.page:has(.choiceCardTourist:hover) .bgEducational .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.6);
+}
+
+.page:has(.choiceCardEducational:hover) .bgEducational .bgHalfVeil,
+.page:has(.choiceCardEducational:focus-visible) .bgEducational .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.08);
+}
+
+.page:has(.choiceCardEducational:hover) .bgTourist .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bgSlide {
+    transition: none;
+    transform: none;
+  }
+
+  .bgSlideActive {
+    transform: none;
+  }
+}
+
 .overlay {
   position: absolute;
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(90deg, rgba(7, 31, 65, 0.88) 0%, rgba(10, 52, 101, 0.74) 40%, rgba(12, 68, 128, 0.42) 70%, rgba(10, 48, 91, 0.3) 100%),
-    linear-gradient(180deg, rgba(5, 22, 46, 0.25) 0%, rgba(5, 27, 57, 0.72) 100%);
+    linear-gradient(90deg, rgba(7, 31, 65, 0.7) 0%, rgba(10, 52, 101, 0.5) 40%, rgba(12, 68, 128, 0.2) 70%, rgba(10, 48, 91, 0.1) 100%),
+    linear-gradient(180deg, rgba(5, 22, 46, 0.1) 0%, rgba(5, 27, 57, 0.52) 100%);
   pointer-events: none;
 }
 
@@ -213,5 +297,15 @@
 
   .choiceGrid {
     grid-template-columns: 1fr;
+  }
+
+  /* En pantallas chicas las tarjetas van apiladas: queda solo el
+     slideshow turístico a pantalla completa. */
+  .bgEducational {
+    display: none;
+  }
+
+  .bgTourist {
+    flex: 1 1 100%;
   }
 }

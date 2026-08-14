@@ -317,7 +317,7 @@ export function TouristExperience() {
 
       <section id="inicio" className={formStyles.hero}>
         <TouristHeroMedia />
-        <div className={formStyles.heroOverlay} />
+        <div className={styles.heroOverlayLight} />
         <div className={formStyles.heroContent}>
           <p className={formStyles.eyebrow}>{copy.eyebrow}</p>
           <h1 className={formStyles.heroTitle}>{copy.heroTitle}</h1>
