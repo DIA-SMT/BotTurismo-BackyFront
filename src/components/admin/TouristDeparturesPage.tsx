@@ -28,11 +28,24 @@ import {
   type TouristBooking,
   type TouristDepartureAvailability,
 } from '@/lib/tourist-bus'
-import { touristCircuitCatalog } from '@/lib/tourist-circuits'
+import type { TouristCircuitRecord } from '@/lib/tourist-circuits'
+import { TouristCircuitsPanel } from './TouristCircuitsPanel'
 
 type Scope = 'upcoming' | 'past' | 'all'
+type AdminTab = 'salidas' | 'circuitos'
 
 const customCircuitValue = '__custom__'
+
+// Índice 0 = domingo (convención de JS Date.getDay), presentado lunes primero.
+const batchWeekdayOptions = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mié' },
+  { value: 4, label: 'Jue' },
+  { value: 5, label: 'Vie' },
+  { value: 6, label: 'Sáb' },
+  { value: 0, label: 'Dom' },
+]
 
 interface NewDepartureForm {
   circuitSlug: string
@@ -42,16 +55,24 @@ interface NewDepartureForm {
   capacity: string
   meetingPoint: string
   notes: string
+  recurring: boolean
+  weekdays: number[]
+  fromDate: string
+  toDate: string
 }
 
 const initialNewDeparture: NewDepartureForm = {
-  circuitSlug: touristCircuitCatalog[0]?.slug || customCircuitValue,
+  circuitSlug: '',
   title: '',
   departureDate: '',
   departureTime: '16:00',
   capacity: '40',
   meetingPoint: 'Plaza Independencia (calle Laprida)',
   notes: '',
+  recurring: false,
+  weekdays: [],
+  fromDate: '',
+  toDate: '',
 }
 
 function toWhatsAppLink(phone: string) {
@@ -95,10 +116,15 @@ export default function TouristDeparturesPage() {
   const todayKey = useMemo(() => getTodayDateStringInBuenosAires(), [])
   const initialMonthBounds = useMemo(() => getMonthBounds(todayKey.slice(0, 7)), [todayKey])
 
+  const [activeTab, setActiveTab] = useState<AdminTab>('salidas')
   const [scope, setScope] = useState<Scope>('upcoming')
   const [departures, setDepartures] = useState<TouristDepartureAvailability[]>([])
   const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [circuitRecords, setCircuitRecords] = useState<TouristCircuitRecord[]>([])
+  const [circuitsLoading, setCircuitsLoading] = useState(true)
+  const [circuitsError, setCircuitsError] = useState<string | null>(null)
+  const [aiConfigured, setAiConfigured] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newDeparture, setNewDeparture] = useState<NewDepartureForm>(initialNewDeparture)
   const [creating, setCreating] = useState(false)
@@ -129,6 +155,29 @@ export default function TouristDeparturesPage() {
   useEffect(() => {
     fetchDepartures()
   }, [fetchDepartures])
+
+  const fetchCircuits = useCallback(async () => {
+    setCircuitsLoading(true)
+    setCircuitsError(null)
+    try {
+      const response = await fetch('/api/admin/tourist-circuits', { cache: 'no-store' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudieron cargar los circuitos.')
+      setCircuitRecords(result.data || [])
+      setAiConfigured(Boolean(result.aiConfigured))
+    } catch (error) {
+      setCircuitRecords([])
+      setCircuitsError(error instanceof Error ? error.message : 'No se pudieron cargar los circuitos.')
+    } finally {
+      setCircuitsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCircuits()
+  }, [fetchCircuits])
+
+  const activeCircuits = useMemo(() => circuitRecords.filter((record) => record.active), [circuitRecords])
 
   const stats = useMemo(() => {
     const active = departures.filter((departure) => departure.status === 'active')
@@ -163,22 +212,47 @@ export default function TouristDeparturesPage() {
     })
   }
 
+  // Elegir un circuito precarga su cupo y punto de encuentro por defecto.
+  const handleCircuitSelect = (value: string) => {
+    const record = activeCircuits.find((circuit) => circuit.slug === value)
+    setNewDeparture((current) => ({
+      ...current,
+      circuitSlug: value,
+      capacity: record?.default_capacity ? String(record.default_capacity) : current.capacity,
+      meetingPoint: record?.default_meeting_point ?? current.meetingPoint,
+    }))
+  }
+
+  const toggleBatchWeekday = (weekday: number) => {
+    setNewDeparture((current) => ({
+      ...current,
+      weekdays: current.weekdays.includes(weekday)
+        ? current.weekdays.filter((day) => day !== weekday)
+        : [...current.weekdays, weekday],
+    }))
+  }
+
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setCreating(true)
     setCreateErrors({})
     setFeedback(null)
     try {
-      const payload = {
+      const basePayload = {
         circuitSlug: newDeparture.circuitSlug === customCircuitValue ? '' : newDeparture.circuitSlug,
         title: newDeparture.title,
-        departureDate: newDeparture.departureDate,
         departureTime: newDeparture.departureTime,
         capacity: Number(newDeparture.capacity),
         meetingPoint: newDeparture.meetingPoint,
         notes: newDeparture.notes,
       }
-      const response = await fetch('/api/admin/tourist-departures', {
+
+      const url = newDeparture.recurring ? '/api/admin/tourist-departures/batch' : '/api/admin/tourist-departures'
+      const payload = newDeparture.recurring
+        ? { ...basePayload, weekdays: newDeparture.weekdays, fromDate: newDeparture.fromDate, toDate: newDeparture.toDate }
+        : { ...basePayload, departureDate: newDeparture.departureDate }
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -188,7 +262,14 @@ export default function TouristDeparturesPage() {
         if (result.fieldErrors) setCreateErrors(result.fieldErrors)
         throw new Error(result.error || 'No se pudo crear la salida.')
       }
-      setFeedback('Salida creada correctamente.')
+
+      if (newDeparture.recurring) {
+        const created = result.data?.created ?? 0
+        const skipped = result.data?.skipped ?? 0
+        setFeedback(`Se crearon ${created} salidas${skipped > 0 ? ` (${skipped} ya existían y se saltearon)` : ''}.`)
+      } else {
+        setFeedback('Salida creada correctamente.')
+      }
       setNewDeparture((current) => ({ ...initialNewDeparture, circuitSlug: current.circuitSlug }))
       setShowCreateForm(false)
       await fetchDepartures()
@@ -196,6 +277,39 @@ export default function TouristDeparturesPage() {
       setFeedback(error instanceof Error ? error.message : 'No se pudo crear la salida.')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const cancelDepartureWithNotice = async (departure: TouristDepartureAvailability) => {
+    const confirmMessage =
+      departure.reserved > 0
+        ? `¿Cancelar la salida "${departure.title}"? Se avisará por mail a los inscriptos (${departure.reserved} lugares reservados).`
+        : `¿Cancelar la salida "${departure.title}"?`
+    if (!window.confirm(confirmMessage)) return
+
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/admin/tourist-departures/${departure.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', notifyBookings: true }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo cancelar la salida.')
+
+      const notification = result.notification as { sent: number; failed: number; emailConfigured: boolean } | null
+      if (!notification || departure.reserved === 0) {
+        setFeedback('Salida cancelada.')
+      } else if (!notification.emailConfigured) {
+        setFeedback('Salida cancelada. No se enviaron avisos porque el SMTP no está configurado: contactá a los inscriptos manualmente.')
+      } else {
+        setFeedback(
+          `Salida cancelada. Avisos enviados: ${notification.sent}${notification.failed > 0 ? ` · fallaron ${notification.failed} (contactalos manualmente)` : ''}.`,
+        )
+      }
+      await fetchDepartures()
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'No se pudo cancelar la salida.')
     }
   }
 
@@ -295,21 +409,45 @@ export default function TouristDeparturesPage() {
       <div className="page-header">
         <div>
           <h2>Bus Turístico</h2>
-          <p>Salidas programadas, cupos y reservas del bus turístico para el público general.</p>
+          <p>Salidas programadas, cupos, reservas y catálogo de circuitos.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn btn-secondary" onClick={fetchDepartures} disabled={loading}>
-            <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
-            Actualizar
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowCreateForm((current) => !current)}>
-            <Plus size={14} />
-            Nueva salida
-          </button>
+          <div className="view-toggle-group">
+            <button className={`btn ${activeTab === 'salidas' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('salidas')}>
+              <CalendarDays size={14} />
+              Salidas
+            </button>
+            <button className={`btn ${activeTab === 'circuitos' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('circuitos')}>
+              <Bus size={14} />
+              Circuitos
+            </button>
+          </div>
+          {activeTab === 'salidas' ? (
+            <>
+              <button className="btn btn-secondary" onClick={fetchDepartures} disabled={loading}>
+                <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
+                Actualizar
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowCreateForm((current) => !current)}>
+                <Plus size={14} />
+                Nueva salida
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
 
       <div className="page-body">
+        {activeTab === 'circuitos' ? (
+          <TouristCircuitsPanel
+            records={circuitRecords}
+            aiConfigured={aiConfigured}
+            loading={circuitsLoading}
+            loadError={circuitsError}
+            onChanged={fetchCircuits}
+          />
+        ) : (
+        <>
         {feedback ? (
           <div className="badge" style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--info)', marginBottom: 16 }}>
             {feedback}
@@ -329,11 +467,12 @@ export default function TouristDeparturesPage() {
                   <select
                     className="select"
                     value={newDeparture.circuitSlug}
-                    onChange={(event) => setNewDeparture((current) => ({ ...current, circuitSlug: event.target.value }))}
+                    onChange={(event) => handleCircuitSelect(event.target.value)}
                   >
-                    {touristCircuitCatalog.map((circuit) => (
+                    <option value="">Elegí un circuito</option>
+                    {activeCircuits.map((circuit) => (
                       <option key={circuit.slug} value={circuit.slug}>
-                        {circuit.content.es.name}
+                        {circuit.name_es}
                       </option>
                     ))}
                     <option value={customCircuitValue}>Otro circuito (personalizado)</option>
@@ -351,17 +490,44 @@ export default function TouristDeparturesPage() {
                     {createErrors.title ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.title}</span> : null}
                   </label>
                 ) : null}
-                <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
-                  Fecha
-                  <input
-                    type="date"
-                    className="input"
-                    min={todayKey}
-                    value={newDeparture.departureDate}
-                    onChange={(event) => setNewDeparture((current) => ({ ...current, departureDate: event.target.value }))}
-                  />
-                  {createErrors.departureDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.departureDate}</span> : null}
-                </label>
+                {!newDeparture.recurring ? (
+                  <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                    Fecha
+                    <input
+                      type="date"
+                      className="input"
+                      min={todayKey}
+                      value={newDeparture.departureDate}
+                      onChange={(event) => setNewDeparture((current) => ({ ...current, departureDate: event.target.value }))}
+                    />
+                    {createErrors.departureDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.departureDate}</span> : null}
+                  </label>
+                ) : (
+                  <>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                      Desde
+                      <input
+                        type="date"
+                        className="input"
+                        min={todayKey}
+                        value={newDeparture.fromDate}
+                        onChange={(event) => setNewDeparture((current) => ({ ...current, fromDate: event.target.value }))}
+                      />
+                      {createErrors.fromDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.fromDate}</span> : null}
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                      Hasta
+                      <input
+                        type="date"
+                        className="input"
+                        min={newDeparture.fromDate || todayKey}
+                        value={newDeparture.toDate}
+                        onChange={(event) => setNewDeparture((current) => ({ ...current, toDate: event.target.value }))}
+                      />
+                      {createErrors.toDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.toDate}</span> : null}
+                    </label>
+                  </>
+                )}
                 <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
                   Hora
                   <input
@@ -403,9 +569,38 @@ export default function TouristDeparturesPage() {
                   />
                 </label>
               </div>
+
+              <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+                <label className="flex items-center gap-2" style={{ fontSize: 13, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newDeparture.recurring}
+                    onChange={(event) => setNewDeparture((current) => ({ ...current, recurring: event.target.checked }))}
+                  />
+                  Repetir semanalmente (genera todas las salidas del período de una sola vez)
+                </label>
+                {newDeparture.recurring ? (
+                  <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13 }}>Días:</span>
+                    {batchWeekdayOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`btn ${newDeparture.weekdays.includes(option.value) ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ height: 30, padding: '0 12px', fontSize: 12 }}
+                        onClick={() => toggleBatchWeekday(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    {createErrors.weekdays ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.weekdays}</span> : null}
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex items-center gap-2" style={{ marginTop: 14 }}>
                 <button type="submit" className="btn btn-primary" disabled={creating}>
-                  {creating ? 'Creando...' : 'Crear salida'}
+                  {creating ? 'Creando...' : newDeparture.recurring ? 'Crear salidas del período' : 'Crear salida'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>
                   Cancelar
@@ -541,7 +736,7 @@ export default function TouristDeparturesPage() {
                                 <button
                                   className="btn btn-secondary"
                                   style={{ height: 32, padding: '0 10px', fontSize: 13, color: '#ef4444' }}
-                                  onClick={() => patchDeparture(departure.id, { status: 'cancelled' }, 'Salida cancelada.')}
+                                  onClick={() => cancelDepartureWithNotice(departure)}
                                 >
                                   <Ban size={14} />
                                   Cancelar
@@ -678,6 +873,8 @@ export default function TouristDeparturesPage() {
             </table>
           </div>
         </div>
+        </>
+        )}
       </div>
     </>
   )

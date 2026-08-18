@@ -1,16 +1,23 @@
 import type { TouristLanguage } from '@/lib/tourist-bus'
 
-export type TouristCircuitIcon =
-  | 'landmark'
-  | 'bus'
-  | 'map'
-  | 'footprints'
-  | 'moon'
-  | 'sparkles'
-  | 'church'
-  | 'lights'
-  | 'sandwich'
-  | 'empanada'
+export const touristCircuitIconOptions = [
+  { value: 'landmark', label: 'Monumento' },
+  { value: 'bus', label: 'Bus' },
+  { value: 'map', label: 'Mapa' },
+  { value: 'footprints', label: 'Caminata' },
+  { value: 'moon', label: 'Nocturno' },
+  { value: 'sparkles', label: 'Arte' },
+  { value: 'church', label: 'Templo' },
+  { value: 'lights', label: 'Luces' },
+  { value: 'sandwich', label: 'Sánguche' },
+  { value: 'empanada', label: 'Gastronómico' },
+] as const
+
+export type TouristCircuitIcon = (typeof touristCircuitIconOptions)[number]['value']
+
+export function isTouristCircuitIcon(value: string): value is TouristCircuitIcon {
+  return touristCircuitIconOptions.some((option) => option.value === value)
+}
 
 export interface TouristCircuitContent {
   name: string
@@ -400,6 +407,90 @@ export const touristHeroImages = [
 export function getTouristCircuitBySlug(slug: string | null | undefined) {
   if (!slug) return null
   return touristCircuitCatalog.find((circuit) => circuit.slug === slug) || null
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo administrable: el contenido vive en la tabla tourist_circuits.
+// El catálogo estático de arriba queda como semilla inicial y fallback.
+// ---------------------------------------------------------------------------
+
+export interface TouristCircuitRecord {
+  id: number
+  created_at: string
+  updated_at: string
+  slug: string
+  icon: string
+  active: boolean
+  sort_order: number
+  default_capacity: number | null
+  default_meeting_point: string | null
+  name_es: string
+  schedule_es: string | null
+  duration_es: string | null
+  summary_es: string | null
+  description_es: string | null
+  highlights_es: string[]
+  name_en: string | null
+  schedule_en: string | null
+  duration_en: string | null
+  summary_en: string | null
+  description_en: string | null
+  highlights_en: string[]
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+// La versión en inglés cae al español campo por campo cuando falta traducción.
+export function mapTouristCircuitRecord(record: TouristCircuitRecord): TouristCircuit {
+  const es: TouristCircuitContent = {
+    name: record.name_es,
+    schedule: record.schedule_es || '',
+    duration: record.duration_es || null,
+    summary: record.summary_es || '',
+    description: record.description_es || '',
+    highlights: toStringArray(record.highlights_es),
+  }
+  const enHighlights = toStringArray(record.highlights_en)
+  const en: TouristCircuitContent = {
+    name: record.name_en || es.name,
+    schedule: record.schedule_en || es.schedule,
+    duration: record.duration_en || es.duration,
+    summary: record.summary_en || es.summary,
+    description: record.description_en || es.description,
+    highlights: enHighlights.length > 0 ? enHighlights : es.highlights,
+  }
+
+  return {
+    slug: record.slug,
+    iconName: isTouristCircuitIcon(record.icon) ? record.icon : 'bus',
+    content: { es, en },
+  }
+}
+
+export function buildTouristCircuitSeedRows() {
+  return touristCircuitCatalog.map((circuit, index) => ({
+    slug: circuit.slug,
+    icon: circuit.iconName,
+    active: true,
+    sort_order: (index + 1) * 10,
+    default_capacity: null,
+    default_meeting_point: null,
+    name_es: circuit.content.es.name,
+    schedule_es: circuit.content.es.schedule,
+    duration_es: circuit.content.es.duration,
+    summary_es: circuit.content.es.summary,
+    description_es: circuit.content.es.description,
+    highlights_es: circuit.content.es.highlights,
+    name_en: circuit.content.en.name,
+    schedule_en: circuit.content.en.schedule,
+    duration_en: circuit.content.en.duration,
+    summary_en: circuit.content.en.summary,
+    description_en: circuit.content.en.description,
+    highlights_en: circuit.content.en.highlights,
+  }))
 }
 
 export function getTouristCircuitName(slug: string | null | undefined, language: TouristLanguage = 'es') {

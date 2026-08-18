@@ -22,6 +22,7 @@ import {
   preferredShiftOptions,
   type EducationalBusRequestFormData,
   type EducationalBusRequestFormErrors,
+  type EducationalSettings,
   type PreferredShift,
   type PublicAvailabilityDay,
   validateEducationalBusAttachment,
@@ -261,12 +262,19 @@ export function EducationalBusRequestForm() {
   const [currentWeekStartKey, setCurrentWeekStartKey] = useState(() => getWeekStartDateKey(getTodayDateStringInBuenosAires()))
   const [availabilityByDate, setAvailabilityByDate] = useState<Record<string, PublicAvailabilityDay>>({})
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  // Configuración cargada por el admin (bloqueo, min/max alumnos, días/turnos).
+  const [settings, setSettings] = useState<EducationalSettings | null>(null)
   const formCardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const monthOptions = useMemo(() => buildMonthOptions(getTodayDateStringInBuenosAires().slice(0, 7), 24), [])
   const selectedWeekday = useMemo(() => getBusinessWeekday(formData.requestedDate), [formData.requestedDate])
-  const availableWeekdays = useMemo(() => getAvailableWeekdaysForCircuit(formData.circuit), [formData.circuit])
+  const availableWeekdays = useMemo(
+    () => getAvailableWeekdaysForCircuit(formData.circuit, settings ?? undefined),
+    [formData.circuit, settings],
+  )
+  const minStudents = settings?.minStudents ?? minimumStudentCount
+  const maxStudents = settings?.maxStudents ?? maximumStudentCount
   const selectedDayAvailability = formData.requestedDate ? availabilityByDate[formData.requestedDate] : undefined
   const availableShifts = selectedDayAvailability?.availableShifts || []
 
@@ -291,10 +299,15 @@ export function EducationalBusRequestForm() {
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo consultar la disponibilidad.')
-      return (result.data?.days || []) as PublicAvailabilityDay[]
+      return {
+        days: (result.data?.days || []) as PublicAvailabilityDay[],
+        settings: (result.data?.settings || null) as EducationalSettings | null,
+      }
     }))
-      .then((monthDays) => {
-        setAvailabilityByDate(monthDays.flat().reduce<Record<string, PublicAvailabilityDay>>((acc, day) => {
+      .then((monthResults) => {
+        const receivedSettings = monthResults.find((month) => month.settings)?.settings
+        if (receivedSettings) setSettings(receivedSettings)
+        setAvailabilityByDate(monthResults.flatMap((month) => month.days).reduce<Record<string, PublicAvailabilityDay>>((acc, day) => {
           acc[day.dateKey] = day
           return acc
         }, {}))
@@ -408,7 +421,7 @@ export function EducationalBusRequestForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const validationErrors = validateEducationalBusRequestForm(formData)
+    const validationErrors = validateEducationalBusRequestForm(formData, settings ?? undefined)
     const attachmentError = validateEducationalBusAttachment(attachment)
     if (attachmentError) {
       validationErrors.attachment = attachmentError
@@ -579,8 +592,8 @@ export function EducationalBusRequestForm() {
             <Input type="email" value={formData.contactEmail} onChange={(event) => updateField('contactEmail', event.target.value)} placeholder="correo@institucion.edu.ar" hasError={Boolean(errors.contactEmail)} />
           </FormField>
 
-          <FormField label="Cantidad de alumnos" required hint={`Se permiten grupos de ${minimumStudentCount} a ${maximumStudentCount} alumnos.`} error={errors.studentCount}>
-            <Input type="number" min={`${minimumStudentCount}`} max={`${maximumStudentCount}`} value={formData.studentCount} onChange={(event) => updateField('studentCount', event.target.value)} placeholder="Ej. 32" hasError={Boolean(errors.studentCount)} />
+          <FormField label="Cantidad de alumnos" required hint={`Se permiten grupos de ${minStudents} a ${maxStudents} alumnos.`} error={errors.studentCount}>
+            <Input type="number" min={`${minStudents}`} max={`${maxStudents}`} value={formData.studentCount} onChange={(event) => updateField('studentCount', event.target.value)} placeholder="Ej. 32" hasError={Boolean(errors.studentCount)} />
           </FormField>
 
           <FormField label="Grado o año" required hint={formData.gradeYear ? `Seleccionado: ${getGradeYearLabel(formData.gradeYear)}.` : undefined} error={errors.gradeYear}>

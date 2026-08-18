@@ -10,6 +10,7 @@ import {
   validateEducationalBusAttachment,
   validateEducationalBusRequestForm,
 } from '@/lib/educational-bus-requests'
+import { getEducationalSettings } from '@/lib/educational-settings-server'
 
 function mapPayloadToFormData(payload: FormData): EducationalBusRequestFormData {
   return {
@@ -76,7 +77,9 @@ export async function POST(request: NextRequest) {
   const payload = mapPayloadToFormData(formData)
   const attachment = formData.get('attachment')
   const attachmentFile = attachment instanceof File ? attachment : null
-  const errors = validateEducationalBusRequestForm(payload)
+  const settingsSupabase = createServerSupabaseClient()
+  const settings = await getEducationalSettings(settingsSupabase)
+  const errors = validateEducationalBusRequestForm(payload, settings)
   const attachmentError = validateEducationalBusAttachment(attachmentFile)
 
   if (attachmentError) {

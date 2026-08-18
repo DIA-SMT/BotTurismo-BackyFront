@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { parseBusinessDateParts } from '@/lib/educational-bus-requests'
+import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
+import { isBookingEmailConfigured, sendTouristDepartureCancellationEmails } from '@/lib/tourist-booking-email'
+
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -82,7 +87,31 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No se pudo actualizar la salida.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data })
+  // Al cancelar, opcionalmente se avisa por mail a los inscriptos confirmados.
+  // El envío nunca frena la cancelación: si falla, se informa en la respuesta.
+  let notification: { sent: number; failed: number; emailConfigured: boolean } | null = null
+  if (body.notifyBookings === true && updatePayload.status === 'cancelled') {
+    const emailConfigured = isBookingEmailConfigured()
+    let sent = 0
+    let failed = 0
+
+    if (emailConfigured) {
+      const { data: bookings } = await supabase
+        .from('tourist_bookings')
+        .select('*')
+        .eq('departure_id', departureId)
+        .eq('status', 'confirmed')
+
+      const confirmedBookings = (bookings || []) as TouristBooking[]
+      const result = await sendTouristDepartureCancellationEmails(confirmedBookings, data as TouristDeparture)
+      sent = result.sent
+      failed = result.failed
+    }
+
+    notification = { sent, failed, emailConfigured }
+  }
+
+  return NextResponse.json({ data, notification })
 }
 
 export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {

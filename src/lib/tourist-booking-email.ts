@@ -167,24 +167,27 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
   }
 }
 
+function createBookingEmailTransporter() {
+  const port = Number(process.env.SMTP_PORT)
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: process.env.SMTP_SECURE === 'true' || port === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  })
+}
+
 export async function sendTouristBookingConfirmationEmail(input: BookingEmailInput): Promise<boolean> {
   if (!isBookingEmailConfigured()) return false
 
   try {
-    const port = Number(process.env.SMTP_PORT)
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port,
-      secure: process.env.SMTP_SECURE === 'true' || port === 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    })
-
+    const transporter = createBookingEmailTransporter()
     const content = buildBookingEmailContent(input)
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -199,5 +202,116 @@ export async function sendTouristBookingConfirmationEmail(input: BookingEmailInp
     // El correo nunca debe romper la reserva: se registra y se sigue.
     console.error('No se pudo enviar el mail de confirmación de reserva:', error)
     return false
+  }
+}
+
+interface CancellationEmailCopy {
+  subject: (title: string) => string
+  greeting: (name: string) => string
+  body: (title: string, dateLabel: string, timeLabel: string) => string
+  next: string
+  farewell: string
+}
+
+const cancellationEmailCopy: Record<TouristLanguage, CancellationEmailCopy> = {
+  es: {
+    subject: (title) => `Salida cancelada · ${title}`,
+    greeting: (name) => `Hola, ${name}.`,
+    body: (title, dateLabel, timeLabel) =>
+      `Lamentamos avisarte que la salida "${title}" programada para el ${dateLabel} a las ${timeLabel} fue cancelada, por lo que tu reserva quedó sin efecto.`,
+    next: 'Podés reservar otra salida desde la página del Bus Turístico o consultarnos escribiendo a turismo@smt.gob.ar. Disculpá las molestias.',
+    farewell: '¡Esperamos verte pronto en otro recorrido!',
+  },
+  en: {
+    subject: (title) => `Departure cancelled · ${title}`,
+    greeting: (name) => `Hi ${name},`,
+    body: (title, dateLabel, timeLabel) =>
+      `We’re sorry to let you know that the departure "${title}" scheduled for ${dateLabel} at ${timeLabel} has been cancelled, so your booking is no longer valid.`,
+    next: 'You can book another departure on the Tourist Bus page or reach us at turismo@smt.gob.ar. We apologize for the inconvenience.',
+    farewell: 'We hope to see you on another tour soon!',
+  },
+}
+
+function buildCancellationEmailContent({ booking, departure }: BookingEmailInput) {
+  const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
+  const copy = cancellationEmailCopy[language]
+  const office = touristOfficeInfo[language]
+  const title = getTouristCircuitName(departure.circuit_slug, language) || departure.title
+  const dateLabel = formatDepartureDate(departure.departure_date, language)
+  const timeLabel = `${formatDepartureTime(departure.departure_time)} h`
+  const bodyText = copy.body(title, dateLabel, timeLabel)
+
+  const text = [
+    copy.greeting(booking.full_name),
+    '',
+    bodyText,
+    '',
+    copy.next,
+    '',
+    `${office.title} · ${office.address}`,
+    ...office.hours,
+    '',
+    copy.farewell,
+  ].join('\n')
+
+  const html = `
+  <div style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;">
+      <tr>
+        <td style="background:#b42323;padding:18px 26px;color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">San Miguel de Tucumán</div>
+          <div style="font-size:20px;font-weight:bold;margin-top:2px;">Bus Turístico</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px;">
+          <p style="margin:0 0 12px;font-size:16px;color:#1f2933;font-weight:bold;">${escapeHtml(copy.greeting(booking.full_name))}</p>
+          <p style="margin:0 0 16px;font-size:14px;color:#1f2933;line-height:1.6;">${escapeHtml(bodyText)}</p>
+          <p style="margin:0 0 16px;font-size:13px;color:#68737d;line-height:1.6;">${escapeHtml(copy.next)}</p>
+          <p style="margin:0;font-size:13px;color:#68737d;line-height:1.6;">
+            <strong>${escapeHtml(office.title)}</strong><br/>
+            ${escapeHtml(office.address)}<br/>
+            ${office.hours.map((line) => escapeHtml(line)).join('<br/>')}
+          </p>
+          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>`
+
+  return { subject: copy.subject(title), text, html }
+}
+
+// Aviso masivo al cancelar una salida. Envía en paralelo y nunca lanza:
+// devuelve cuántos salieron y cuántos fallaron.
+export async function sendTouristDepartureCancellationEmails(
+  bookings: TouristBooking[],
+  departure: TouristDeparture,
+): Promise<{ sent: number; failed: number }> {
+  if (!isBookingEmailConfigured() || bookings.length === 0) {
+    return { sent: 0, failed: 0 }
+  }
+
+  try {
+    const transporter = createBookingEmailTransporter()
+    const results = await Promise.allSettled(
+      bookings.map((booking) => {
+        const content = buildCancellationEmailContent({ booking, departure })
+        return transporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: booking.email,
+          replyTo: process.env.SMTP_REPLY_TO || undefined,
+          subject: content.subject,
+          text: content.text,
+          html: content.html,
+        })
+      }),
+    )
+
+    const sent = results.filter((result) => result.status === 'fulfilled').length
+    return { sent, failed: results.length - sent }
+  } catch (error) {
+    console.error('No se pudieron enviar los avisos de cancelación:', error)
+    return { sent: 0, failed: bookings.length }
   }
 }

@@ -7,6 +7,7 @@ import {
   type EducationalBusCircuit,
   type PreferredShift,
 } from '@/lib/educational-bus-requests'
+import { getEducationalSettings } from '@/lib/educational-settings-server'
 
 function isValidCircuit(value: string): value is EducationalBusCircuit {
   return circuitOptions.some((option) => option.value === value)
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServerSupabaseClient()
+  const settings = await getEducationalSettings(supabase)
   const { data, error } = await supabase
     .from('educational_bus_requests')
     .select('requested_date, preferred_shift')
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     return acc
   }, {})
 
-  const availability = buildMonthlyAvailability(circuit, month, occupiedByDate)
+  const availability = buildMonthlyAvailability(circuit, month, occupiedByDate, settings)
   if (!availability) {
     return NextResponse.json({ error: 'No se pudo construir la disponibilidad.' }, { status: 400 })
   }

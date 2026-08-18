@@ -34,7 +34,12 @@ import {
   type TouristDepartureAvailability,
   type TouristLanguage,
 } from '@/lib/tourist-bus'
-import { getTouristCircuitBySlug, touristCircuitCatalog, touristOfficeInfo, type TouristCircuitIcon } from '@/lib/tourist-circuits'
+import {
+  touristCircuitCatalog,
+  touristOfficeInfo,
+  type TouristCircuit,
+  type TouristCircuitIcon,
+} from '@/lib/tourist-circuits'
 import { touristPageCopy } from '@/lib/tourist-copy'
 
 const languageStorageKey = 'tourist-bus-language'
@@ -58,11 +63,6 @@ type SubmitState =
   | { type: 'success'; title: string; dateLabel: string; emailSent: boolean }
   | { type: 'error'; code: TouristBookingApiErrorCode }
 
-function getDepartureDisplayTitle(departure: TouristDepartureAvailability, language: TouristLanguage) {
-  const circuit = getTouristCircuitBySlug(departure.circuit_slug)
-  return circuit ? circuit.content[language].name : departure.title
-}
-
 // Agrupa salidas por circuito del catálogo; las personalizadas se agrupan por título.
 function getDepartureCircuitKey(departure: TouristDepartureAvailability) {
   return departure.circuit_slug || `custom:${departure.title}`
@@ -73,6 +73,8 @@ export function TouristExperience() {
   const [departures, setDepartures] = useState<TouristDepartureAvailability[]>([])
   const [departuresLoading, setDeparturesLoading] = useState(true)
   const [departuresFailed, setDeparturesFailed] = useState(false)
+  // Catálogo administrable: se lee de la base; si falla, queda el estático.
+  const [circuits, setCircuits] = useState<TouristCircuit[]>(touristCircuitCatalog)
   const [formData, setFormData] = useState<TouristBookingFormData>(initialTouristBookingFormData)
   const [selectedCircuitKey, setSelectedCircuitKey] = useState('')
   const [circuitError, setCircuitError] = useState(false)
@@ -114,6 +116,36 @@ export function TouristExperience() {
     void loadDepartures()
   }, [loadDepartures])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/tourist-bus/circuits', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const payload = (await response.json()) as { data?: TouristCircuit[] }
+        if (!cancelled && payload.data && payload.data.length > 0) {
+          setCircuits(payload.data)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const circuitsBySlug = useMemo(() => {
+    const map = new Map<string, TouristCircuit>()
+    for (const circuit of circuits) map.set(circuit.slug, circuit)
+    return map
+  }, [circuits])
+
+  const getDepartureDisplayTitle = useCallback(
+    (departure: TouristDepartureAvailability, lang: TouristLanguage) => {
+      const circuit = departure.circuit_slug ? circuitsBySlug.get(departure.circuit_slug) : null
+      return circuit ? circuit.content[lang].name : departure.title
+    },
+    [circuitsBySlug],
+  )
+
   const bookableDepartures = useMemo(
     () => departures.filter((departure) => departure.remaining > 0),
     [departures],
@@ -126,7 +158,7 @@ export function TouristExperience() {
       if (!groups.has(key)) groups.set(key, getDepartureDisplayTitle(departure, language))
     }
     return Array.from(groups.entries()).map(([key, label]) => ({ key, label }))
-  }, [bookableDepartures, language])
+  }, [bookableDepartures, getDepartureDisplayTitle, language])
 
   const circuitDepartures = useMemo(
     () => bookableDepartures.filter((departure) => getDepartureCircuitKey(departure) === selectedCircuitKey),
@@ -554,7 +586,7 @@ export function TouristExperience() {
           </div>
 
           <div className={styles.catalogGrid}>
-            {touristCircuitCatalog.map((circuit) => {
+            {circuits.map((circuit) => {
               const content = circuit.content[language]
               const Icon = circuitIcons[circuit.iconName]
               const isOpen = Boolean(openCircuits[circuit.slug])

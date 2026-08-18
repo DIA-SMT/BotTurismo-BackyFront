@@ -18,11 +18,189 @@ import {
   parseBusinessDateParts,
   preferredShiftOptions,
   requestStatusOptions,
+  weekdayLabels,
+  type BusinessWeekday,
   type EducationalBusRequest,
   type EducationalBusRequestFilters,
   type EducationalBusRequestStatus,
+  type EducationalSettings,
+  type PreferredShift,
 } from '@/lib/educational-bus-requests'
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search, Settings } from 'lucide-react'
+
+const settingsWeekdays: BusinessWeekday[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+
+function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
+  const [settings, setSettings] = useState<EducationalSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/educational-settings', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'No se pudo cargar la configuración.')
+        if (!cancelled) setSettings(result.data)
+      })
+      .catch((error) => {
+        if (!cancelled) setFeedback(error instanceof Error ? error.message : 'No se pudo cargar la configuración.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const toggleShift = (weekday: BusinessWeekday, shift: PreferredShift) => {
+    setSettings((current) => {
+      if (!current) return current
+      const currentShifts = current.availability[weekday] || []
+      const nextShifts = currentShifts.includes(shift)
+        ? currentShifts.filter((item) => item !== shift)
+        : [...currentShifts, shift]
+      const availability = { ...current.availability }
+      if (nextShifts.length > 0) {
+        availability[weekday] = nextShifts
+      } else {
+        delete availability[weekday]
+      }
+      return { ...current, availability }
+    })
+  }
+
+  const handleSave = async () => {
+    if (!settings) return
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/admin/educational-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar la configuración.')
+      setSettings(result.data)
+      setFeedback('Configuración guardada. Los cambios impactan al instante en la página pública.')
+      onSaved()
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'No se pudo guardar la configuración.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="table-container" style={{ marginBottom: 20, padding: 18 }}>
+      <h3 style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Settings size={16} />
+        Configuración del bus educativo
+      </h3>
+      <p className="td-muted" style={{ marginBottom: 14, fontSize: 13 }}>
+        Estos valores controlan el formulario público: bloqueo temporal de reservas, tamaño de los grupos y días con turnos habilitados.
+      </p>
+
+      {loading ? (
+        <div className="loading-state" style={{ padding: 12 }}>
+          <div className="spinner" />
+          Cargando configuración...
+        </div>
+      ) : settings ? (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Bloquear reservas hasta (inclusive)
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  className="input"
+                  value={settings.blockedUntil || ''}
+                  onChange={(event) =>
+                    setSettings((current) => (current ? { ...current, blockedUntil: event.target.value || null } : current))
+                  }
+                />
+                {settings.blockedUntil ? (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+                    onClick={() => setSettings((current) => (current ? { ...current, blockedUntil: null } : current))}
+                  >
+                    Quitar bloqueo
+                  </button>
+                ) : (
+                  <span className="td-muted" style={{ fontSize: 12 }}>Sin bloqueo activo</span>
+                )}
+              </div>
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Mínimo de alumnos
+              <input
+                type="number"
+                min={1}
+                className="input"
+                value={settings.minStudents}
+                onChange={(event) =>
+                  setSettings((current) => (current ? { ...current, minStudents: Number(event.target.value) } : current))
+                }
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Máximo de alumnos
+              <input
+                type="number"
+                min={1}
+                className="input"
+                value={settings.maxStudents}
+                onChange={(event) =>
+                  setSettings((current) => (current ? { ...current, maxStudents: Number(event.target.value) } : current))
+                }
+              />
+            </label>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <strong style={{ fontSize: 13 }}>Días y turnos habilitados</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 8 }}>
+              {settingsWeekdays.map((weekday) => (
+                <div key={weekday} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{weekdayLabels[weekday]}</div>
+                  {preferredShiftOptions.map((option) => (
+                    <label key={option.value} className="flex items-center gap-2" style={{ fontSize: 13, marginBottom: 4, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={(settings.availability[weekday] || []).includes(option.value)}
+                        onChange={() => toggleShift(weekday, option.value)}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {feedback ? (
+            <div className="badge" style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--info)', marginTop: 12 }}>
+              {feedback}
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar configuración'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="td-muted">{feedback || 'No se pudo cargar la configuración.'}</p>
+      )}
+    </div>
+  )
+}
 
 type ViewMode = 'table' | 'calendar'
 
@@ -146,6 +324,7 @@ export default function EducationalRequestsPage() {
   const [exporting, setExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -277,13 +456,20 @@ export default function EducationalRequestsPage() {
           <h2>Solicitudes Educativas</h2>
           <p>Revisión y seguimiento de solicitudes para el bus turístico educativo.</p>
         </div>
-        <button className="btn btn-secondary" onClick={fetchRequests} disabled={loading}>
-          <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button className={`btn ${showSettings ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowSettings((current) => !current)}>
+            <Settings size={14} />
+            Configuración
+          </button>
+          <button className="btn btn-secondary" onClick={fetchRequests} disabled={loading}>
+            <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <div className="page-body">
+        {showSettings ? <EducationalSettingsPanel onSaved={fetchRequests} /> : null}
         {saveFeedback ? (
           <div className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: 16 }}>
             {saveFeedback}

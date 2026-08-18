@@ -107,6 +107,7 @@ export interface PublicAvailabilityResponse {
   circuit: EducationalBusCircuit
   month: string
   days: PublicAvailabilityDay[]
+  settings?: EducationalSettings
 }
 
 export const contactRoleOptions = [
@@ -158,6 +159,64 @@ export const circuitAvailability: Record<EducationalBusCircuit, Partial<Record<B
     jueves: ['tarde'],
     viernes: ['manana'],
   },
+}
+
+// Configuración autogestionable desde el panel admin (tabla app_settings,
+// clave 'educational_settings'). Estos valores son los defaults si la tabla
+// todavía no existe o no tiene la clave.
+export interface EducationalSettings {
+  blockedUntil: string | null
+  minStudents: number
+  maxStudents: number
+  availability: Partial<Record<BusinessWeekday, PreferredShift[]>>
+}
+
+export const defaultEducationalSettings: EducationalSettings = {
+  blockedUntil: '2026-08-31',
+  minStudents: minimumStudentCount,
+  maxStudents: maximumStudentCount,
+  availability: {
+    martes: ['manana', 'tarde'],
+    miercoles: ['manana', 'tarde'],
+    jueves: ['tarde'],
+    viernes: ['manana'],
+  },
+}
+
+const validShiftValues = new Set(preferredShiftOptions.map((option) => option.value))
+const validWeekdayKeys: BusinessWeekday[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+
+// Normaliza un valor crudo (venido de la base o de un PUT) a settings válidos.
+export function sanitizeEducationalSettings(raw: unknown): EducationalSettings {
+  const fallback = defaultEducationalSettings
+  if (!raw || typeof raw !== 'object') return fallback
+  const value = raw as Record<string, unknown>
+
+  const blockedUntilRaw = value.blockedUntil
+  const blockedUntil =
+    typeof blockedUntilRaw === 'string' && parseBusinessDateParts(blockedUntilRaw) ? blockedUntilRaw : null
+
+  const minStudents =
+    Number.isInteger(value.minStudents) && Number(value.minStudents) >= 1 ? Number(value.minStudents) : fallback.minStudents
+  const maxStudentsCandidate =
+    Number.isInteger(value.maxStudents) && Number(value.maxStudents) >= 1 ? Number(value.maxStudents) : fallback.maxStudents
+  const maxStudents = Math.max(minStudents, maxStudentsCandidate)
+
+  let availability = fallback.availability
+  if (value.availability && typeof value.availability === 'object') {
+    const parsed: Partial<Record<BusinessWeekday, PreferredShift[]>> = {}
+    for (const weekday of validWeekdayKeys) {
+      const shifts = (value.availability as Record<string, unknown>)[weekday]
+      if (!Array.isArray(shifts)) continue
+      const validShifts = shifts.filter(
+        (shift): shift is PreferredShift => typeof shift === 'string' && validShiftValues.has(shift as PreferredShift),
+      )
+      if (validShifts.length > 0) parsed[weekday] = [...new Set(validShifts)]
+    }
+    availability = parsed
+  }
+
+  return { blockedUntil, minStudents, maxStudents, availability }
 }
 
 export const educationalBusAttachmentBucket = 'educational-bus-request-files'
@@ -236,12 +295,13 @@ export function isPastBusinessDate(dateString: string) {
   return buildDateKey(parts.year, parts.month, parts.day) < getTodayDateStringInBuenosAires()
 }
 
-// Bloqueo temporal de reservas: todos los turnos se muestran ocupados desde hoy
-// hasta el 31 de agosto de 2026 inclusive. Septiembre de 2026 en adelante queda disponible.
-export const fullyBookedUntilDate = '2026-08-31'
+// Bloqueo temporal de reservas: los turnos se muestran ocupados desde hoy
+// hasta la fecha configurada (admin > configuración del educativo).
+export const fullyBookedUntilDate = defaultEducationalSettings.blockedUntil
 
-export function isWithinFullyBookedWindow(dateKey: string) {
-  return dateKey >= getTodayDateStringInBuenosAires() && dateKey <= fullyBookedUntilDate
+export function isWithinFullyBookedWindow(dateKey: string, blockedUntil: string | null = fullyBookedUntilDate) {
+  if (!blockedUntil) return false
+  return dateKey >= getTodayDateStringInBuenosAires() && dateKey <= blockedUntil
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -337,30 +397,46 @@ export function getBusinessWeekday(dateString: string): BusinessWeekday | null {
   return days[dayIndex] ?? null
 }
 
-export function getAvailableWeekdaysForCircuit(circuit: EducationalBusCircuit | '') {
-  if (!circuit) return [] as BusinessWeekday[]
-  return Object.keys(circuitAvailability[circuit]) as BusinessWeekday[]
+function resolveAvailabilityMap(circuit: EducationalBusCircuit | '', settings?: EducationalSettings) {
+  if (settings) return settings.availability
+  if (!circuit) return {} as Partial<Record<BusinessWeekday, PreferredShift[]>>
+  return circuitAvailability[circuit] ?? {}
 }
 
-export function getAvailableShiftsForCircuitAndDate(circuit: EducationalBusCircuit | '', requestedDate: string) {
+export function getAvailableWeekdaysForCircuit(circuit: EducationalBusCircuit | '', settings?: EducationalSettings) {
+  if (!circuit) return [] as BusinessWeekday[]
+  return Object.keys(resolveAvailabilityMap(circuit, settings)) as BusinessWeekday[]
+}
+
+export function getAvailableShiftsForCircuitAndDate(
+  circuit: EducationalBusCircuit | '',
+  requestedDate: string,
+  settings?: EducationalSettings,
+) {
   if (!circuit || !requestedDate) return [] as PreferredShift[]
   const weekday = getBusinessWeekday(requestedDate)
   if (!weekday) return [] as PreferredShift[]
-  return circuitAvailability[circuit][weekday] ?? []
+  return resolveAvailabilityMap(circuit, settings)[weekday] ?? []
 }
 
 export function isAllowedAdvancedSecondaryGrade(gradeYear: string) {
   return advancedSecondaryGradeValues.has(gradeYear)
 }
 
-export function isValidStudentCount(value: string | number) {
+export function isValidStudentCount(value: string | number, settings?: EducationalSettings) {
   const numberValue = typeof value === 'number' ? value : Number(value)
-  return Number.isInteger(numberValue) && numberValue >= minimumStudentCount && numberValue <= maximumStudentCount
+  const min = settings?.minStudents ?? minimumStudentCount
+  const max = settings?.maxStudents ?? maximumStudentCount
+  return Number.isInteger(numberValue) && numberValue >= min && numberValue <= max
 }
 
-export function isCircuitDateAllowed(circuit: EducationalBusCircuit | '', requestedDate: string) {
+export function isCircuitDateAllowed(
+  circuit: EducationalBusCircuit | '',
+  requestedDate: string,
+  settings?: EducationalSettings,
+) {
   if (!circuit || !requestedDate) return false
-  return getAvailableShiftsForCircuitAndDate(circuit, requestedDate).length > 0
+  return getAvailableShiftsForCircuitAndDate(circuit, requestedDate, settings).length > 0
 }
 
 export function isValidPhone(phone: string) {
@@ -372,18 +448,21 @@ export function buildMonthlyAvailability(
   circuit: EducationalBusCircuit,
   monthKey: string,
   occupiedByDate: Record<string, PreferredShift[]>,
+  settings?: EducationalSettings,
 ): PublicAvailabilityResponse | null {
   const bounds = getMonthBounds(monthKey)
   if (!bounds) return null
 
+  const availabilityMap = resolveAvailabilityMap(circuit, settings)
+  const blockedUntil = settings ? settings.blockedUntil : fullyBookedUntilDate
   const days: PublicAvailabilityDay[] = []
 
   for (let day = 1; day <= getDaysInMonth(bounds.year, bounds.month); day += 1) {
     const dateKey = buildDateKey(bounds.year, bounds.month, day)
     const weekday = getBusinessWeekday(dateKey)
-    const allowedShifts = weekday ? circuitAvailability[circuit][weekday] ?? [] : []
+    const allowedShifts = weekday ? availabilityMap[weekday] ?? [] : []
     const isPast = isPastBusinessDate(dateKey)
-    const isFullyBooked = isWithinFullyBookedWindow(dateKey)
+    const isFullyBooked = isWithinFullyBookedWindow(dateKey, blockedUntil)
     const occupiedShifts = isFullyBooked ? [...allowedShifts] : occupiedByDate[dateKey] || []
     const isCircuitDay = allowedShifts.length > 0
     const availableShifts = allowedShifts.filter((shift) => !isPast && !occupiedShifts.includes(shift))
@@ -410,6 +489,7 @@ export function buildMonthlyAvailability(
     circuit,
     month: monthKey,
     days,
+    settings,
   }
 }
 
@@ -424,8 +504,13 @@ export function validateEducationalBusAttachment(file: File | null) {
   return null
 }
 
-export function validateEducationalBusRequestForm(data: EducationalBusRequestFormData): EducationalBusRequestFormErrors {
+export function validateEducationalBusRequestForm(
+  data: EducationalBusRequestFormData,
+  settings?: EducationalSettings,
+): EducationalBusRequestFormErrors {
   const errors: EducationalBusRequestFormErrors = {}
+  const minStudents = settings?.minStudents ?? minimumStudentCount
+  const maxStudents = settings?.maxStudents ?? maximumStudentCount
 
   if (!data.circuit) {
     errors.circuit = 'Selecciona un circuito.'
@@ -446,8 +531,8 @@ export function validateEducationalBusRequestForm(data: EducationalBusRequestFor
   }
   if (!data.studentCount.trim()) {
     errors.studentCount = 'Ingresa la cantidad de alumnos.'
-  } else if (!isValidStudentCount(data.studentCount)) {
-    errors.studentCount = `La cantidad de alumnos debe ser entre ${minimumStudentCount} y ${maximumStudentCount}.`
+  } else if (!isValidStudentCount(data.studentCount, settings)) {
+    errors.studentCount = `La cantidad de alumnos debe ser entre ${minStudents} y ${maxStudents}.`
   }
   if (!data.gradeYear) {
     errors.gradeYear = 'Selecciona el grado o año.'
@@ -458,13 +543,13 @@ export function validateEducationalBusRequestForm(data: EducationalBusRequestFor
     errors.requestedDate = 'Ingresa una fecha válida.'
   } else if (isPastBusinessDate(data.requestedDate)) {
     errors.requestedDate = 'No se permiten fechas pasadas.'
-  } else if (data.circuit && !isCircuitDateAllowed(data.circuit, data.requestedDate)) {
+  } else if (data.circuit && !isCircuitDateAllowed(data.circuit, data.requestedDate, settings)) {
     errors.requestedDate = 'La fecha elegida no está disponible para el circuito seleccionado.'
   }
   if (!data.preferredShift) {
     errors.preferredShift = 'Selecciona el turno preferido.'
   } else if (data.circuit && data.requestedDate) {
-    const allowedShifts = getAvailableShiftsForCircuitAndDate(data.circuit, data.requestedDate)
+    const allowedShifts = getAvailableShiftsForCircuitAndDate(data.circuit, data.requestedDate, settings)
     if (!allowedShifts.includes(data.preferredShift)) {
       errors.preferredShift = 'El turno elegido no está disponible para el circuito y la fecha seleccionados.'
     }

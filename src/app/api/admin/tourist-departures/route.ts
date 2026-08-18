@@ -3,7 +3,7 @@ import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { getTodayDateStringInBuenosAires, parseBusinessDateParts } from '@/lib/educational-bus-requests'
 import { buildDeparturesWithAvailability, type TouristDeparture } from '@/lib/tourist-bus'
-import { getTouristCircuitBySlug } from '@/lib/tourist-circuits'
+import { resolveCircuitForDeparture } from '@/lib/tourist-circuits-admin'
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -76,11 +76,13 @@ export async function POST(request: NextRequest) {
   const meetingPoint = typeof body.meetingPoint === 'string' ? body.meetingPoint.trim() : ''
   const notes = typeof body.notes === 'string' ? body.notes.trim() : ''
 
-  const catalogCircuit = getTouristCircuitBySlug(circuitSlug)
-  const title = catalogCircuit ? catalogCircuit.content.es.name : customTitle
+  const supabase = createServerSupabaseClient()
+  const circuit = await resolveCircuitForDeparture(supabase, circuitSlug)
+  const title = circuit.title || customTitle
 
   const fieldErrors: Record<string, string> = {}
   if (!title) fieldErrors.title = 'Elegí un circuito del catálogo o escribí un nombre para la salida.'
+  if (circuit.inactive) fieldErrors.title = 'Ese circuito está desactivado. Activalo desde la pestaña Circuitos.'
   if (!parseBusinessDateParts(departureDate)) {
     fieldErrors.departureDate = 'Ingresá una fecha válida.'
   } else if (departureDate < getTodayDateStringInBuenosAires()) {
@@ -95,11 +97,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Revisá los campos de la salida.', fieldErrors }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
   const { data, error } = await supabase
     .from('tourist_departures')
     .insert({
-      circuit_slug: catalogCircuit ? catalogCircuit.slug : null,
+      circuit_slug: circuit.slug,
       title,
       departure_date: departureDate,
       departure_time: departureTime,
