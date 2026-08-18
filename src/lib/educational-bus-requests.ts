@@ -9,6 +9,8 @@ export const preferredShiftOptions = [
   { value: 'tarde', label: 'Tarde' },
 ] as const
 
+// Con el catálogo educativo administrable, los circuitos son dinámicos.
+// Esta lista queda como fallback de etiquetas para valores conocidos.
 export const circuitOptions = [
   { value: 'historico_cultural', label: 'Histórico Cultural' },
 ] as const
@@ -26,7 +28,8 @@ export const requestStatusOptions = [
 
 export type EducationalInstitutionType = (typeof institutionTypeOptions)[number]['value']
 export type PreferredShift = (typeof preferredShiftOptions)[number]['value']
-export type EducationalBusCircuit = (typeof circuitOptions)[number]['value']
+// Slug dinámico del catálogo educativo (tabla educational_circuits).
+export type EducationalBusCircuit = string
 export type EducationalBusRequestStatus = (typeof requestStatusOptions)[number]['value']
 export type BusinessWeekday = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 export type PublicAvailabilityShiftStatus = 'available' | 'occupied' | 'disabled' | 'past'
@@ -594,9 +597,17 @@ export function getShiftLabel(shift: PreferredShift) {
   return preferredShiftOptions.find((option) => option.value === shift)?.label || shift
 }
 
-export function getCircuitLabel(circuit: EducationalBusCircuit | string) {
+function prettifyCircuitSlug(circuit: string) {
+  const cleaned = circuit.replace(/[-_]+/g, ' ').trim()
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : circuit
+}
+
+export function getCircuitLabel(circuit: EducationalBusCircuit | string, dynamicLabels?: Record<string, string>) {
   return (
-    circuitOptions.find((option) => option.value === circuit)?.label || legacyCircuitLabels[circuit] || circuit
+    dynamicLabels?.[circuit] ||
+    circuitOptions.find((option) => option.value === circuit)?.label ||
+    legacyCircuitLabels[circuit] ||
+    prettifyCircuitSlug(circuit)
   )
 }
 

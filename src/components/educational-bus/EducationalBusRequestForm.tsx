@@ -29,6 +29,7 @@ import {
   validateEducationalBusRequestForm,
   weekdayLabels,
 } from '@/lib/educational-bus-requests'
+import { describeEducationalAvailability } from '@/lib/educational-circuits'
 import styles from './form.module.css'
 import { FormField } from './FormField'
 import { Input } from './Input'
@@ -264,6 +265,39 @@ export function EducationalBusRequestForm() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   // Configuración cargada por el admin (bloqueo, min/max alumnos, días/turnos).
   const [settings, setSettings] = useState<EducationalSettings | null>(null)
+  // Circuitos educativos del catálogo administrable (fallback: el histórico).
+  const [circuitChoices, setCircuitChoices] = useState<Array<{ value: string; label: string }>>(
+    circuitOptions.map((option) => ({ value: option.value, label: option.label })),
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/educational-bus/circuits', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const payload = (await response.json()) as { data?: Array<{ slug: string; name: string }> }
+        const choices = (payload.data || []).map((circuit) => ({ value: circuit.slug, label: circuit.name }))
+        if (!cancelled && choices.length > 0) setCircuitChoices(choices)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setFormData((current) => {
+      // Si el circuito elegido ya no está en el catálogo activo, se limpia.
+      if (current.circuit && !circuitChoices.some((choice) => choice.value === current.circuit)) {
+        return { ...current, circuit: '', requestedDate: '', preferredShift: '' }
+      }
+      // Con un único circuito activo se preselecciona.
+      if (!current.circuit && circuitChoices.length === 1) {
+        return { ...current, circuit: circuitChoices[0].value }
+      }
+      return current
+    })
+  }, [circuitChoices])
   const formCardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -477,6 +511,10 @@ export function EducationalBusRequestForm() {
     }
   }
 
+  const selectedCircuitLabel = formData.circuit
+    ? circuitChoices.find((choice) => choice.value === formData.circuit)?.label || getCircuitLabel(formData.circuit)
+    : ''
+
   const weekdayHint = selectedWeekday
     ? `La fecha elegida corresponde a ${weekdayLabels[selectedWeekday]}.`
     : 'Elegí una fecha para verificar el día disponible.'
@@ -511,7 +549,7 @@ export function EducationalBusRequestForm() {
         <p className={styles.availabilityText}>Los días y turnos disponibles dependen del circuito seleccionado.</p>
         <p className={styles.availabilityMeta}>
           {formData.circuit
-            ? `${getCircuitLabel(formData.circuit)}: ${availableDaysText}.`
+            ? `${selectedCircuitLabel}: ${availableDaysText}.`
             : 'Selecciona un circuito para conocer qué días y turnos están habilitados.'}
         </p>
       </div>
@@ -524,10 +562,10 @@ export function EducationalBusRequestForm() {
         </a>
       </div>
 
-      {formData.circuit === 'historico_cultural' ? (
+      {formData.circuit && settings ? (
         <div className={styles.circuitNotice}>
-          <p className={styles.circuitNoticeTitle}>Circuito Histórico Cultural</p>
-          <p className={styles.circuitNoticeText}>Disponible los martes y miércoles por la mañana y la tarde, los jueves por la tarde y los viernes por la mañana.</p>
+          <p className={styles.circuitNoticeTitle}>{selectedCircuitLabel}</p>
+          <p className={styles.circuitNoticeText}>Días habilitados: {describeEducationalAvailability(settings.availability)}.</p>
         </div>
       ) : null}
 
@@ -542,7 +580,7 @@ export function EducationalBusRequestForm() {
           <FormField label="Circuito" required error={errors.circuit}>
             <Select value={formData.circuit} onChange={(event) => handleCircuitChange(event.target.value as EducationalBusRequestFormData['circuit'])} hasError={Boolean(errors.circuit)}>
               <option value="">Seleccionar</option>
-              {circuitOptions.map((option) => (
+              {circuitChoices.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

@@ -35,7 +35,7 @@ Para probar localmente con ManyChat:
 - `/turistico`: Circuitos para turistas y vecinos. Salidas programadas con cupos en tiempo real, reserva auto-confirmada y contenido en español e inglés (toggle ES/EN).
 - `/educativo`: Solicitud de turnos institucionales para escuelas (Circuito Histórico Cultural).
 - `/admin/turistico`: Panel para crear salidas (individuales o recurrentes por semana), ver inscriptos, cancelar salidas con aviso por mail, exportar a Excel, y administrar el catálogo de circuitos (pestaña Circuitos: crear/editar/desactivar, cupo por defecto, traducción automática al inglés).
-- `/admin/solicitudes` → botón Configuración: bloqueo temporal de reservas educativas, mínimo/máximo de alumnos y días/turnos habilitados.
+- `/admin/solicitudes` (Bus Educativo): solicitudes + botón **Circuitos** (catálogo educativo propio, separado del turístico, con días y turnos por circuito) + botón **Configuración** (bloqueo temporal de reservas, mínimo/máximo de alumnos).
 
 ### 🌐 Traducción automática de circuitos (opcional)
 

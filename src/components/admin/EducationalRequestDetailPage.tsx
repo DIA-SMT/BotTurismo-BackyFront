@@ -37,6 +37,27 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [circuitLabels, setCircuitLabels] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/educational-circuits', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const result = (await response.json()) as { data?: Array<{ slug: string; name: string }> }
+        if (cancelled || !result.data) return
+        setCircuitLabels(
+          result.data.reduce<Record<string, string>>((acc, record) => {
+            acc[record.slug] = record.name
+            return acc
+          }, {}),
+        )
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const fetchRequest = useCallback(async () => {
     setLoading(true)
@@ -115,7 +136,7 @@ export default function EducationalRequestDetailPage({ requestId }: { requestId:
               <DetailRow label="Dirección" value={request.school_address} />
               <DetailRow label="Cantidad de alumnos" value={request.student_count} />
               <DetailRow label="Grado o año" value={getGradeYearLabel(request.grade_year)} />
-              <DetailRow label="Circuito" value={getCircuitLabel(request.circuit)} />
+              <DetailRow label="Circuito" value={getCircuitLabel(request.circuit, circuitLabels)} />
               <DetailRow label="Fecha solicitada" value={formatDateToDisplay(request.requested_date)} />
               <DetailRow label="Turno preferido" value={getShiftLabel(request.preferred_shift)} />
               <DetailRow label="Nota adjunta" value={request.attachment_name || 'Sin adjunto registrado'} />

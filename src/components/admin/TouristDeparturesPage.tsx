@@ -409,7 +409,7 @@ export default function TouristDeparturesPage() {
       <div className="page-header">
         <div>
           <h2>Bus Turístico</h2>
-          <p>Salidas programadas, cupos, reservas y catálogo de circuitos.</p>
+          <p>Salidas, cupos, reservas y catálogo de circuitos del bus turístico. No afecta al bus educativo.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="view-toggle-group">

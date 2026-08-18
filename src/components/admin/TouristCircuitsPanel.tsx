@@ -214,7 +214,7 @@ export function TouristCircuitsPanel({
       <div className="table-container" style={{ marginBottom: 20 }}>
         <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
           <span className="td-muted" style={{ fontSize: 13 }}>
-            Los circuitos activos aparecen en la página pública y en el selector de nuevas salidas.
+            Catálogo exclusivo del <strong>bus turístico</strong> (no afecta al bus educativo). Los circuitos activos aparecen en la página pública y en el selector de nuevas salidas.
           </span>
           <button className="btn btn-primary" onClick={startCreate}>
             <Plus size={14} />

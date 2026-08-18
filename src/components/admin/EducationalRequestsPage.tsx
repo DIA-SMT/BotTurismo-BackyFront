@@ -18,17 +18,14 @@ import {
   parseBusinessDateParts,
   preferredShiftOptions,
   requestStatusOptions,
-  weekdayLabels,
-  type BusinessWeekday,
   type EducationalBusRequest,
   type EducationalBusRequestFilters,
   type EducationalBusRequestStatus,
   type EducationalSettings,
-  type PreferredShift,
 } from '@/lib/educational-bus-requests'
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search, Settings } from 'lucide-react'
-
-const settingsWeekdays: BusinessWeekday[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+import { Bus, CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search, Settings } from 'lucide-react'
+import { EducationalCircuitsPanel } from './EducationalCircuitsPanel'
+import type { EducationalCircuitRecord } from '@/lib/educational-circuits'
 
 function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
   const [settings, setSettings] = useState<EducationalSettings | null>(null)
@@ -54,23 +51,6 @@ function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
       cancelled = true
     }
   }, [])
-
-  const toggleShift = (weekday: BusinessWeekday, shift: PreferredShift) => {
-    setSettings((current) => {
-      if (!current) return current
-      const currentShifts = current.availability[weekday] || []
-      const nextShifts = currentShifts.includes(shift)
-        ? currentShifts.filter((item) => item !== shift)
-        : [...currentShifts, shift]
-      const availability = { ...current.availability }
-      if (nextShifts.length > 0) {
-        availability[weekday] = nextShifts
-      } else {
-        delete availability[weekday]
-      }
-      return { ...current, availability }
-    })
-  }
 
   const handleSave = async () => {
     if (!settings) return
@@ -101,7 +81,7 @@ function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
         Configuración del bus educativo
       </h3>
       <p className="td-muted" style={{ marginBottom: 14, fontSize: 13 }}>
-        Estos valores controlan el formulario público: bloqueo temporal de reservas, tamaño de los grupos y días con turnos habilitados.
+        Solo aplica al <strong>bus educativo</strong>. Bloqueo temporal de reservas y tamaño de los grupos; los días y turnos de cada circuito se definen en la pestaña Circuitos.
       </p>
 
       {loading ? (
@@ -160,27 +140,6 @@ function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
                 }
               />
             </label>
-          </div>
-
-          <div style={{ marginTop: 14 }}>
-            <strong style={{ fontSize: 13 }}>Días y turnos habilitados</strong>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 8 }}>
-              {settingsWeekdays.map((weekday) => (
-                <div key={weekday} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{weekdayLabels[weekday]}</div>
-                  {preferredShiftOptions.map((option) => (
-                    <label key={option.value} className="flex items-center gap-2" style={{ fontSize: 13, marginBottom: 4, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={(settings.availability[weekday] || []).includes(option.value)}
-                        onChange={() => toggleShift(weekday, option.value)}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </div>
           </div>
 
           {feedback ? (
@@ -325,6 +284,39 @@ export default function EducationalRequestsPage() {
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showCircuits, setShowCircuits] = useState(false)
+  const [circuitRecords, setCircuitRecords] = useState<EducationalCircuitRecord[]>([])
+  const [circuitsLoading, setCircuitsLoading] = useState(true)
+  const [circuitsError, setCircuitsError] = useState<string | null>(null)
+
+  const fetchCircuits = useCallback(async () => {
+    setCircuitsLoading(true)
+    setCircuitsError(null)
+    try {
+      const response = await fetch('/api/admin/educational-circuits', { cache: 'no-store' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudieron cargar los circuitos educativos.')
+      setCircuitRecords(result.data || [])
+    } catch (error) {
+      setCircuitRecords([])
+      setCircuitsError(error instanceof Error ? error.message : 'No se pudieron cargar los circuitos educativos.')
+    } finally {
+      setCircuitsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCircuits()
+  }, [fetchCircuits])
+
+  const circuitLabels = useMemo(
+    () =>
+      circuitRecords.reduce<Record<string, string>>((acc, record) => {
+        acc[record.slug] = record.name
+        return acc
+      }, {}),
+    [circuitRecords],
+  )
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -453,10 +445,14 @@ export default function EducationalRequestsPage() {
     <>
       <div className="page-header">
         <div>
-          <h2>Solicitudes Educativas</h2>
-          <p>Revisión y seguimiento de solicitudes para el bus turístico educativo.</p>
+          <h2>Bus Educativo</h2>
+          <p>Solicitudes, circuitos y configuración del bus educativo. Separado del bus turístico.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button className={`btn ${showCircuits ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowCircuits((current) => !current)}>
+            <Bus size={14} />
+            Circuitos
+          </button>
           <button className={`btn ${showSettings ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowSettings((current) => !current)}>
             <Settings size={14} />
             Configuración
@@ -469,6 +465,14 @@ export default function EducationalRequestsPage() {
       </div>
 
       <div className="page-body">
+        {showCircuits ? (
+          <EducationalCircuitsPanel
+            records={circuitRecords}
+            loading={circuitsLoading}
+            loadError={circuitsError}
+            onChanged={fetchCircuits}
+          />
+        ) : null}
         {showSettings ? <EducationalSettingsPanel onSaved={fetchRequests} /> : null}
         {saveFeedback ? (
           <div className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: 16 }}>
@@ -617,7 +621,7 @@ export default function EducationalRequestsPage() {
                       <tr key={request.id}>
                         <td>
                           <div className="td-text-primary">{request.institution_name}</div>
-                          <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit)}</div>
+                          <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit, circuitLabels)}</div>
                           {request.guides ? <div className="td-muted">Guías: {request.guides}</div> : null}
                         </td>
                         <td>

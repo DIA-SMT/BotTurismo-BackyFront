@@ -6,6 +6,9 @@ import { PriorityNotice } from '@/components/educational-bus/PriorityNotice'
 import { HeroMedia } from '@/components/educational-bus/HeroMedia'
 import { MouseExperience } from '@/components/MouseExperience'
 import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
+import { buildEducationalCircuitSeedRows } from '@/lib/educational-circuits'
+import { getActiveEducationalCircuits } from '@/lib/educational-circuits-server'
+import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export const metadata: Metadata = {
   title: 'Bus Educativo | San Miguel de Tucumán',
@@ -13,7 +16,46 @@ export const metadata: Metadata = {
     'Solicitá un turno institucional para recorrer San Miguel de Tucumán en el Bus Turístico Educativo. Turnos de lunes a viernes para escuelas e instituciones.',
 }
 
-export default function EducationalBusPage() {
+// El contenido de los circuitos sale del catálogo administrable.
+export const dynamic = 'force-dynamic'
+
+interface AccordionItem {
+  id: string
+  iconName: 'landmark'
+  title: string
+  summary: string
+  paragraphs: string[]
+}
+
+async function loadCircuitAccordionItems(): Promise<AccordionItem[]> {
+  try {
+    const circuits = await getActiveEducationalCircuits(createServerSupabaseClient())
+    if (circuits.length > 0) {
+      return circuits.map((circuit) => ({
+        id: circuit.slug,
+        iconName: 'landmark' as const,
+        title: circuit.name.startsWith('Circuito') ? circuit.name : `Circuito ${circuit.name}`,
+        summary: circuit.summary,
+        paragraphs: circuit.paragraphs,
+      }))
+    }
+  } catch {
+    // Migración pendiente: se muestra el contenido de la semilla.
+  }
+
+  return buildEducationalCircuitSeedRows()
+    .filter((row) => row.active)
+    .map((row) => ({
+      id: row.slug,
+      iconName: 'landmark' as const,
+      title: row.name.startsWith('Circuito') ? row.name : `Circuito ${row.name}`,
+      summary: row.summary,
+      paragraphs: row.paragraphs,
+    }))
+}
+
+export default async function EducationalBusPage() {
+  const circuitItems = await loadCircuitAccordionItems()
   return (
     <main className={styles.page}>
       <MouseExperience />
@@ -88,22 +130,7 @@ export default function EducationalBusPage() {
               </a>
             </section>
             <PriorityNotice />
-            <CircuitInfoAccordionGroup
-              items={[
-                {
-                  id: 'historico-cultural',
-                  iconName: 'landmark',
-                  title: 'Circuito Histórico Cultural',
-                  summary: 'Historia, cultura e identidad tucumana.',
-                  paragraphs: [
-                    'El presente circuito histórico-cultural propone un recorrido por espacios emblemáticos de la ciudad de San Miguel de Tucumán que permiten comprender la identidad local a través de su historia, su cultura y su desarrollo productivo.',
-                    'A lo largo del itinerario, los visitantes podrán conocer distintos aspectos que conforman el patrimonio tucumano, desde su pasado industrial hasta sus expresiones artísticas y su legado histórico nacional.',
-                    'El recorrido incluye la visita al Museo de la Industria Azucarera, la Casa Natal de Mercedes Sosa, el Museo Casa de la Ciudad y la Casa Solar Belgraniana, articulando turismo, educación y patrimonio en una propuesta integral.',
-                    'Esta experiencia permite no solo recorrer espacios significativos, sino también reflexionar sobre la construcción de la identidad tucumana y la importancia de preservar ese legado para las futuras generaciones.',
-                  ],
-                },
-              ]}
-            />
+            <CircuitInfoAccordionGroup items={circuitItems} />
             <section className={styles.sideCard}>
               <p className={styles.sideTitle}>Qué sucede después</p>
               <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
