@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Bot, Camera, HelpCircle, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
+import { Bot, Bus, Camera, HelpCircle, LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react'
 
 const navItems = [
   { href: '/admin', icon: LayoutDashboard, label: 'Resumen' },
   { href: '/admin/interactions', icon: MessageSquare, label: 'Interacciones' },
   { href: '/admin/faqs', icon: HelpCircle, label: 'Preguntas frecuentes' },
+  { href: '/admin/turistico', icon: Bus, label: 'Bus turístico' },
   { href: '/admin/solicitudes', icon: HelpCircle, label: 'Solicitudes educativas' },
   { href: '/admin/fotos', icon: Camera, label: 'Books de fotos' },
 ]

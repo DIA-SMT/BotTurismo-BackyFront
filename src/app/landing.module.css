@@ -1,0 +1,311 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0f4fa2;
+  isolation: isolate;
+  color: #fff;
+}
+
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  background: #0f4fa2;
+}
+
+.bgMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.bgSlide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1);
+  transition: opacity 1600ms ease-in-out, transform 8500ms ease-out;
+}
+
+.bgSlideActive {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.bgSplit {
+  display: flex;
+}
+
+.bgHalf {
+  position: relative;
+  flex: 1 1 50%;
+  overflow: hidden;
+}
+
+.bgEducational {
+  flex: 1 1 calc(50% + 8vw);
+  margin-left: -8vw;
+  clip-path: polygon(8vw 0, 100% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(-8px 0 22px rgba(3, 14, 31, 0.55));
+}
+
+.bgHalfVeil {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 25, 52, 0.22);
+  transition: background 320ms ease;
+  pointer-events: none;
+}
+
+.page:has(.choiceCardTourist:hover) .bgTourist .bgHalfVeil,
+.page:has(.choiceCardTourist:focus-visible) .bgTourist .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.08);
+}
+
+.page:has(.choiceCardTourist:hover) .bgEducational .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.6);
+}
+
+.page:has(.choiceCardEducational:hover) .bgEducational .bgHalfVeil,
+.page:has(.choiceCardEducational:focus-visible) .bgEducational .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.08);
+}
+
+.page:has(.choiceCardEducational:hover) .bgTourist .bgHalfVeil {
+  background: rgba(7, 25, 52, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bgSlide {
+    transition: none;
+    transform: none;
+  }
+
+  .bgSlideActive {
+    transform: none;
+  }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(7, 31, 65, 0.7) 0%, rgba(10, 52, 101, 0.5) 40%, rgba(12, 68, 128, 0.2) 70%, rgba(10, 48, 91, 0.1) 100%),
+    linear-gradient(180deg, rgba(5, 22, 46, 0.1) 0%, rgba(5, 27, 57, 0.52) 100%);
+  pointer-events: none;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px clamp(18px, 4vw, 46px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #fff;
+}
+
+.brandLogo {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.brandText {
+  display: grid;
+  line-height: 1.02;
+}
+
+.brandText span {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.brandText strong {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.topLinks {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.5vw, 26px);
+}
+
+.topLinks a {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.topLinks a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(1180px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: clamp(28px, 6vh, 64px) 0 clamp(36px, 7vh, 72px);
+}
+
+.eyebrow {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.title {
+  margin-top: 14px;
+  font-size: clamp(2rem, 5vw, 3.3rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  max-width: 760px;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 16px;
+  max-width: 640px;
+  font-size: clamp(1rem, 1.6vw, 1.12rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: clamp(16px, 2.4vw, 26px);
+  margin-top: clamp(30px, 5vh, 52px);
+  max-width: 900px;
+}
+
+.choiceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(22px, 3vw, 32px);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(9, 32, 63, 0.55);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  text-decoration: none;
+  transition: transform 200ms ease, border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+}
+
+.choiceCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(12, 45, 89, 0.72);
+  box-shadow: 0 24px 48px rgba(3, 14, 31, 0.45);
+}
+
+.choiceIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.choiceTitle {
+  font-size: clamp(1.3rem, 2.4vw, 1.6rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.choiceText {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.choiceList {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.choiceList li::before {
+  content: '· ';
+  font-weight: 900;
+}
+
+.choiceCta {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #9ecbff;
+}
+
+.choiceCard:hover .choiceCta {
+  color: #fff;
+}
+
+.footerNote {
+  margin-top: clamp(26px, 5vh, 44px);
+  font-size: 0.84rem;
+  color: rgba(255, 255, 255, 0.68);
+  max-width: 640px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .topLinks {
+    display: none;
+  }
+
+  .choiceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  /* En pantallas chicas las tarjetas van apiladas: queda solo el
+     slideshow turístico a pantalla completa. */
+  .bgEducational {
+    display: none;
+  }
+
+  .bgTourist {
+    flex: 1 1 100%;
+  }
+}

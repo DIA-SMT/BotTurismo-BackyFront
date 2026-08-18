@@ -10,6 +10,10 @@ import {
   validateEducationalBusAttachment,
   validateEducationalBusRequestForm,
 } from '@/lib/educational-bus-requests'
+import { getEducationalSettings } from '@/lib/educational-settings-server'
+import { getEducationalCircuitBySlug } from '@/lib/educational-circuits-server'
+import { mapEducationalCircuitRecord } from '@/lib/educational-circuits'
+import { defaultEducationalSettings } from '@/lib/educational-bus-requests'
 
 function mapPayloadToFormData(payload: FormData): EducationalBusRequestFormData {
   return {
@@ -76,7 +80,37 @@ export async function POST(request: NextRequest) {
   const payload = mapPayloadToFormData(formData)
   const attachment = formData.get('attachment')
   const attachmentFile = attachment instanceof File ? attachment : null
-  const errors = validateEducationalBusRequestForm(payload)
+  const settingsSupabase = createServerSupabaseClient()
+  const globalSettings = await getEducationalSettings(settingsSupabase)
+
+  // La disponibilidad es por circuito (catálogo educativo). Si la tabla no
+  // existe todavía, solo el circuito histórico funciona con los defaults.
+  let circuitAvailability = null
+  if (payload.circuit) {
+    try {
+      const record = await getEducationalCircuitBySlug(settingsSupabase, payload.circuit)
+      if (record && record.active) {
+        circuitAvailability = mapEducationalCircuitRecord(record).availability
+      }
+    } catch {
+      if (payload.circuit === 'historico_cultural') {
+        circuitAvailability = defaultEducationalSettings.availability
+      }
+    }
+  }
+
+  if (payload.circuit && !circuitAvailability) {
+    return NextResponse.json(
+      {
+        error: 'El circuito elegido no está disponible.',
+        fieldErrors: { circuit: 'El circuito elegido no está disponible.' },
+      },
+      { status: 400 },
+    )
+  }
+
+  const settings = { ...globalSettings, availability: circuitAvailability || {} }
+  const errors = validateEducationalBusRequestForm(payload, settings)
   const attachmentError = validateEducationalBusAttachment(attachmentFile)
 
   if (attachmentError) {

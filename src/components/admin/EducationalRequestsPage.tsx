@@ -21,8 +21,145 @@ import {
   type EducationalBusRequest,
   type EducationalBusRequestFilters,
   type EducationalBusRequestStatus,
+  type EducationalSettings,
 } from '@/lib/educational-bus-requests'
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search } from 'lucide-react'
+import { Bus, CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search, Settings } from 'lucide-react'
+import { EducationalCircuitsPanel } from './EducationalCircuitsPanel'
+import type { EducationalCircuitRecord } from '@/lib/educational-circuits'
+
+function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
+  const [settings, setSettings] = useState<EducationalSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/educational-settings', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'No se pudo cargar la configuración.')
+        if (!cancelled) setSettings(result.data)
+      })
+      .catch((error) => {
+        if (!cancelled) setFeedback(error instanceof Error ? error.message : 'No se pudo cargar la configuración.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleSave = async () => {
+    if (!settings) return
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/admin/educational-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar la configuración.')
+      setSettings(result.data)
+      setFeedback('Configuración guardada. Los cambios impactan al instante en la página pública.')
+      onSaved()
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'No se pudo guardar la configuración.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="table-container" style={{ marginBottom: 20, padding: 18 }}>
+      <h3 style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Settings size={16} />
+        Configuración del bus educativo
+      </h3>
+      <p className="td-muted" style={{ marginBottom: 14, fontSize: 13 }}>
+        Solo aplica al <strong>bus educativo</strong>. Bloqueo temporal de reservas y tamaño de los grupos; los días y turnos de cada circuito se definen en la pestaña Circuitos.
+      </p>
+
+      {loading ? (
+        <div className="loading-state" style={{ padding: 12 }}>
+          <div className="spinner" />
+          Cargando configuración...
+        </div>
+      ) : settings ? (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Bloquear reservas hasta (inclusive)
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  className="input"
+                  value={settings.blockedUntil || ''}
+                  onChange={(event) =>
+                    setSettings((current) => (current ? { ...current, blockedUntil: event.target.value || null } : current))
+                  }
+                />
+                {settings.blockedUntil ? (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+                    onClick={() => setSettings((current) => (current ? { ...current, blockedUntil: null } : current))}
+                  >
+                    Quitar bloqueo
+                  </button>
+                ) : (
+                  <span className="td-muted" style={{ fontSize: 12 }}>Sin bloqueo activo</span>
+                )}
+              </div>
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Mínimo de alumnos
+              <input
+                type="number"
+                min={1}
+                className="input"
+                value={settings.minStudents}
+                onChange={(event) =>
+                  setSettings((current) => (current ? { ...current, minStudents: Number(event.target.value) } : current))
+                }
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+              Máximo de alumnos
+              <input
+                type="number"
+                min={1}
+                className="input"
+                value={settings.maxStudents}
+                onChange={(event) =>
+                  setSettings((current) => (current ? { ...current, maxStudents: Number(event.target.value) } : current))
+                }
+              />
+            </label>
+          </div>
+
+          {feedback ? (
+            <div className="badge" style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--info)', marginTop: 12 }}>
+              {feedback}
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar configuración'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="td-muted">{feedback || 'No se pudo cargar la configuración.'}</p>
+      )}
+    </div>
+  )
+}
 
 type ViewMode = 'table' | 'calendar'
 
@@ -146,6 +283,40 @@ export default function EducationalRequestsPage() {
   const [exporting, setExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [showCircuits, setShowCircuits] = useState(false)
+  const [circuitRecords, setCircuitRecords] = useState<EducationalCircuitRecord[]>([])
+  const [circuitsLoading, setCircuitsLoading] = useState(true)
+  const [circuitsError, setCircuitsError] = useState<string | null>(null)
+
+  const fetchCircuits = useCallback(async () => {
+    setCircuitsLoading(true)
+    setCircuitsError(null)
+    try {
+      const response = await fetch('/api/admin/educational-circuits', { cache: 'no-store' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'No se pudieron cargar los circuitos educativos.')
+      setCircuitRecords(result.data || [])
+    } catch (error) {
+      setCircuitRecords([])
+      setCircuitsError(error instanceof Error ? error.message : 'No se pudieron cargar los circuitos educativos.')
+    } finally {
+      setCircuitsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCircuits()
+  }, [fetchCircuits])
+
+  const circuitLabels = useMemo(
+    () =>
+      circuitRecords.reduce<Record<string, string>>((acc, record) => {
+        acc[record.slug] = record.name
+        return acc
+      }, {}),
+    [circuitRecords],
+  )
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -274,16 +445,35 @@ export default function EducationalRequestsPage() {
     <>
       <div className="page-header">
         <div>
-          <h2>Solicitudes Educativas</h2>
-          <p>Revisión y seguimiento de solicitudes para el bus turístico educativo.</p>
+          <h2>Bus Educativo</h2>
+          <p>Solicitudes, circuitos y configuración del bus educativo. Separado del bus turístico.</p>
         </div>
-        <button className="btn btn-secondary" onClick={fetchRequests} disabled={loading}>
-          <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button className={`btn ${showCircuits ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowCircuits((current) => !current)}>
+            <Bus size={14} />
+            Circuitos
+          </button>
+          <button className={`btn ${showSettings ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowSettings((current) => !current)}>
+            <Settings size={14} />
+            Configuración
+          </button>
+          <button className="btn btn-secondary" onClick={fetchRequests} disabled={loading}>
+            <RefreshCw size={14} style={loading ? { animation: 'spin 0.6s linear infinite' } : {}} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <div className="page-body">
+        {showCircuits ? (
+          <EducationalCircuitsPanel
+            records={circuitRecords}
+            loading={circuitsLoading}
+            loadError={circuitsError}
+            onChanged={fetchCircuits}
+          />
+        ) : null}
+        {showSettings ? <EducationalSettingsPanel onSaved={fetchRequests} /> : null}
         {saveFeedback ? (
           <div className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: 16 }}>
             {saveFeedback}
@@ -431,7 +621,7 @@ export default function EducationalRequestsPage() {
                       <tr key={request.id}>
                         <td>
                           <div className="td-text-primary">{request.institution_name}</div>
-                          <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit)}</div>
+                          <div className="td-muted">{request.student_count} alumnos · {getCircuitLabel(request.circuit, circuitLabels)}</div>
                           {request.guides ? <div className="td-muted">Guías: {request.guides}</div> : null}
                         </td>
                         <td>

@@ -14,6 +14,7 @@ import {
   type EducationalBusRequest,
 } from '@/lib/educational-bus-requests'
 import { buildSimpleXlsxBuffer } from '@/lib/simple-xlsx'
+import { getEducationalCircuitLabels } from '@/lib/educational-circuits-server'
 
 export const runtime = 'nodejs'
 
@@ -32,7 +33,7 @@ function buildExportFileName(from: string, to: string) {
   return `buses-educativos-aprobados-${fromDay}-${fromMonth}-${fromYear}_a_${toDay}-${toMonth}-${toYear}.xlsx`
 }
 
-function buildExportRows(requests: EducationalBusExportRequest[]) {
+function buildExportRows(requests: EducationalBusExportRequest[], circuitLabels: Record<string, string>) {
   const header = [
     'ID',
     'Fecha de creación',
@@ -61,7 +62,7 @@ function buildExportRows(requests: EducationalBusExportRequest[]) {
     formatDateTimeToDisplay(request.created_at),
     formatDateTimeToDisplay(request.updated_at),
     getRequestStatusLabel(request.status),
-    getCircuitLabel(request.circuit),
+    getCircuitLabel(request.circuit, circuitLabels),
     formatDateToDisplay(request.requested_date),
     getShiftLabel(request.preferred_shift),
     getInstitutionTypeLabel(request.institution_type),
@@ -141,10 +142,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudieron obtener las solicitudes aprobadas.' }, { status: 500 })
   }
 
+  const circuitLabels = await getEducationalCircuitLabels(supabase)
+
   const workbookBuffer = buildSimpleXlsxBuffer([
     {
       name: 'Solicitudes aprobadas',
-      rows: buildExportRows(data || []),
+      rows: buildExportRows(data || [], circuitLabels),
     },
   ])
 

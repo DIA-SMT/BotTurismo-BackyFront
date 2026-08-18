@@ -4,21 +4,21 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Bus Turístico Educativo | Municipalidad de San Miguel de Tucumán',
-    template: '%s | Bus Turístico Educativo',
+    default: 'Bus Turístico | Municipalidad de San Miguel de Tucumán',
+    template: '%s | Municipalidad de San Miguel de Tucumán',
   },
   description:
-    'Solicitud digital de turnos para visitas educativas en el Bus Turístico Educativo de la Municipalidad de San Miguel de Tucumán.',
+    'Circuitos del Bus Turístico de San Miguel de Tucumán: salidas programadas para turistas y vecinos, y turnos institucionales del Bus Educativo para escuelas.',
   keywords: [
+    'bus turístico',
     'bus turístico educativo',
     'Municipalidad de San Miguel de Tucumán',
+    'circuitos turísticos',
     'turnos escolares',
     'visitas educativas',
-    'escuelas',
-    'instituciones educativas',
-    'turismo educativo',
+    'turismo Tucumán',
   ],
-  applicationName: 'Bus Turístico Educativo',
+  applicationName: 'Bus Turístico SMT',
   authors: [{ name: 'Municipalidad de San Miguel de Tucumán' }],
   creator: 'Municipalidad de San Miguel de Tucumán',
   publisher: 'Municipalidad de San Miguel de Tucumán',
@@ -26,12 +26,12 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Bus Turístico Educativo | Municipalidad de San Miguel de Tucumán',
+    title: 'Bus Turístico | Municipalidad de San Miguel de Tucumán',
     description:
-      'Completá la solicitud de turnos para visitas educativas del Bus Turístico Educativo municipal.',
+      'Reservá tu lugar en los circuitos del Bus Turístico o solicitá un turno institucional del Bus Educativo.',
     type: 'website',
     locale: 'es_AR',
-    siteName: 'Bus Turístico Educativo',
+    siteName: 'Bus Turístico SMT',
     images: [
       {
         url: '/logoMuni-sm.png',
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'Bus Turístico Educativo | Municipalidad de San Miguel de Tucumán',
+    title: 'Bus Turístico | Municipalidad de San Miguel de Tucumán',
     description:
-      'Solicitud digital de turnos para visitas educativas del Bus Turístico Educativo municipal.',
+      'Reservá tu lugar en los circuitos del Bus Turístico o solicitá un turno institucional del Bus Educativo.',
     images: ['/logoMuni-sm.png'],
   },
   robots: {

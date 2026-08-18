@@ -17,18 +17,19 @@ import {
   gradeYearOptions,
   initialEducationalBusRequestFormData,
   institutionTypeOptions,
-  isAllowedAdvancedSecondaryGrade,
   maximumStudentCount,
   minimumStudentCount,
   preferredShiftOptions,
   type EducationalBusRequestFormData,
   type EducationalBusRequestFormErrors,
+  type EducationalSettings,
   type PreferredShift,
   type PublicAvailabilityDay,
   validateEducationalBusAttachment,
   validateEducationalBusRequestForm,
   weekdayLabels,
 } from '@/lib/educational-bus-requests'
+import { describeEducationalAvailability } from '@/lib/educational-circuits'
 import styles from './form.module.css'
 import { FormField } from './FormField'
 import { Input } from './Input'
@@ -262,15 +263,54 @@ export function EducationalBusRequestForm() {
   const [currentWeekStartKey, setCurrentWeekStartKey] = useState(() => getWeekStartDateKey(getTodayDateStringInBuenosAires()))
   const [availabilityByDate, setAvailabilityByDate] = useState<Record<string, PublicAvailabilityDay>>({})
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  // Configuración cargada por el admin (bloqueo, min/max alumnos, días/turnos).
+  const [settings, setSettings] = useState<EducationalSettings | null>(null)
+  // Circuitos educativos del catálogo administrable (fallback: el histórico).
+  const [circuitChoices, setCircuitChoices] = useState<Array<{ value: string; label: string }>>(
+    circuitOptions.map((option) => ({ value: option.value, label: option.label })),
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/educational-bus/circuits', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const payload = (await response.json()) as { data?: Array<{ slug: string; name: string }> }
+        const choices = (payload.data || []).map((circuit) => ({ value: circuit.slug, label: circuit.name }))
+        if (!cancelled && choices.length > 0) setCircuitChoices(choices)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setFormData((current) => {
+      // Si el circuito elegido ya no está en el catálogo activo, se limpia.
+      if (current.circuit && !circuitChoices.some((choice) => choice.value === current.circuit)) {
+        return { ...current, circuit: '', requestedDate: '', preferredShift: '' }
+      }
+      // Con un único circuito activo se preselecciona.
+      if (!current.circuit && circuitChoices.length === 1) {
+        return { ...current, circuit: circuitChoices[0].value }
+      }
+      return current
+    })
+  }, [circuitChoices])
   const formCardRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const monthOptions = useMemo(() => buildMonthOptions(getTodayDateStringInBuenosAires().slice(0, 7), 24), [])
   const selectedWeekday = useMemo(() => getBusinessWeekday(formData.requestedDate), [formData.requestedDate])
-  const availableWeekdays = useMemo(() => getAvailableWeekdaysForCircuit(formData.circuit), [formData.circuit])
+  const availableWeekdays = useMemo(
+    () => getAvailableWeekdaysForCircuit(formData.circuit, settings ?? undefined),
+    [formData.circuit, settings],
+  )
+  const minStudents = settings?.minStudents ?? minimumStudentCount
+  const maxStudents = settings?.maxStudents ?? maximumStudentCount
   const selectedDayAvailability = formData.requestedDate ? availabilityByDate[formData.requestedDate] : undefined
   const availableShifts = selectedDayAvailability?.availableShifts || []
-  const isMemoryCircuit = formData.circuit === 'memoria'
 
   useEffect(() => {
     if (!formData.circuit) {
@@ -293,10 +333,15 @@ export function EducationalBusRequestForm() {
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo consultar la disponibilidad.')
-      return (result.data?.days || []) as PublicAvailabilityDay[]
+      return {
+        days: (result.data?.days || []) as PublicAvailabilityDay[],
+        settings: (result.data?.settings || null) as EducationalSettings | null,
+      }
     }))
-      .then((monthDays) => {
-        setAvailabilityByDate(monthDays.flat().reduce<Record<string, PublicAvailabilityDay>>((acc, day) => {
+      .then((monthResults) => {
+        const receivedSettings = monthResults.find((month) => month.settings)?.settings
+        if (receivedSettings) setSettings(receivedSettings)
+        setAvailabilityByDate(monthResults.flatMap((month) => month.days).reduce<Record<string, PublicAvailabilityDay>>((acc, day) => {
           acc[day.dateKey] = day
           return acc
         }, {}))
@@ -355,25 +400,6 @@ export function EducationalBusRequestForm() {
     setAvailabilityMessage(null)
   }, [availableShifts.length, availableWeekdays, formData.circuit, formData.requestedDate, selectedWeekday])
 
-  useEffect(() => {
-    if (!isMemoryCircuit) {
-      setErrors((current) => {
-        if (!current.gradeYear?.includes('Memoria')) return current
-        const next = { ...current }
-        delete next.gradeYear
-        return next
-      })
-      return
-    }
-
-    if (formData.gradeYear && !isAllowedAdvancedSecondaryGrade(formData.gradeYear)) {
-      setErrors((current) => ({
-        ...current,
-        gradeYear: 'El circuito Memoria está disponible únicamente para los últimos 3 años del nivel secundario.',
-      }))
-    }
-  }, [formData.gradeYear, isMemoryCircuit])
-
   const updateField = <K extends keyof EducationalBusRequestFormData>(field: K, value: EducationalBusRequestFormData[K]) => {
     setFormData((current) => ({ ...current, [field]: value }))
     setErrors((current) => {
@@ -429,7 +455,7 @@ export function EducationalBusRequestForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const validationErrors = validateEducationalBusRequestForm(formData)
+    const validationErrors = validateEducationalBusRequestForm(formData, settings ?? undefined)
     const attachmentError = validateEducationalBusAttachment(attachment)
     if (attachmentError) {
       validationErrors.attachment = attachmentError
@@ -485,6 +511,10 @@ export function EducationalBusRequestForm() {
     }
   }
 
+  const selectedCircuitLabel = formData.circuit
+    ? circuitChoices.find((choice) => choice.value === formData.circuit)?.label || getCircuitLabel(formData.circuit)
+    : ''
+
   const weekdayHint = selectedWeekday
     ? `La fecha elegida corresponde a ${weekdayLabels[selectedWeekday]}.`
     : 'Elegí una fecha para verificar el día disponible.'
@@ -519,7 +549,7 @@ export function EducationalBusRequestForm() {
         <p className={styles.availabilityText}>Los días y turnos disponibles dependen del circuito seleccionado.</p>
         <p className={styles.availabilityMeta}>
           {formData.circuit
-            ? `${getCircuitLabel(formData.circuit)}: ${availableDaysText}.`
+            ? `${selectedCircuitLabel}: ${availableDaysText}.`
             : 'Selecciona un circuito para conocer qué días y turnos están habilitados.'}
         </p>
       </div>
@@ -532,16 +562,10 @@ export function EducationalBusRequestForm() {
         </a>
       </div>
 
-      {isMemoryCircuit ? (
+      {formData.circuit && settings ? (
         <div className={styles.circuitNotice}>
-          <p className={styles.circuitNoticeTitle}>Circuito Memoria</p>
-          <p className={styles.circuitNoticeText}>Este circuito está disponible únicamente para los últimos 3 años del nivel secundario.</p>
-          <p className={styles.circuitNoticeText}>Disponibilidad limitada: frecuencia de una vez por semana, los jueves por la mañana.</p>
-        </div>
-      ) : formData.circuit === 'historico_cultural' ? (
-        <div className={styles.circuitNotice}>
-          <p className={styles.circuitNoticeTitle}>Circuito Histórico Cultural</p>
-          <p className={styles.circuitNoticeText}>Disponible los martes y miércoles por la mañana y la tarde, los jueves por la tarde y los viernes por la mañana.</p>
+          <p className={styles.circuitNoticeTitle}>{selectedCircuitLabel}</p>
+          <p className={styles.circuitNoticeText}>Días habilitados: {describeEducationalAvailability(settings.availability)}.</p>
         </div>
       ) : null}
 
@@ -556,7 +580,7 @@ export function EducationalBusRequestForm() {
           <FormField label="Circuito" required error={errors.circuit}>
             <Select value={formData.circuit} onChange={(event) => handleCircuitChange(event.target.value as EducationalBusRequestFormData['circuit'])} hasError={Boolean(errors.circuit)}>
               <option value="">Seleccionar</option>
-              {circuitOptions.map((option) => (
+              {circuitChoices.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -606,16 +630,16 @@ export function EducationalBusRequestForm() {
             <Input type="email" value={formData.contactEmail} onChange={(event) => updateField('contactEmail', event.target.value)} placeholder="correo@institucion.edu.ar" hasError={Boolean(errors.contactEmail)} />
           </FormField>
 
-          <FormField label="Cantidad de alumnos" required hint={`Se permiten grupos de ${minimumStudentCount} a ${maximumStudentCount} alumnos.`} error={errors.studentCount}>
-            <Input type="number" min={`${minimumStudentCount}`} max={`${maximumStudentCount}`} value={formData.studentCount} onChange={(event) => updateField('studentCount', event.target.value)} placeholder="Ej. 32" hasError={Boolean(errors.studentCount)} />
+          <FormField label="Cantidad de alumnos" required hint={`Se permiten grupos de ${minStudents} a ${maxStudents} alumnos.`} error={errors.studentCount}>
+            <Input type="number" min={`${minStudents}`} max={`${maxStudents}`} value={formData.studentCount} onChange={(event) => updateField('studentCount', event.target.value)} placeholder="Ej. 32" hasError={Boolean(errors.studentCount)} />
           </FormField>
 
           <FormField label="Grado o año" required hint={formData.gradeYear ? `Seleccionado: ${getGradeYearLabel(formData.gradeYear)}.` : undefined} error={errors.gradeYear}>
             <Select value={formData.gradeYear} onChange={(event) => updateField('gradeYear', event.target.value)} hasError={Boolean(errors.gradeYear)}>
               <option value="">Seleccionar</option>
               {gradeYearOptions.map((option) => (
-                <option key={option.value} value={option.value} disabled={isMemoryCircuit && !isAllowedAdvancedSecondaryGrade(option.value)}>
-                  {option.label}{isMemoryCircuit && !isAllowedAdvancedSecondaryGrade(option.value) ? ' - no disponible para Memoria' : ''}
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </Select>
