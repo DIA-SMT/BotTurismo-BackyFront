@@ -143,6 +143,21 @@ export function formatDepartureDate(dateKey: string, language: TouristLanguage) 
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
+const shortDepartureDateFormatters: Record<TouristLanguage, Intl.DateTimeFormat> = {
+  es: new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+  en: new Intl.DateTimeFormat('en-US', { weekday: 'short', month: '2-digit', day: '2-digit' }),
+}
+
+// Versión corta para chips: "Sáb 22/08".
+export function formatDepartureDateShort(dateKey: string, language: TouristLanguage) {
+  const parts = parseBusinessDateParts(dateKey)
+  if (!parts) return dateKey
+  const formatted = shortDepartureDateFormatters[language]
+    .format(new Date(parts.year, parts.month - 1, parts.day))
+    .replace(',', '')
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+}
+
 export function getDepartureOccupancyPercent(departure: Pick<TouristDepartureAvailability, 'capacity' | 'reserved'>) {
   if (departure.capacity <= 0) return 100
   return Math.min(100, Math.round((departure.reserved / departure.capacity) * 100))

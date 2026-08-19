@@ -1,9 +1,11 @@
 'use client'
 
 import type { ChangeEvent, FormEvent } from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bus,
+  ChevronLeft,
+  ChevronRight,
   Church,
   Footprints,
   Landmark,
@@ -24,6 +26,7 @@ import { Select } from '@/components/educational-bus/Select'
 import { StatusBanner } from '@/components/educational-bus/StatusBanner'
 import {
   formatDepartureDate,
+  formatDepartureDateShort,
   formatDepartureTime,
   initialTouristBookingFormData,
   maximumPeoplePerBooking,
@@ -169,6 +172,51 @@ export function TouristExperience() {
     () => departures.find((departure) => String(departure.id) === formData.departureId) || null,
     [departures, formData.departureId],
   )
+
+  // Una tarjeta por circuito: su salida más próxima con cupo (o la próxima a
+  // secas si está todo vendido) + chips con las siguientes fechas.
+  const circuitCards = useMemo(() => {
+    const groups = new Map<string, TouristDepartureAvailability[]>()
+    for (const departure of departures) {
+      const key = getDepartureCircuitKey(departure)
+      const list = groups.get(key) || []
+      list.push(departure)
+      groups.set(key, list)
+    }
+
+    return Array.from(groups.values())
+      .map((list) => {
+        const featured = list.find((departure) => departure.remaining > 0) || list[0]
+        const otherBookable = list.filter((departure) => departure.id !== featured.id && departure.remaining > 0)
+        return {
+          featured,
+          chips: otherBookable.slice(0, 3),
+          extraCount: Math.max(0, otherBookable.length - 3),
+        }
+      })
+      .sort((a, b) =>
+        `${a.featured.departure_date}${a.featured.departure_time}`.localeCompare(
+          `${b.featured.departure_date}${b.featured.departure_time}`,
+        ),
+      )
+  }, [departures])
+
+  const carouselTrackRef = useRef<HTMLDivElement | null>(null)
+  const [carouselOverflows, setCarouselOverflows] = useState(false)
+
+  useEffect(() => {
+    const track = carouselTrackRef.current
+    if (!track) return
+    const update = () => setCarouselOverflows(track.scrollWidth > track.clientWidth + 8)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(track)
+    return () => observer.disconnect()
+  }, [circuitCards.length, departuresLoading])
+
+  const scrollCarousel = (direction: 1 | -1) => {
+    carouselTrackRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' })
+  }
 
   // Si al refrescar los cupos el circuito o la salida elegida dejaron de estar
   // disponibles, se limpia la selección para no reservar sobre datos viejos.
@@ -381,46 +429,87 @@ export function TouristExperience() {
             <p className={styles.emptyNotice}>{copy.departuresLoading}</p>
           ) : departuresFailed ? (
             <p className={styles.emptyNotice}>{copy.departuresError}</p>
-          ) : departures.length === 0 ? (
+          ) : circuitCards.length === 0 ? (
             <p className={styles.emptyNotice}>{copy.departuresEmpty}</p>
           ) : (
-            <div className={styles.departuresGrid}>
-              {departures.map((departure) => {
-                const soldOut = departure.remaining <= 0
-                const badgeClass = soldOut
-                  ? `${styles.seatsBadge} ${styles.seatsBadgeNone}`
-                  : departure.remaining <= lowSeatsThreshold
-                    ? `${styles.seatsBadge} ${styles.seatsBadgeLow}`
-                    : styles.seatsBadge
+            <div className={styles.carouselWrap}>
+              {carouselOverflows ? (
+                <button
+                  type="button"
+                  className={`${styles.carouselArrow} ${styles.carouselArrowLeft}`}
+                  onClick={() => scrollCarousel(-1)}
+                  aria-label={copy.carouselPrev}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              ) : null}
 
-                return (
-                  <article key={departure.id} className={styles.departureCard} data-mouse-tilt>
-                    <span className={styles.departureDate}>
-                      {formatDepartureDate(departure.departure_date, language)} · {formatDepartureTime(departure.departure_time)} h
-                    </span>
-                    <h3 className={styles.departureTitle}>{getDepartureDisplayTitle(departure, language)}</h3>
-                    <div className={styles.departureMeta}>
-                      {departure.meeting_point ? (
-                        <span>
-                          <strong>{copy.meetingPointLabel}:</strong> {departure.meeting_point}
-                        </span>
+              <div className={styles.carouselTrack} ref={carouselTrackRef}>
+                {circuitCards.map(({ featured, chips, extraCount }) => {
+                  const soldOut = featured.remaining <= 0
+                  const badgeClass = soldOut
+                    ? `${styles.seatsBadge} ${styles.seatsBadgeNone}`
+                    : featured.remaining <= lowSeatsThreshold
+                      ? `${styles.seatsBadge} ${styles.seatsBadgeLow}`
+                      : styles.seatsBadge
+
+                  return (
+                    <article key={featured.id} className={styles.departureCard} data-mouse-tilt>
+                      <span className={styles.departureDate}>
+                        {formatDepartureDate(featured.departure_date, language)} · {formatDepartureTime(featured.departure_time)} h
+                      </span>
+                      <h3 className={styles.departureTitle}>{getDepartureDisplayTitle(featured, language)}</h3>
+                      <div className={styles.departureMeta}>
+                        {featured.meeting_point ? (
+                          <span>
+                            <strong>{copy.meetingPointLabel}:</strong> {featured.meeting_point}
+                          </span>
+                        ) : null}
+                        {featured.notes ? <span>{featured.notes}</span> : null}
+                      </div>
+                      {chips.length > 0 || extraCount > 0 ? (
+                        <div className={styles.chipsRow}>
+                          <span className={styles.chipsLabel}>{copy.moreDatesLabel}:</span>
+                          {chips.map((chip) => (
+                            <button
+                              key={chip.id}
+                              type="button"
+                              className={styles.dateChip}
+                              onClick={() => selectDeparture(chip.id)}
+                              title={`${formatDepartureDate(chip.departure_date, language)} · ${formatDepartureTime(chip.departure_time)} h`}
+                            >
+                              {formatDepartureDateShort(chip.departure_date, language)}
+                            </button>
+                          ))}
+                          {extraCount > 0 ? <span className={styles.chipMore}>{copy.moreDatesExtra(extraCount)}</span> : null}
+                        </div>
                       ) : null}
-                      {departure.notes ? <span>{departure.notes}</span> : null}
-                    </div>
-                    <div className={styles.departureFooter}>
-                      <span className={badgeClass}>{soldOut ? copy.soldOut : copy.seatsLeft(departure.remaining)}</span>
-                      <button
-                        type="button"
-                        className={styles.departureButton}
-                        onClick={() => selectDeparture(departure.id)}
-                        disabled={soldOut}
-                      >
-                        {copy.bookCta}
-                      </button>
-                    </div>
-                  </article>
-                )
-              })}
+                      <div className={styles.departureFooter}>
+                        <span className={badgeClass}>{soldOut ? copy.soldOut : copy.seatsLeft(featured.remaining)}</span>
+                        <button
+                          type="button"
+                          className={styles.departureButton}
+                          onClick={() => selectDeparture(featured.id)}
+                          disabled={soldOut}
+                        >
+                          {copy.bookCta}
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+
+              {carouselOverflows ? (
+                <button
+                  type="button"
+                  className={`${styles.carouselArrow} ${styles.carouselArrowRight}`}
+                  onClick={() => scrollCarousel(1)}
+                  aria-label={copy.carouselNext}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              ) : null}
             </div>
           )}
         </section>

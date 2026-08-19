@@ -22,6 +22,10 @@ export interface TouristPageCopy {
   soldOut: string
   meetingPointLabel: string
   bookCta: string
+  moreDatesLabel: string
+  moreDatesExtra: (count: number) => string
+  carouselPrev: string
+  carouselNext: string
   formTitle: string
   formLead: string
   circuitField: string
@@ -80,6 +84,10 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     soldOut: 'Sin cupo',
     meetingPointLabel: 'Punto de encuentro',
     bookCta: 'Reservar',
+    moreDatesLabel: 'Más fechas',
+    moreDatesExtra: (count) => `+${count} más`,
+    carouselPrev: 'Circuitos anteriores',
+    carouselNext: 'Más circuitos',
     formTitle: 'Reservá tu lugar',
     formLead: 'Completá tus datos y confirmá al instante. La reserva es gratuita.',
     circuitField: 'Circuito',
@@ -155,6 +163,10 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     soldOut: 'Sold out',
     meetingPointLabel: 'Meeting point',
     bookCta: 'Book',
+    moreDatesLabel: 'More dates',
+    moreDatesExtra: (count) => `+${count} more`,
+    carouselPrev: 'Previous circuits',
+    carouselNext: 'More circuits',
     formTitle: 'Book your seat',
     formLead: 'Fill in your details and get instant confirmation. Booking is free.',
     circuitField: 'Circuit',

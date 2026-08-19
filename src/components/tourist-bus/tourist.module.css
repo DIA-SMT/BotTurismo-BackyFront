@@ -87,6 +87,113 @@
   gap: 16px;
 }
 
+/* Carrusel: una tarjeta por circuito, deslizable hacia la derecha. */
+.carouselWrap {
+  position: relative;
+}
+
+.carouselTrack {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px 2px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(37, 137, 234, 0.35) transparent;
+}
+
+.carouselTrack::-webkit-scrollbar {
+  height: 6px;
+}
+
+.carouselTrack::-webkit-scrollbar-thumb {
+  background: rgba(37, 137, 234, 0.35);
+  border-radius: 999px;
+}
+
+.carouselTrack .departureCard {
+  flex: 0 0 300px;
+  scroll-snap-align: start;
+}
+
+.carouselArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 137, 234, 0.35);
+  background: #ffffff;
+  color: #126ff5;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(12, 28, 46, 0.16);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.carouselArrow:hover {
+  background: #eef6ff;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.carouselArrowLeft {
+  left: -14px;
+}
+
+.carouselArrowRight {
+  right: -14px;
+}
+
+.chipsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #68737d;
+}
+
+.chipsLabel {
+  font-weight: 700;
+}
+
+.dateChip {
+  border: 1px solid rgba(37, 137, 234, 0.35);
+  border-radius: 999px;
+  background: #f4f9ff;
+  color: #126ff5;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.dateChip:hover {
+  background: #126ff5;
+  color: #fff;
+}
+
+.chipMore {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #68737d;
+}
+
+@media (max-width: 640px) {
+  .carouselArrow {
+    display: none;
+  }
+
+  .carouselTrack .departureCard {
+    flex-basis: 260px;
+  }
+}
+
 .departureCard {
   display: flex;
   flex-direction: column;
