@@ -6,6 +6,7 @@ export interface TouristPageCopy {
   navCircuits: string
   navGallery: string
   navEducational: string
+  navLogin: string
   eyebrow: string
   heroTitle: string
   heroLead: string
@@ -67,6 +68,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     navCircuits: 'Circuitos',
     navGallery: 'Galería',
     navEducational: 'Bus educativo',
+    navLogin: 'Iniciar sesión',
     eyebrow: 'Turismo municipal',
     heroTitle: 'Descubrí San Miguel de Tucumán desde cada rincón',
     heroLead:
@@ -146,6 +148,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     navCircuits: 'Circuits',
     navGallery: 'Gallery',
     navEducational: 'Educational bus',
+    navLogin: 'Log in',
     eyebrow: 'Municipal tourism',
     heroTitle: 'Discover San Miguel de Tucumán from every corner',
     heroLead:

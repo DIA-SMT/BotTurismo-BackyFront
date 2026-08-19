@@ -370,6 +370,7 @@ export function TouristExperience() {
           <a href="#circuitos">{copy.navCircuits}</a>
           <a href="/galeria">{copy.navGallery}</a>
           <a href="/educativo">{copy.navEducational}</a>
+          <a href="/login">{copy.navLogin}</a>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
