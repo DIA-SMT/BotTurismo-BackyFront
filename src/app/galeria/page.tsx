@@ -51,7 +51,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
         <Link href="/" className={styles.brand}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logoMuni-sm.png" alt="Municipalidad de San Miguel de Tucumán" />
-          <span><strong>Bus Turístico Educativo</strong><small>Galería de recorridos</small></span>
+          <span><strong>Bus Turístico</strong><small>Galería de recorridos</small></span>
         </Link>
         <Link href="/" className={styles.back}><ChevronLeft size={17} /> Volver al inicio</Link>
       </header>

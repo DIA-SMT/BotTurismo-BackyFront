@@ -3,7 +3,9 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Bike,
   Bus,
+  Camera,
   ChevronLeft,
   ChevronRight,
   Church,
@@ -12,6 +14,7 @@ import {
   Lightbulb,
   MapPin,
   Moon,
+  Music,
   Sandwich,
   Sparkles,
   UtensilsCrossed,
@@ -59,6 +62,17 @@ const circuitIcons: Record<TouristCircuitIcon, typeof Landmark> = {
   lights: Lightbulb,
   sandwich: Sandwich,
   empanada: UtensilsCrossed,
+  bike: Bike,
+  music: Music,
+}
+
+interface PublicPhotoBook {
+  id: string
+  title: string
+  tour_date: string
+  description: string | null
+  access_token: string
+  photo_count: number
 }
 
 type SubmitState =
@@ -78,6 +92,22 @@ export function TouristExperience() {
   const [departuresFailed, setDeparturesFailed] = useState(false)
   // Catálogo administrable: se lee de la base; si falla, queda el estático.
   const [circuits, setCircuits] = useState<TouristCircuit[]>(touristCircuitCatalog)
+  // Galerías de fotos públicas vigentes (books por día). Si no hay, la sección se oculta.
+  const [photoBooks, setPhotoBooks] = useState<PublicPhotoBook[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/photo-books', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const payload = (await response.json()) as { data?: PublicPhotoBook[] }
+        if (!cancelled && payload.data) setPhotoBooks(payload.data.slice(0, 6))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [formData, setFormData] = useState<TouristBookingFormData>(initialTouristBookingFormData)
   const [selectedCircuitKey, setSelectedCircuitKey] = useState('')
   const [circuitError, setCircuitError] = useState(false)
@@ -689,9 +719,11 @@ export function TouristExperience() {
                   <h3 className={styles.catalogName}>{content.name}</h3>
                   <p className={styles.catalogSummary}>{content.summary}</p>
                   <div className={styles.catalogMeta}>
-                    <span>
-                      <strong>{copy.scheduleLabel}:</strong> {content.schedule}
-                    </span>
+                    {content.schedule ? (
+                      <span>
+                        <strong>{copy.scheduleLabel}:</strong> {content.schedule}
+                      </span>
+                    ) : null}
                     {content.duration ? (
                       <span>
                         <strong>{copy.durationLabel}:</strong> {content.duration}
@@ -719,6 +751,34 @@ export function TouristExperience() {
             })}
           </div>
         </section>
+
+        {photoBooks.length > 0 ? (
+          <section id="fotos" className={styles.catalogSection} aria-label={copy.galleryTitle}>
+            <div className={styles.departuresHeader}>
+              <h2 className={formStyles.sectionTitle}>{copy.galleryTitle}</h2>
+              <p className={formStyles.sectionText}>{copy.galleryLead}</p>
+            </div>
+
+            <div className={styles.galleryGrid}>
+              {photoBooks.map((book) => (
+                <a key={book.id} href={`/fotos/${book.access_token}`} className={styles.galleryCard} data-mouse-tilt>
+                  <span className={styles.galleryIcon}>
+                    <Camera size={20} strokeWidth={1.9} />
+                  </span>
+                  <span className={styles.galleryDate}>{formatDepartureDate(book.tour_date, language)}</span>
+                  <span className={styles.galleryName}>{book.title}</span>
+                  <span className={styles.galleryMeta}>
+                    {copy.galleryCount(book.photo_count)} · {copy.galleryOpen}
+                  </span>
+                </a>
+              ))}
+            </div>
+
+            <a href="/galeria" className={styles.galleryAllLink}>
+              {copy.galleryAll} →
+            </a>
+          </section>
+        ) : null}
       </div>
     </main>
   )
