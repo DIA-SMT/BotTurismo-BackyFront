@@ -54,6 +54,11 @@ export interface TouristPageCopy {
   highlightsLabel: string
   detailsShow: string
   detailsHide: string
+  galleryTitle: string
+  galleryLead: string
+  galleryCount: (count: number) => string
+  galleryOpen: string
+  galleryAll: string
   officeNote: string
   backToHome: string
   freeLabel: string
@@ -119,6 +124,11 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     highlightsLabel: 'Qué incluye el recorrido',
     detailsShow: 'Ver detalle',
     detailsHide: 'Ocultar detalle',
+    galleryTitle: 'Fotos de los recorridos',
+    galleryLead: 'Buscá las fotos del día en que hiciste tu recorrido. Quedan disponibles durante 7 días.',
+    galleryCount: (count) => (count === 1 ? '1 foto' : `${count} fotos`),
+    galleryOpen: 'Ver fotos',
+    galleryAll: 'Ver todas las galerías',
     officeNote: 'También podés reservar personalmente en la oficina de informes.',
     backToHome: 'Volver al inicio',
     freeLabel: 'Gratuito',
@@ -199,6 +209,11 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     highlightsLabel: 'Tour highlights',
     detailsShow: 'See details',
     detailsHide: 'Hide details',
+    galleryTitle: 'Tour photos',
+    galleryLead: 'Find the photos from the day of your tour. They stay available for 7 days.',
+    galleryCount: (count) => (count === 1 ? '1 photo' : `${count} photos`),
+    galleryOpen: 'View photos',
+    galleryAll: 'See all galleries',
     officeNote: 'You can also book in person at the tourist information office.',
     backToHome: 'Back to home',
     freeLabel: 'Free',

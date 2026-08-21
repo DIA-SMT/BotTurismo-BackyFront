@@ -376,6 +376,32 @@ export default function TouristDeparturesPage() {
     await patchDeparture(departure.id, { capacity }, 'Cupo actualizado correctamente.')
   }
 
+  // Lista de embarque de una salida puntual, para imprimir y controlar al subir.
+  const downloadBoardingList = async (departure: TouristDepartureAvailability) => {
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/admin/tourist-departures/${departure.id}/export`)
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        throw new Error(result?.error || 'No se pudo generar la lista.')
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const disposition = response.headers.get('Content-Disposition') || ''
+      const match = /filename="([^"]+)"/.exec(disposition)
+      link.download = match?.[1] || 'lista-embarque.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setFeedback('Lista de embarque descargada.')
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'No se pudo generar la lista.')
+    }
+  }
+
   const handleExport = async () => {
     setExporting(true)
     setFeedback(null)
@@ -768,6 +794,16 @@ export default function TouristDeparturesPage() {
                             <td colSpan={6} style={{ background: 'rgba(148,163,184,0.06)' }}>
                               <div style={{ padding: '12px 6px', display: 'grid', gap: 14 }}>
                                 <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ height: 32, padding: '0 12px', fontSize: 13 }}
+                                    onClick={() => downloadBoardingList(departure)}
+                                    disabled={departure.reserved === 0}
+                                    title="Excel con los confirmados para imprimir y tildar al subir"
+                                  >
+                                    <Download size={13} />
+                                    Lista de embarque
+                                  </button>
                                   <strong style={{ fontSize: 13 }}>Editar cupo:</strong>
                                   <input
                                     type="number"

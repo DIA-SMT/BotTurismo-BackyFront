@@ -11,6 +11,8 @@ export const touristCircuitIconOptions = [
   { value: 'lights', label: 'Luces' },
   { value: 'sandwich', label: 'Sánguche' },
   { value: 'empanada', label: 'Gastronómico' },
+  { value: 'bike', label: 'Bicicleta' },
+  { value: 'music', label: 'Música' },
 ] as const
 
 export type TouristCircuitIcon = (typeof touristCircuitIconOptions)[number]['value']
@@ -85,7 +87,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
         duration: '2 horas',
         summary: 'Los puntos más relevantes de la ciudad, partiendo desde el corazón de San Miguel.',
         description:
-          'Un recorrido por los puntos más relevantes de la ciudad, partiendo desde el corazón de San Miguel de Tucumán y atravesando sus lugares más emblemáticos.',
+          'Recorrido guiado a bordo del Bus Turístico por los puntos más emblemáticos de San Miguel de Tucumán. Con una duración de dos horas, el itinerario inicia y finaliza en la Plaza Independencia, abarcando su entorno histórico, institucional y religioso, los principales ejes urbanos, el Parque 9 de Julio, la zona de tribunales, el barrio La Ciudadela y los monumentos de la Avenida Mate de Luna.',
         highlights: [
           'Plaza Independencia: Casa de Gobierno, Iglesia San Francisco y Catedral',
           'Av. Sarmiento: Plaza Urquiza, Teatro San Martín y Colegio Nacional',
@@ -101,7 +103,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
         duration: '2 hours',
         summary: 'The city’s most relevant spots, departing from the heart of San Miguel.',
         description:
-          'A tour of the city’s most relevant spots, departing from the heart of San Miguel de Tucumán and passing through its most iconic places.',
+          'A guided ride aboard the Tourist Bus through the most iconic spots of San Miguel de Tucumán. The two-hour itinerary starts and ends at Independencia Square, covering its historic, institutional and religious surroundings, the main urban avenues, 9 de Julio Park, the courts district, the La Ciudadela neighborhood and the monuments along Mate de Luna Avenue.',
         highlights: [
           'Independencia Square: Government House, San Francisco Church and the Cathedral',
           'Sarmiento Ave.: Urquiza Square, San Martín Theater and the National School',
@@ -119,11 +121,11 @@ export const touristCircuitCatalog: TouristCircuit[] = [
     content: {
       es: {
         name: 'La Ciudadela',
-        schedule: 'Sábados · 11:00 h',
+        schedule: 'Sábados · 16:00 h',
         duration: '2 horas',
         summary: 'Historia y cultura con foco en el barrio La Ciudadela.',
         description:
-          'Un recorrido que continúa explorando nuestra historia y cultura, con foco en el barrio La Ciudadela.',
+          'Recorrido guiado de dos horas enfocado en explorar la riqueza histórica y cultural del barrio La Ciudadela, desde la Plaza Independencia hasta el Estadio de San Martín.',
         highlights: [
           'Plaza Independencia y sus edificios históricos',
           'Plaza Belgrano: sitio de la Batalla de Tucumán',
@@ -134,11 +136,11 @@ export const touristCircuitCatalog: TouristCircuit[] = [
       },
       en: {
         name: 'La Ciudadela',
-        schedule: 'Saturdays · 11:00 AM',
+        schedule: 'Saturdays · 4:00 PM',
         duration: '2 hours',
         summary: 'History and culture focused on the La Ciudadela neighborhood.',
         description:
-          'A tour that keeps exploring our history and culture, focused on the La Ciudadela neighborhood.',
+          'A two-hour guided tour exploring the historic and cultural richness of the La Ciudadela neighborhood, from Independencia Square to San Martín Stadium.',
         highlights: [
           'Independencia Square and its historic buildings',
           'Belgrano Square: site of the Battle of Tucumán',
@@ -192,31 +194,31 @@ export const touristCircuitCatalog: TouristCircuit[] = [
     iconName: 'moon',
     content: {
       es: {
-        name: 'Nocturno con obra "Recordar"',
+        name: 'Bus Recordar',
         schedule: 'Primer viernes de cada mes · 19:00 h',
         duration: 'Aproximadamente 3 horas',
-        summary: 'Recorrido nocturno + teatro en el Cementerio del Oeste, con refrigerio.',
+        summary: 'El casco histórico y las historias que cobran vida en el Cementerio del Oeste.',
         description:
-          'Este tour combina un recorrido nocturno por los puntos más destacados de la ciudad con la experiencia teatral "Recordar" en el Cementerio del Oeste, donde cinco actores encarnan a personalidades de la historia tucumana como Lola Mora, Marco Avellaneda y el Chivo Valladares.',
+          'Una experiencia diferente para recorrer el casco histórico de San Miguel de Tucumán y descubrir las historias y personajes que cobran vida en el Cementerio del Oeste. Entrada libre y gratuita; se suspende en caso de lluvia.',
         highlights: [
           'Recorrido nocturno por el casco histórico',
-          'Basílica de la Merced y Parque 9 de Julio iluminados',
-          'Obra teatral "Recordar" por el grupo Los Intérpretes',
-          'Refrigerio incluido durante la función',
+          'Personajes en escena: Clodomiro Hileret, Lola Mora, Bernardo de Monteagudo, el Chivo Valladares, Lucas Córdoba y el Perro Familiar',
+          'Entrada libre y gratuita',
+          'Se suspende en caso de lluvia',
         ],
       },
       en: {
-        name: 'Night Tour with the play "Recordar"',
+        name: 'Bus Recordar (Night Tour)',
         schedule: 'First Friday of each month · 7:00 PM',
         duration: 'About 3 hours',
-        summary: 'Night ride + theater at the West Cemetery, refreshments included.',
+        summary: 'The historic center and the stories that come to life at the West Cemetery.',
         description:
-          'This tour combines a night ride through the city’s highlights with the theatrical experience "Recordar" at the West Cemetery, where five actors portray figures of Tucumán’s history such as Lola Mora, Marco Avellaneda and Chivo Valladares.',
+          'A different way to explore the historic center of San Miguel de Tucumán and discover the stories and characters that come to life at the West Cemetery. Free admission; cancelled in case of rain.',
         highlights: [
           'Night ride through the historic center',
-          'La Merced Basilica and 9 de Julio Park under the lights',
-          'The play "Recordar" performed by Los Intérpretes',
-          'Refreshments included during the show',
+          'Characters on stage: Clodomiro Hileret, Lola Mora, Bernardo de Monteagudo, Chivo Valladares, Lucas Córdoba and the legendary Perro Familiar',
+          'Free admission',
+          'Cancelled in case of rain',
         ],
       },
     },
@@ -296,31 +298,31 @@ export const touristCircuitCatalog: TouristCircuit[] = [
     iconName: 'lights',
     content: {
       es: {
-        name: 'Las Luces de mi Ciudad',
+        name: 'Luces en mi Ciudad',
         schedule: 'Febrero y marzo · sábados 19:30 h',
         duration: null,
         summary: 'La ciudad iluminada de noche, con paradas selfie y tango en vivo.',
         description:
-          'Cuando baja el calor y la ciudad se viste de luces, este recorrido nocturno en bus propone descubrir San Miguel de Tucumán iluminada, resaltando sus espacios emblemáticos y la activa vida nocturna.',
+          'El circuito transita por los principales polos de esparcimiento locales y destaca la iluminación arquitectónica de los teatros Mercedes Sosa, San Martín y Alberdi, con intervenciones artísticas y culturales en el camino.',
         highlights: [
-          'Paradas selfie: Reloj del Parque 9 de Julio, Plaza Urquiza y Puente de Mate de Luna',
-          'Pareja de tango en vivo frente a Plaza Urquiza',
-          'Feria de emprendedores del Parque Provincial con empanada de cortesía',
-          'Teatros iluminados: Mercedes Sosa, San Martín y Alberdi',
+          'Paradas selfie: Reloj del Parque 9 de Julio y Puente de Avenida Mate de Luna',
+          'Plaza Independencia, Monumento al Bicentenario y Plaza San Martín',
+          'Exhibición de tango en Plaza Urquiza',
+          'Visita al Parque Provincial: presentación de las ferias municipales y empanada de cortesía',
         ],
       },
       en: {
-        name: 'The Lights of My City',
+        name: 'Lights in My City',
         schedule: 'February and March · Saturdays 7:30 PM',
         duration: null,
         summary: 'The city aglow at night, with selfie stops and live tango.',
         description:
-          'When the heat eases and the city dresses up in lights, this night bus tour reveals an illuminated San Miguel de Tucumán, highlighting its landmark spaces and lively nightlife.',
+          'The circuit travels through the city’s main leisure spots and highlights the architectural lighting of the Mercedes Sosa, San Martín and Alberdi theaters, with artistic and cultural performances along the way.',
         highlights: [
-          'Selfie stops: 9 de Julio Park Clock, Urquiza Square and the Mate de Luna Bridge',
-          'Live tango couple by Urquiza Square',
-          'Provincial Park makers’ fair with a complimentary empanada',
-          'Illuminated theaters: Mercedes Sosa, San Martín and Alberdi',
+          'Selfie stops: 9 de Julio Park Clock and the Mate de Luna Avenue Bridge',
+          'Independencia Square, Bicentennial Monument and San Martín Square',
+          'Tango performance at Urquiza Square',
+          'Provincial Park visit: municipal fairs presentation and a complimentary empanada',
         ],
       },
     },
@@ -330,7 +332,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
     iconName: 'sandwich',
     content: {
       es: {
-        name: 'Ruta de la Milanga SMT',
+        name: 'Ruta del Sanguche de Milanesa',
         schedule: 'Domingos (quincenal) · 20:00 h',
         duration: '2:15 horas',
         summary: 'Noche de sánguches de milanesa con itinerario sorpresa.',
@@ -344,7 +346,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
         ],
       },
       en: {
-        name: 'SMT "Milanga" Route',
+        name: 'Milanesa Sandwich Route',
         schedule: 'Sundays (every other week) · 8:00 PM',
         duration: '2:15 hours',
         summary: 'A night of milanesa sandwiches with a surprise itinerary.',
@@ -367,28 +369,134 @@ export const touristCircuitCatalog: TouristCircuit[] = [
         name: 'La Ruta de la Empanada Tucumana',
         schedule: 'Viernes · 12:00 h',
         duration: null,
-        summary: 'Circuito gastronómico-cultural con degustaciones sin costo.',
+        summary: 'La tradición tucumana en tres paradas, con degustaciones de cortesía.',
         description:
-          'En el marco del reconocimiento internacional de la empanada tucumana, esta experiencia combina sabores tradicionales, música y cultura local visitando tres restaurantes icónicos de la ciudad. En cada parada se recibe una empanada y un vaso de gaseosa sin costo.',
+          'Saliendo desde la parada del Bus Turístico, este recorrido te lleva a vivir la tradición tucumana en tres grandes paradas. En cada una te reciben con una empanada y un vaso de gaseosa de cortesía.',
         highlights: [
-          'El Portal: empanada + espectáculo de bombos y malambo',
-          'El Cardón: taller de armado de empanadas',
-          'Lo de la Paliza: peña folklórica con música y danza de cierre',
-          'Degustación de cortesía en cada parada',
+          'El Portal: muestra de bombos de las alumnas de adultos mayores y clase para aprender a tocarlos',
+          'Peña El Cardón: los secretos para preparar la auténtica empanada tucumana',
+          'Casa de Yamil: clase express de folklore para cerrar',
+          'Empanada y gaseosa de cortesía en cada parada',
         ],
       },
       en: {
         name: 'The Tucumán Empanada Route',
         schedule: 'Fridays · 12:00 PM',
         duration: null,
-        summary: 'A food-and-culture circuit with complimentary tastings.',
+        summary: 'Tucumán traditions in three stops, with complimentary tastings.',
         description:
-          'Celebrating the international recognition of the Tucumán empanada, this experience blends traditional flavors, music and local culture across three iconic restaurants. At every stop you receive a free empanada and a soft drink.',
+          'Departing from the Tourist Bus stop, this tour brings Tucumán traditions to life across three great stops. At each one you are welcomed with a complimentary empanada and a soft drink.',
         highlights: [
-          'El Portal: empanada + bombos and malambo folk show',
-          'El Cardón: hands-on empanada-making workshop',
-          'Lo de la Paliza: folk club finale with live music and dance',
-          'Complimentary tasting at every stop',
+          'El Portal: bombo drum showcase by senior students, with a hands-on lesson',
+          'Peña El Cardón: the secrets of the authentic Tucumán empanada',
+          'Casa de Yamil: express folklore dance class to finish',
+          'Complimentary empanada and soft drink at every stop',
+        ],
+      },
+    },
+  },
+  {
+    slug: 'acento-frances',
+    iconName: 'landmark',
+    content: {
+      es: {
+        name: 'SMT con Acento Francés',
+        schedule: '',
+        duration: null,
+        summary: 'Las huellas de la cultura francesa en la historia y la arquitectura de la ciudad.',
+        description:
+          'Un recorrido turístico en bus para descubrir la influencia francesa en la historia, la arquitectura y el patrimonio de San Miguel de Tucumán. Una propuesta para conocer la ciudad desde una nueva mirada.',
+        highlights: [
+          'Estación de Trenes Mitre',
+          'Plaza Urquiza y sus alrededores',
+          'Parque 9 de Julio',
+          'Plaza Independencia',
+        ],
+      },
+      en: {
+        name: 'SMT with a French Accent',
+        schedule: '',
+        duration: null,
+        summary: 'The traces of French culture in the city’s history and architecture.',
+        description:
+          'A bus tour to discover the French influence on the history, architecture and heritage of San Miguel de Tucumán. A fresh way to see the city through new eyes.',
+        highlights: [
+          'Mitre Train Station',
+          'Urquiza Square and its surroundings',
+          '9 de Julio Park',
+          'Independencia Square',
+        ],
+      },
+    },
+  },
+  {
+    slug: 'pedaleando-parque',
+    iconName: 'bike',
+    content: {
+      es: {
+        name: 'Pedaleando el Parque',
+        schedule: '',
+        duration: null,
+        summary: 'El Parque 9 de Julio en bicicleta: naturaleza, historia y arte en ocho paradas.',
+        description:
+          '"Pedaleando el Parque" invita a recorrer en bicicleta el Parque 9 de Julio y descubrir su patrimonio natural, histórico, artístico y cultural a través de ocho paradas interpretativas. Turismo, recreación, actividad física y movilidad sustentable en una misma propuesta. Inicio y cierre en la estatua de Diana y Endimión.',
+        highlights: [
+          'Lago San Miguel',
+          'Palacio de los Deportes',
+          'El Rosedal',
+          'Casa de la Cultura',
+          'Museo de la Industria Azucarera',
+          'Reloj Floral y esculturas del Museo a Cielo Abierto',
+        ],
+      },
+      en: {
+        name: 'Pedaling the Park',
+        schedule: '',
+        duration: null,
+        summary: '9 de Julio Park by bike: nature, history and art across eight stops.',
+        description:
+          '"Pedaling the Park" invites you to ride a bike through 9 de Julio Park and discover its natural, historic, artistic and cultural heritage across eight interpretive stops. Tourism, recreation, exercise and sustainable mobility in one experience. It starts and ends at the Diana and Endymion statue.',
+        highlights: [
+          'San Miguel Lake',
+          'Sports Palace',
+          'The Rose Garden',
+          'House of Culture',
+          'Sugar Industry Museum',
+          'Flower Clock and Open-Air Museum sculptures',
+        ],
+      },
+    },
+  },
+  {
+    slug: 'gira-pianos',
+    iconName: 'music',
+    content: {
+      es: {
+        name: 'Gira Pianos · Música sobre Ruedas',
+        schedule: '',
+        duration: null,
+        summary: 'Edificios emblemáticos con pianos históricos y música en vivo en cada parada.',
+        description:
+          '"Música sobre Ruedas" propone descubrir San Miguel de Tucumán recorriendo en el Bus Turístico Municipal edificios emblemáticos que conservan pianos de valor histórico y cultural. En cada parada, una breve reseña histórica del edificio y del piano, acompañada por una intervención musical de aproximadamente 15 minutos a cargo del grupo Natural Trio.',
+        highlights: [
+          'Teatro Alberdi',
+          'Alianza Francesa',
+          'El Cardón',
+          'Música en vivo del Natural Trio en cada parada (~15 minutos)',
+        ],
+      },
+      en: {
+        name: 'Piano Tour · Music on Wheels',
+        schedule: '',
+        duration: null,
+        summary: 'Landmark buildings with historic pianos and live music at every stop.',
+        description:
+          '"Music on Wheels" invites you to discover San Miguel de Tucumán aboard the Municipal Tourist Bus, visiting landmark buildings that preserve pianos of historic and cultural value. At each stop, a brief history of the building and its piano, followed by a live musical performance of about 15 minutes by the Natural Trio.',
+        highlights: [
+          'Alberdi Theater',
+          'Alliance Française',
+          'El Cardón',
+          'Live music by the Natural Trio at every stop (~15 minutes)',
         ],
       },
     },
@@ -501,11 +609,11 @@ export const touristOfficeInfo: Record<TouristLanguage, { title: string; address
   es: {
     title: 'Oficina de Informes Turísticos',
     address: 'Peatonal Congreso 121, San Miguel de Tucumán',
-    hours: ['Lunes a viernes: 8 a 13 h y 16 a 21 h', 'Sábados, domingos y feriados: 9 a 20 h (horario corrido)'],
+    hours: ['Lunes a viernes: 8 a 13 h y 16 a 19 h', 'Sábados, domingos y feriados: cerrado'],
   },
   en: {
     title: 'Tourist Information Office',
     address: 'Peatonal Congreso 121, San Miguel de Tucumán',
-    hours: ['Monday to Friday: 8 AM–1 PM and 4 PM–9 PM', 'Saturdays, Sundays and holidays: 9 AM–8 PM (non-stop)'],
+    hours: ['Monday to Friday: 8 AM–1 PM and 4 PM–7 PM', 'Closed on Saturdays, Sundays and holidays'],
   },
 }
