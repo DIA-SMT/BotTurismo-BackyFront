@@ -14,7 +14,12 @@ app.use((req, res, next) => {
 });
 
 app.use(cors());
-app.use(express.json());
+// rawBody se conserva para validar la firma X-Hub-Signature-256 de Meta.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Rutas

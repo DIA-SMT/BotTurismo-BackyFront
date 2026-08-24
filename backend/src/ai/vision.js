@@ -1,6 +1,8 @@
 const axios = require('axios');
 
-async function visionAnalyzeImage(imageUrl) {
+// imageUrl puede ser una URL pública o un data URL base64 (WhatsApp Cloud API).
+// caption: texto que el turista mandó junto con la foto (opcional).
+async function visionAnalyzeImage(imageUrl, caption = '') {
   const promptText = `Analizá esta fotografía con mucho cuidado y determiná si muestra un edificio, plaza, monumento o lugar de San Miguel de Tucumán, Argentina.
 
 PROCESO DE ANÁLISIS:
@@ -39,8 +41,12 @@ LUGARES DE TUCUMÁN MÁS FOTOGRAFIADOS:
 🌟 CIUDADELA HISTÓRICA`;
 
   try {
+    const userText = caption
+      ? `${promptText}\n\nEl turista escribió junto a la foto: "${caption}". Tenelo en cuenta al responder.`
+      : promptText;
+
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
-      model: 'google/gemini-2.5-pro-preview-03-25',
+      model: process.env.OPENROUTER_VISION_MODEL || 'google/gemini-2.5-flash',
       max_tokens: 2500,
       messages: [
         {
@@ -51,7 +57,7 @@ LUGARES DE TUCUMÁN MÁS FOTOGRAFIADOS:
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: imageUrl } },
-            { type: 'text', text: promptText }
+            { type: 'text', text: userText }
           ]
         }
       ]
