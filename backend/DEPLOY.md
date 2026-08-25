@@ -1,19 +1,22 @@
 # 🚀 Guía de Despliegue — Bot Turismo SMT (WhatsApp Cloud API)
 
 > ⚠️ Migrado de ManyChat a la **WhatsApp Cloud API de Meta** (agosto 2026).
-> El VPS anterior (`servidoria.smt.gob.ar`) quedó fuera de servicio; completar
-> los datos del VPS nuevo cuando estén las credenciales.
+> Desplegado en el VPS nuevo el 25/08/2026. El VPS es COMPARTIDO con otros
+> proyectos del equipo (panel en :3001): el Nginx del bot es un
+> `location /turismo/` dentro de `/etc/nginx/sites-available/panel`.
 
-## Datos del Servidor (COMPLETAR)
+## Datos del Servidor
 
 | Campo | Valor |
 |-------|-------|
-| **IP** | `(pendiente — VPS nuevo)` |
-| **Dominio** | `(pendiente)` |
+| **IP** | `195.35.42.168` (Hostinger) |
+| **Dominio** | `srv1915283.hstgr.cloud` (hostname del VPS, con SSL de Let's Encrypt) |
 | **Ruta en VPS** | `/var/www/bots/bot-turismo/backend/` |
-| **Puerto** | `3000` |
+| **Puerto** | `3000` (loopback, detrás de Nginx) |
 | **Proceso PM2** | `bot-turismo-smt` |
-| **Webhook URL** | `https://DOMINIO/turismo/api/webhook/whatsapp` |
+| **Webhook URL** | `https://srv1915283.hstgr.cloud/turismo/api/webhook/whatsapp` |
+| **Número del bot** | `+54 9 381 389-8033` ("Migue Turista") |
+| **Acceso SSH** | solo por clave (`id_ed25519_botturismo_vps`) |
 
 ---
 
