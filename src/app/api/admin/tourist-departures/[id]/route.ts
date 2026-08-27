@@ -63,6 +63,18 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     updatePayload.departure_time = departureTime
   }
 
+  if (body.bikeStock !== undefined) {
+    if (body.bikeStock === null || body.bikeStock === '') {
+      updatePayload.bike_stock = null
+    } else {
+      const bikeStock = Number(body.bikeStock)
+      if (!Number.isInteger(bikeStock) || bikeStock < 0 || bikeStock > 500) {
+        return NextResponse.json({ error: 'Las bicicletas deben ser un número entre 0 y 500.' }, { status: 400 })
+      }
+      updatePayload.bike_stock = bikeStock
+    }
+  }
+
   if (body.meetingPoint !== undefined) {
     updatePayload.meeting_point = String(body.meetingPoint).trim() || null
   }

@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
   const capacity = Number(body.capacity)
   const meetingPoint = typeof body.meetingPoint === 'string' ? body.meetingPoint.trim() : ''
   const notes = typeof body.notes === 'string' ? body.notes.trim() : ''
+  const bikeStockRaw = body.bikeStock
+  const bikeStock =
+    bikeStockRaw === undefined || bikeStockRaw === null || bikeStockRaw === '' ? null : Number(bikeStockRaw)
   const fromDate = String(body.fromDate || '').trim()
   const toDate = String(body.toDate || '').trim()
   const weekdays = Array.isArray(body.weekdays)
@@ -63,6 +66,9 @@ export async function POST(request: NextRequest) {
   if (!timeRegex.test(departureTime)) fieldErrors.departureTime = 'Ingresá una hora válida (HH:MM).'
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
     fieldErrors.capacity = 'El cupo debe ser un número entre 1 y 500.'
+  }
+  if (bikeStock !== null && (!Number.isInteger(bikeStock) || bikeStock < 0 || bikeStock > 500)) {
+    fieldErrors.bikeStock = 'Las bicicletas deben ser un número entre 0 y 500.'
   }
   if (weekdays.length === 0) fieldErrors.weekdays = 'Elegí al menos un día de la semana.'
   if (!parseBusinessDateParts(fromDate)) {
@@ -130,6 +136,7 @@ export async function POST(request: NextRequest) {
         departure_date: departureDate,
         departure_time: departureTime,
         capacity,
+        bike_stock: bikeStock,
         meeting_point: meetingPoint || null,
         notes: notes || null,
         status: 'active',

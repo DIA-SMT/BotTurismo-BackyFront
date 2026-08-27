@@ -47,6 +47,9 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   const bookingList = (bookings || []) as TouristBooking[]
   const totalPeople = bookingList.reduce((total, booking) => total + booking.people_count, 0)
 
+  const hasBikes = departureRecord.bike_stock !== null && departureRecord.bike_stock !== undefined
+  const totalBikes = bookingList.reduce((total, booking) => total + (booking.municipal_bikes || 0), 0)
+
   const rows: string[][] = [
     ['Lista de embarque - Bus Turístico'],
     [departureRecord.title],
@@ -55,13 +58,27 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
       `Hora: ${formatDepartureTime(departureRecord.departure_time)} h`,
       departureRecord.meeting_point ? `Punto de encuentro: ${departureRecord.meeting_point}` : '',
     ],
-    [`Reservas confirmadas: ${bookingList.length}`, `Personas: ${totalPeople}/${departureRecord.capacity}`],
+    [
+      `Reservas confirmadas: ${bookingList.length}`,
+      `Personas: ${totalPeople}/${departureRecord.capacity}`,
+      hasBikes ? `Bicis municipales: ${totalBikes}/${departureRecord.bike_stock}` : '',
+    ],
     [],
-    ['#', 'Nombre y apellido', 'Personas', 'Teléfono', 'Email', 'Procedencia', 'Subió al bus'],
+    [
+      '#',
+      'Nombre y apellido',
+      'Personas',
+      ...(hasBikes ? ['Bicis municipales'] : []),
+      'Teléfono',
+      'Email',
+      'Procedencia',
+      'Subió al bus',
+    ],
     ...bookingList.map((booking, index) => [
       String(index + 1),
       booking.full_name,
       String(booking.people_count),
+      ...(hasBikes ? [String(booking.municipal_bikes || 0)] : []),
       booking.phone,
       booking.email,
       booking.origin_city || '',

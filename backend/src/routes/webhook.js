@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { handleManyChatWebhook } = require('../controllers/webhookController');
+const { verifyWhatsAppWebhook, handleWhatsAppWebhook } = require('../controllers/whatsappController');
 
-// ManyChat manda un POST a esta ruta con cada mensaje nuevo
-router.post('/webhook/manychat', handleManyChatWebhook);
+// WhatsApp Cloud API (Meta):
+// - GET: verificación del webhook al configurarlo en developers.facebook.com
+// - POST: mensajes entrantes
+router.get('/webhook/whatsapp', verifyWhatsAppWebhook);
+router.post('/webhook/whatsapp', handleWhatsAppWebhook);
 
 module.exports = router;

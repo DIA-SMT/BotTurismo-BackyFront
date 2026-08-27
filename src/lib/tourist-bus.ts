@@ -13,6 +13,8 @@ export interface TouristDeparture {
   departure_date: string
   departure_time: string
   capacity: number
+  // Stock de bicicletas municipales para circuitos en bici (null = no aplica).
+  bike_stock: number | null
   meeting_point: string | null
   notes: string | null
   status: TouristDepartureStatus
@@ -21,6 +23,8 @@ export interface TouristDeparture {
 export interface TouristDepartureAvailability extends TouristDeparture {
   reserved: number
   remaining: number
+  bikes_reserved: number
+  bikes_remaining: number | null
 }
 
 export interface TouristBooking {
@@ -33,6 +37,7 @@ export interface TouristBooking {
   phone: string
   origin_city: string | null
   people_count: number
+  municipal_bikes: number
   language: TouristLanguage
   status: TouristBookingStatus
 }
@@ -44,6 +49,7 @@ export interface TouristBookingFormData {
   phone: string
   originCity: string
   peopleCount: string
+  municipalBikes: string
 }
 
 export type TouristBookingErrorCode =
@@ -55,6 +61,7 @@ export type TouristBookingErrorCode =
   | 'phone_invalid'
   | 'people_required'
   | 'people_invalid'
+  | 'bikes_invalid'
 
 export type TouristBookingFormErrors = Partial<Record<keyof TouristBookingFormData, TouristBookingErrorCode>>
 
@@ -63,6 +70,8 @@ export type TouristBookingApiErrorCode =
   | 'CANCELLED'
   | 'PAST'
   | 'NO_CAPACITY'
+  | 'NO_BIKES'
+  | 'INVALID_BIKES'
   | 'INVALID_PEOPLE_COUNT'
   | 'VALIDATION'
   | 'SERVER'
@@ -76,6 +85,7 @@ export const initialTouristBookingFormData: TouristBookingFormData = {
   phone: '',
   originCity: '',
   peopleCount: '1',
+  municipalBikes: '0',
 }
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -85,11 +95,22 @@ export function isValidPeopleCount(value: string | number) {
   return Number.isInteger(numberValue) && numberValue >= 1 && numberValue <= maximumPeoplePerBooking
 }
 
-export function validateTouristBookingForm(data: TouristBookingFormData): TouristBookingFormErrors {
+export function validateTouristBookingForm(
+  data: TouristBookingFormData,
+  options: { bikesEnabled?: boolean } = {},
+): TouristBookingFormErrors {
   const errors: TouristBookingFormErrors = {}
 
   if (!data.departureId.trim() || !Number.isInteger(Number(data.departureId))) {
     errors.departureId = 'departure_required'
+  }
+
+  if (options.bikesEnabled) {
+    const bikes = Number(data.municipalBikes)
+    const people = Number(data.peopleCount)
+    if (!Number.isInteger(bikes) || bikes < 0 || (Number.isInteger(people) && bikes > people)) {
+      errors.municipalBikes = 'bikes_invalid'
+    }
   }
   if (!data.fullName.trim()) {
     errors.fullName = 'full_name_required'
@@ -122,6 +143,7 @@ export function toTouristBookingRpcParams(data: TouristBookingFormData, language
     p_origin_city: data.originCity.trim() || null,
     p_people_count: Number(data.peopleCount),
     p_language: language,
+    p_municipal_bikes: Number(data.municipalBikes) || 0,
   }
 }
 
@@ -165,19 +187,27 @@ export function getDepartureOccupancyPercent(departure: Pick<TouristDepartureAva
 
 export function buildDeparturesWithAvailability(
   departures: TouristDeparture[],
-  bookings: Array<Pick<TouristBooking, 'departure_id' | 'people_count'>>,
+  bookings: Array<Pick<TouristBooking, 'departure_id' | 'people_count' | 'municipal_bikes'>>,
 ): TouristDepartureAvailability[] {
-  const reservedByDeparture = bookings.reduce<Record<number, number>>((acc, booking) => {
-    acc[booking.departure_id] = (acc[booking.departure_id] || 0) + booking.people_count
+  const reservedByDeparture = bookings.reduce<Record<number, { people: number; bikes: number }>>((acc, booking) => {
+    if (!acc[booking.departure_id]) acc[booking.departure_id] = { people: 0, bikes: 0 }
+    acc[booking.departure_id].people += booking.people_count
+    acc[booking.departure_id].bikes += booking.municipal_bikes || 0
     return acc
   }, {})
 
   return departures.map((departure) => {
-    const reserved = reservedByDeparture[departure.id] || 0
+    const reserved = reservedByDeparture[departure.id]?.people || 0
+    const bikesReserved = reservedByDeparture[departure.id]?.bikes || 0
     return {
       ...departure,
       reserved,
       remaining: Math.max(departure.capacity - reserved, 0),
+      bikes_reserved: bikesReserved,
+      bikes_remaining:
+        departure.bike_stock === null || departure.bike_stock === undefined
+          ? null
+          : Math.max(departure.bike_stock - bikesReserved, 0),
     }
   })
 }

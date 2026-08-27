@@ -1,17 +1,41 @@
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
+// Simula un webhook de WhatsApp Cloud API contra el server local.
+// Uso: node test_curl.js "hola, ¿qué circuitos hay este finde?"
+// (Requiere el server corriendo: npm run dev. Sin WHATSAPP_TOKEN configurado,
+// el envío de la respuesta va a fallar, pero sirve para probar el pipeline
+// de IA y ver la respuesta generada en los logs del server.)
+const axios = require('axios');
 
-async function testFetch() {
-    const startStr = encodeURIComponent(new Date().toISOString().split('.')[0] + "-03:00");
-    const endStr = encodeURIComponent(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('.')[0] + "-03:00");
-    const url = `https://comunicacionsmt.gob.ar/get_events?start=${startStr}&end=${endStr}`;
-    console.log(`Command: curl -s "${url}"`);
-    const { stdout, stderr } = await exec(`curl -s "${url}"`, { timeout: 10000 });
-    try {
-        const rawResp = JSON.parse(stdout);
-        console.log("Parsed JSON:", Array.isArray(rawResp) ? `Array of ${rawResp.length}` : "Object");
-    } catch (e) {
-        console.log("Failed to parse JSON. Output starts with:", stdout.substring(0, 100));
+const PORT = process.env.PORT || 3000;
+const text = process.argv[2] || 'Hola! ¿Qué circuitos del bus turístico hay disponibles?';
+
+const payload = {
+  object: 'whatsapp_business_account',
+  entry: [
+    {
+      id: '0',
+      changes: [
+        {
+          field: 'messages',
+          value: {
+            messaging_product: 'whatsapp',
+            metadata: { display_phone_number: '5493810000000', phone_number_id: 'TEST' },
+            contacts: [{ profile: { name: 'Turista de Prueba' }, wa_id: '5493811111111' }],
+            messages: [
+              {
+                from: '5493811111111',
+                id: `wamid.test-${Date.now()}`,
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                type: 'text',
+                text: { body: text }
+              }
+            ]
+          }
+        }
+      ]
     }
-}
-testFetch();
+  ]
+};
+
+axios.post(`http://localhost:${PORT}/api/webhook/whatsapp`, payload)
+  .then(res => console.log('Webhook respondió:', res.status, '- mirá los logs del server para ver el flujo.'))
+  .catch(err => console.error('Error:', err.message));

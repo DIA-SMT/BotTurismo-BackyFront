@@ -21,6 +21,11 @@ export interface TouristPageCopy {
   departuresLoading: string
   seatsLeft: (count: number) => string
   soldOut: string
+  bikesLeft: (count: number) => string
+  bikesBring: string
+  bikesSoldOut: string
+  bikesField: string
+  bikesHint: (max: number) => string
   meetingPointLabel: string
   bookCta: string
   moreDatesLabel: string
@@ -89,6 +94,11 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     departuresLoading: 'Cargando salidas disponibles…',
     seatsLeft: (count) => (count === 1 ? 'Queda 1 lugar' : `Quedan ${count} lugares`),
     soldOut: 'Sin cupo',
+    bikesLeft: (count) => (count === 1 ? '🚲 Queda 1 bici municipal' : `🚲 Quedan ${count} bicis municipales`),
+    bikesBring: 'o traé tu propia bici',
+    bikesSoldOut: '🚲 Bicis municipales agotadas: podés participar con la tuya',
+    bikesField: 'Bicicletas municipales que necesitan',
+    bikesHint: (max) => `Hay ${max} disponibles. Poné 0 si llevan bicis propias.`,
     meetingPointLabel: 'Punto de encuentro',
     bookCta: 'Reservar',
     moreDatesLabel: 'Más fechas',
@@ -141,12 +151,15 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
       phone_invalid: 'Ingresá un teléfono válido.',
       people_required: 'Indicá cuántas personas asisten.',
       people_invalid: 'La cantidad de personas no es válida.',
+      bikes_invalid: 'La cantidad de bicis no es válida (no puede superar a las personas).',
     },
     apiErrors: {
       NOT_FOUND: 'La salida elegida ya no está disponible.',
       CANCELLED: 'Esa salida fue cancelada. Elegí otra fecha.',
       PAST: 'Esa salida ya pasó. Elegí otra fecha.',
       NO_CAPACITY: 'No quedan cupos suficientes para esa salida.',
+      NO_BIKES: 'No quedan tantas bicis municipales para esa salida. Podés reservar con bici propia.',
+      INVALID_BIKES: 'La cantidad de bicicletas no es válida.',
       INVALID_PEOPLE_COUNT: 'La cantidad de personas no es válida.',
       VALIDATION: 'Revisá los campos marcados.',
       SERVER: 'No pudimos registrar la reserva. Intentá de nuevo en unos minutos.',
@@ -174,6 +187,11 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     departuresLoading: 'Loading available departures…',
     seatsLeft: (count) => (count === 1 ? '1 seat left' : `${count} seats left`),
     soldOut: 'Sold out',
+    bikesLeft: (count) => (count === 1 ? '🚲 1 municipal bike left' : `🚲 ${count} municipal bikes left`),
+    bikesBring: 'or bring your own bike',
+    bikesSoldOut: '🚲 Municipal bikes are gone: you can join with your own',
+    bikesField: 'Municipal bikes you need',
+    bikesHint: (max) => `${max} available. Enter 0 if you bring your own bikes.`,
     meetingPointLabel: 'Meeting point',
     bookCta: 'Book',
     moreDatesLabel: 'More dates',
@@ -226,12 +244,15 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
       phone_invalid: 'Enter a valid phone number.',
       people_required: 'Tell us how many people are coming.',
       people_invalid: 'The number of people is not valid.',
+      bikes_invalid: 'The number of bikes is not valid (it can’t exceed the number of people).',
     },
     apiErrors: {
       NOT_FOUND: 'The selected departure is no longer available.',
       CANCELLED: 'That departure was cancelled. Please pick another date.',
       PAST: 'That departure already took place. Please pick another date.',
       NO_CAPACITY: 'There aren’t enough seats left for that departure.',
+      NO_BIKES: 'There aren’t that many municipal bikes left for that departure. You can book with your own bike.',
+      INVALID_BIKES: 'The number of bikes is not valid.',
       INVALID_PEOPLE_COUNT: 'The number of people is not valid.',
       VALIDATION: 'Please review the highlighted fields.',
       SERVER: 'We couldn’t register your booking. Please try again in a few minutes.',

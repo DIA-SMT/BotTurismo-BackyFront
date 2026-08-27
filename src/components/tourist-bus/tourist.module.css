@@ -234,6 +234,12 @@
   font-size: 0.86rem;
 }
 
+.bikesLine {
+  color: #1c7c3c;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .departureFooter {
   display: flex;
   align-items: center;

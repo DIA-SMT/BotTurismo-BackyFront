@@ -53,6 +53,7 @@ interface NewDepartureForm {
   departureDate: string
   departureTime: string
   capacity: string
+  bikeStock: string
   meetingPoint: string
   notes: string
   recurring: boolean
@@ -67,6 +68,7 @@ const initialNewDeparture: NewDepartureForm = {
   departureDate: '',
   departureTime: '16:00',
   capacity: '40',
+  bikeStock: '',
   meetingPoint: 'Plaza Independencia (calle Laprida)',
   notes: '',
   recurring: false,
@@ -243,6 +245,7 @@ export default function TouristDeparturesPage() {
         title: newDeparture.title,
         departureTime: newDeparture.departureTime,
         capacity: Number(newDeparture.capacity),
+        bikeStock: newDeparture.bikeStock,
         meetingPoint: newDeparture.meetingPoint,
         notes: newDeparture.notes,
       }
@@ -577,6 +580,20 @@ export default function TouristDeparturesPage() {
                   {createErrors.capacity ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.capacity}</span> : null}
                 </label>
                 <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+                  Bicicletas municipales (opcional)
+                  <input
+                    type="number"
+                    min={0}
+                    max={500}
+                    className="input"
+                    value={newDeparture.bikeStock}
+                    onChange={(event) => setNewDeparture((current) => ({ ...current, bikeStock: event.target.value }))}
+                    placeholder="Vacío si no presta bicis"
+                    title="Stock de bicis prestadas para esta salida. El turista puede ir con bici propia igual."
+                  />
+                  {createErrors.bikeStock ? <span style={{ color: '#ef4444', fontSize: 12 }}>{createErrors.bikeStock}</span> : null}
+                </label>
+                <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
                   Punto de encuentro
                   <input
                     className="input"
@@ -819,6 +836,11 @@ export default function TouristDeparturesPage() {
                                   <button className="btn btn-secondary" style={{ height: 32, padding: '0 12px', fontSize: 13 }} onClick={() => saveCapacity(departure)}>
                                     Guardar cupo
                                   </button>
+                                  {departure.bike_stock !== null ? (
+                                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                                      🚲 Bicis: {departure.bikes_reserved}/{departure.bike_stock}
+                                    </span>
+                                  ) : null}
                                   {departure.notes ? <span className="td-muted">Notas: {departure.notes}</span> : null}
                                 </div>
 
@@ -840,6 +862,7 @@ export default function TouristDeparturesPage() {
                                           <th>Contacto</th>
                                           <th>Procedencia</th>
                                           <th>Personas</th>
+                                          {departure.bike_stock !== null ? <th>Bicis</th> : null}
                                           <th>Idioma</th>
                                           <th>Estado</th>
                                           <th>Reservada</th>
@@ -867,6 +890,7 @@ export default function TouristDeparturesPage() {
                                             </td>
                                             <td>{booking.origin_city || '—'}</td>
                                             <td>{booking.people_count}</td>
+                                            {departure.bike_stock !== null ? <td>{booking.municipal_bikes || 0}</td> : null}
                                             <td>{booking.language === 'en' ? 'EN' : 'ES'}</td>
                                             <td>
                                               <BookingStatusPill status={booking.status} />
