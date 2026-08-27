@@ -23,9 +23,155 @@ import {
   type EducationalBusRequestStatus,
   type EducationalSettings,
 } from '@/lib/educational-bus-requests'
-import { Bus, CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, RefreshCw, Search, Settings } from 'lucide-react'
+import { Bus, CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, Plus, RefreshCw, Search, Settings } from 'lucide-react'
 import { EducationalCircuitsPanel } from './EducationalCircuitsPanel'
 import type { EducationalCircuitRecord } from '@/lib/educational-circuits'
+
+// Carga manual de turnos tomados por teléfono/presencial (reemplaza al Excel).
+function ManualRequestPanel({
+  circuits,
+  onCreated,
+}: {
+  circuits: EducationalCircuitRecord[]
+  onCreated: () => void
+}) {
+  const emptyForm = {
+    circuit: '',
+    requestedDate: '',
+    preferredShift: 'manana',
+    institutionName: '',
+    institutionType: 'provincial',
+    contactName: '',
+    contactPhone: '',
+    contactEmail: '',
+    studentCount: '',
+    notes: '',
+  }
+  const [form, setForm] = useState(emptyForm)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const activeCircuits = circuits.filter((circuit) => circuit.active)
+
+  const update = (field: keyof typeof emptyForm) => (value: string) =>
+    setForm((current) => ({ ...current, [field]: value }))
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSaving(true)
+    setFeedback(null)
+    setFieldErrors({})
+    try {
+      const response = await fetch('/api/admin/educational-bus-requests/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        if (result.fieldErrors) setFieldErrors(result.fieldErrors)
+        throw new Error(result.error || 'No se pudo cargar el turno.')
+      }
+      setFeedback(`Turno cargado y aprobado: ${result.data.institution_name} — ${result.data.requested_date} (${result.data.preferred_shift === 'manana' ? 'mañana' : 'tarde'}). El calendario público ya lo muestra ocupado.`)
+      setForm((current) => ({ ...emptyForm, circuit: current.circuit }))
+      onCreated()
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'No se pudo cargar el turno.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fieldStyle = { display: 'grid', gap: 6, fontSize: 13 } as const
+
+  return (
+    <div className="table-container" style={{ marginBottom: 20, padding: 18 }}>
+      <h3 style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Plus size={16} />
+        Cargar turno manual
+      </h3>
+      <p className="td-muted" style={{ marginBottom: 14, fontSize: 13 }}>
+        Para turnos tomados por teléfono o en persona. Queda <strong>aprobado al instante</strong> y bloquea ese día y turno en el calendario público — chau planilla de Excel 😉.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <label style={fieldStyle}>
+            Circuito
+            <select className="select" value={form.circuit} onChange={(event) => update('circuit')(event.target.value)}>
+              <option value="">Histórico Cultural (por defecto)</option>
+              {activeCircuits.map((circuit) => (
+                <option key={circuit.slug} value={circuit.slug}>
+                  {circuit.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={fieldStyle}>
+            Fecha *
+            <input type="date" className="input" value={form.requestedDate} onChange={(event) => update('requestedDate')(event.target.value)} />
+            {fieldErrors.requestedDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.requestedDate}</span> : null}
+          </label>
+          <label style={fieldStyle}>
+            Turno *
+            <select className="select" value={form.preferredShift} onChange={(event) => update('preferredShift')(event.target.value)}>
+              <option value="manana">Mañana</option>
+              <option value="tarde">Tarde</option>
+            </select>
+          </label>
+          <label style={fieldStyle}>
+            Institución *
+            <input className="input" value={form.institutionName} onChange={(event) => update('institutionName')(event.target.value)} placeholder="Ej. Esc. Sec. B° Los Pinos" />
+            {fieldErrors.institutionName ? <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.institutionName}</span> : null}
+          </label>
+          <label style={fieldStyle}>
+            Tipo
+            <select className="select" value={form.institutionType} onChange={(event) => update('institutionType')(event.target.value)}>
+              <option value="municipal">Escuela municipal</option>
+              <option value="provincial">Escuela provincial</option>
+              <option value="private">Institución privada</option>
+            </select>
+          </label>
+          <label style={fieldStyle}>
+            Contacto
+            <input className="input" value={form.contactName} onChange={(event) => update('contactName')(event.target.value)} placeholder="Ej. Rita Lindon" />
+          </label>
+          <label style={fieldStyle}>
+            Teléfono
+            <input className="input" value={form.contactPhone} onChange={(event) => update('contactPhone')(event.target.value)} placeholder="3810000000" />
+            {fieldErrors.contactPhone ? <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.contactPhone}</span> : null}
+          </label>
+          <label style={fieldStyle}>
+            Email (opcional)
+            <input className="input" value={form.contactEmail} onChange={(event) => update('contactEmail')(event.target.value)} placeholder="escuela@edu.ar" />
+          </label>
+          <label style={fieldStyle}>
+            Alumnos (opcional)
+            <input type="number" min={1} max={200} className="input" value={form.studentCount} onChange={(event) => update('studentCount')(event.target.value)} placeholder="30" />
+            {fieldErrors.studentCount ? <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.studentCount}</span> : null}
+          </label>
+        </div>
+        <label style={{ ...fieldStyle, marginTop: 12 }}>
+          Observaciones (quién confirmó, aclaraciones)
+          <input className="input" value={form.notes} onChange={(event) => update('notes')(event.target.value)} placeholder="Ej. Confirmado por Rita el 27/8" />
+        </label>
+
+        {feedback ? (
+          <div className="badge" style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--info)', marginTop: 12 }}>
+            {feedback}
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 14 }}>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Cargando...' : 'Cargar turno aprobado'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
 
 function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
   const [settings, setSettings] = useState<EducationalSettings | null>(null)
@@ -285,6 +431,7 @@ export default function EducationalRequestsPage() {
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showCircuits, setShowCircuits] = useState(false)
+  const [showManual, setShowManual] = useState(false)
   const [circuitRecords, setCircuitRecords] = useState<EducationalCircuitRecord[]>([])
   const [circuitsLoading, setCircuitsLoading] = useState(true)
   const [circuitsError, setCircuitsError] = useState<string | null>(null)
@@ -449,6 +596,10 @@ export default function EducationalRequestsPage() {
           <p>Solicitudes, circuitos y configuración del bus educativo. Separado del bus turístico.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button className={`btn ${showManual ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowManual((current) => !current)}>
+            <Plus size={14} />
+            Cargar turno
+          </button>
           <button className={`btn ${showCircuits ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowCircuits((current) => !current)}>
             <Bus size={14} />
             Circuitos
@@ -465,6 +616,7 @@ export default function EducationalRequestsPage() {
       </div>
 
       <div className="page-body">
+        {showManual ? <ManualRequestPanel circuits={circuitRecords} onCreated={fetchRequests} /> : null}
         {showCircuits ? (
           <EducationalCircuitsPanel
             records={circuitRecords}

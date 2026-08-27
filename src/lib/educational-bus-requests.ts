@@ -611,8 +611,17 @@ export function getCircuitLabel(circuit: EducationalBusCircuit | string, dynamic
   )
 }
 
+const specialGradeYearLabels: Record<string, string> = {
+  importado: 'Importado del Excel',
+  carga_manual: 'Carga manual',
+}
+
 export function getGradeYearLabel(gradeYear: string) {
-  return gradeYearOptions.find((option) => option.value === gradeYear)?.label || gradeYear
+  return (
+    gradeYearOptions.find((option) => option.value === gradeYear)?.label ||
+    specialGradeYearLabels[gradeYear] ||
+    gradeYear
+  )
 }
 
 export function getEducationalLevelLabel(gradeYear: string) {
