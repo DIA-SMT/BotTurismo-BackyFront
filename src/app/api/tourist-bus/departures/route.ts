@@ -27,7 +27,7 @@ export async function GET() {
 
   const { data: bookings, error: bookingsError } = await supabase
     .from('tourist_bookings')
-    .select('departure_id, people_count')
+    .select('departure_id, people_count, municipal_bikes')
     .in('departure_id', departureList.map((departure) => departure.id))
     .eq('status', 'confirmed')
 

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
   const { data: bookings, error: bookingsError } = await supabase
     .from('tourist_bookings')
-    .select('departure_id, people_count')
+    .select('departure_id, people_count, municipal_bikes')
     .in('departure_id', departureList.map((departure) => departure.id))
     .eq('status', 'confirmed')
 
@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
   const capacity = Number(body.capacity)
   const meetingPoint = typeof body.meetingPoint === 'string' ? body.meetingPoint.trim() : ''
   const notes = typeof body.notes === 'string' ? body.notes.trim() : ''
+  const bikeStockRaw = body.bikeStock
+  const bikeStock =
+    bikeStockRaw === undefined || bikeStockRaw === null || bikeStockRaw === '' ? null : Number(bikeStockRaw)
 
   const supabase = createServerSupabaseClient()
   const circuit = await resolveCircuitForDeparture(supabase, circuitSlug)
@@ -92,6 +95,9 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
     fieldErrors.capacity = 'El cupo debe ser un número entre 1 y 500.'
   }
+  if (bikeStock !== null && (!Number.isInteger(bikeStock) || bikeStock < 0 || bikeStock > 500)) {
+    fieldErrors.bikeStock = 'Las bicicletas deben ser un número entre 0 y 500.'
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return NextResponse.json({ error: 'Revisá los campos de la salida.', fieldErrors }, { status: 400 })
@@ -105,6 +111,7 @@ export async function POST(request: NextRequest) {
       departure_date: departureDate,
       departure_time: departureTime,
       capacity,
+      bike_stock: bikeStock,
       meeting_point: meetingPoint || null,
       notes: notes || null,
       status: 'active',
@@ -116,5 +123,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudo crear la salida.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: { ...data, reserved: 0, remaining: (data as TouristDeparture).capacity } }, { status: 201 })
+  return NextResponse.json(
+    {
+      data: {
+        ...data,
+        reserved: 0,
+        remaining: (data as TouristDeparture).capacity,
+        bikes_reserved: 0,
+        bikes_remaining: (data as TouristDeparture).bike_stock,
+      },
+    },
+    { status: 201 },
+  )
 }

@@ -248,6 +248,14 @@ export function TouristExperience() {
     carouselTrackRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' })
   }
 
+  // Si la salida elegida no presta bicicletas, el campo de bicis vuelve a 0
+  // (evita mandar bicis de una selección anterior).
+  useEffect(() => {
+    if (!selectedDeparture || selectedDeparture.bike_stock === null) {
+      setFormData((current) => (current.municipalBikes === '0' ? current : { ...current, municipalBikes: '0' }))
+    }
+  }, [selectedDeparture])
+
   // Si al refrescar los cupos el circuito o la salida elegida dejaron de estar
   // disponibles, se limpia la selección para no reservar sobre datos viejos.
   useEffect(() => {
@@ -317,7 +325,9 @@ export function TouristExperience() {
     event.preventDefault()
     setSubmitState({ type: 'idle' })
 
-    const validationErrors = validateTouristBookingForm(formData)
+    const validationErrors = validateTouristBookingForm(formData, {
+      bikesEnabled: selectedDeparture?.bike_stock != null,
+    })
     if (!selectedCircuitKey) setCircuitError(true)
     if (Object.keys(validationErrors).length > 0 || !selectedCircuitKey) {
       setErrors(validationErrors)
@@ -497,6 +507,13 @@ export function TouristExperience() {
                           </span>
                         ) : null}
                         {featured.notes ? <span>{featured.notes}</span> : null}
+                        {featured.bike_stock !== null ? (
+                          <span className={styles.bikesLine}>
+                            {(featured.bikes_remaining ?? 0) > 0
+                              ? `${copy.bikesLeft(featured.bikes_remaining ?? 0)} · ${copy.bikesBring}`
+                              : copy.bikesSoldOut}
+                          </span>
+                        ) : null}
                       </div>
                       {chips.length > 0 || extraCount > 0 ? (
                         <div className={styles.chipsRow}>
@@ -635,6 +652,28 @@ export function TouristExperience() {
                     hasError={Boolean(errors.peopleCount)}
                   />
                 </FormField>
+
+                {selectedDeparture && selectedDeparture.bike_stock !== null ? (
+                  <FormField
+                    label={copy.bikesField}
+                    required
+                    hint={copy.bikesHint(selectedDeparture.bikes_remaining ?? 0)}
+                    error={errors.municipalBikes ? copy.fieldErrors[errors.municipalBikes] : undefined}
+                    className={formStyles.gridFull}
+                  >
+                    <Input
+                      type="number"
+                      min={0}
+                      max={Math.min(
+                        selectedDeparture.bikes_remaining ?? 0,
+                        Number(formData.peopleCount) || maximumPeoplePerBooking,
+                      )}
+                      value={formData.municipalBikes}
+                      onChange={updateField('municipalBikes')}
+                      hasError={Boolean(errors.municipalBikes)}
+                    />
+                  </FormField>
+                ) : null}
 
                 <FormField
                   label={copy.emailField}

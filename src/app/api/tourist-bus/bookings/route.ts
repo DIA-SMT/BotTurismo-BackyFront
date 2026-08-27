@@ -18,6 +18,8 @@ const errorStatusByCode: Record<Exclude<TouristBookingApiErrorCode, 'VALIDATION'
   CANCELLED: 409,
   PAST: 409,
   NO_CAPACITY: 409,
+  NO_BIKES: 409,
+  INVALID_BIKES: 400,
   INVALID_PEOPLE_COUNT: 400,
 }
 
@@ -29,6 +31,7 @@ function mapPayloadToFormData(payload: Record<string, unknown>): TouristBookingF
     phone: String(payload.phone ?? ''),
     originCity: String(payload.originCity ?? ''),
     peopleCount: String(payload.peopleCount ?? ''),
+    municipalBikes: String(payload.municipalBikes ?? '0'),
   }
 }
 
@@ -42,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   const formData = mapPayloadToFormData(payload)
   const language: TouristLanguage = payload.language === 'en' ? 'en' : 'es'
-  const fieldErrors = validateTouristBookingForm(formData)
+  const fieldErrors = validateTouristBookingForm(formData, { bikesEnabled: true })
 
   if (Object.keys(fieldErrors).length > 0) {
     return NextResponse.json(
