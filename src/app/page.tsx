@@ -76,7 +76,8 @@ export default function HomePage() {
         </div>
 
         <p className={styles.footerNote}>
-          Oficina de Informes Turísticos · Peatonal Congreso 121 · Lunes a viernes de 8 a 13 h y de 16 a 19 h.
+          Oficina de Informes Turísticos · Peatonal Congreso 121 · Lunes a viernes de 8 a 13 h y de 15 a 21 h ·
+          Sábados, domingos y feriados de 8 a 20 h (horario corrido).
         </p>
       </section>
     </main>

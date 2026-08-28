@@ -609,11 +609,11 @@ export const touristOfficeInfo: Record<TouristLanguage, { title: string; address
   es: {
     title: 'Oficina de Informes Turísticos',
     address: 'Peatonal Congreso 121, San Miguel de Tucumán',
-    hours: ['Lunes a viernes: 8 a 13 h y 16 a 19 h', 'Sábados, domingos y feriados: cerrado'],
+    hours: ['Lunes a viernes: 8 a 13 h y 15 a 21 h', 'Sábados, domingos y feriados: 8 a 20 h (horario corrido)'],
   },
   en: {
     title: 'Tourist Information Office',
     address: 'Peatonal Congreso 121, San Miguel de Tucumán',
-    hours: ['Monday to Friday: 8 AM–1 PM and 4 PM–7 PM', 'Closed on Saturdays, Sundays and holidays'],
+    hours: ['Monday to Friday: 8 AM–1 PM and 3 PM–9 PM', 'Saturdays, Sundays and holidays: 8 AM–8 PM (non-stop)'],
   },
 }
