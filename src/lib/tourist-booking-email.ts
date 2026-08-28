@@ -7,6 +7,7 @@ import {
   type TouristLanguage,
 } from '@/lib/tourist-bus'
 import { getTouristCircuitName, touristOfficeInfo } from '@/lib/tourist-circuits'
+import { EMAIL_LOGO_SMT_WHITE_B64, EMAIL_MIGUE_AVATAR_B64 } from '@/lib/email-assets'
 
 // El envío se configura por variables de entorno. Si faltan, la reserva
 // funciona igual y simplemente no se manda el correo.
@@ -91,6 +92,69 @@ interface BookingEmailInput {
   departure: TouristDeparture
 }
 
+// Migue y el logo van incrustados (CID) para que se vean aunque el cliente
+// de correo bloquee las imágenes remotas.
+function brandedEmailAttachments() {
+  return [
+    {
+      filename: 'migue.jpg',
+      content: Buffer.from(EMAIL_MIGUE_AVATAR_B64, 'base64'),
+      cid: 'migue-avatar',
+      contentType: 'image/jpeg',
+      contentDisposition: 'inline' as const,
+    },
+    {
+      filename: 'san-miguel-de-tucuman.png',
+      content: Buffer.from(EMAIL_LOGO_SMT_WHITE_B64, 'base64'),
+      cid: 'logo-smt',
+      contentType: 'image/png',
+      contentDisposition: 'inline' as const,
+    },
+  ]
+}
+
+// Estructura común de todos los mails: encabezado azul institucional con el
+// logo de la muni y Migue, cuerpo del mensaje y pie con los datos de la oficina.
+function brandedEmailShell(options: { accent: string; bodyHtml: string; language: TouristLanguage }) {
+  const office = touristOfficeInfo[options.language]
+  return `
+  <div style="margin:0;padding:24px 12px;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;">
+      <tr>
+        <td style="background:${options.accent};padding:20px 26px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="vertical-align:middle;">
+                <img src="cid:logo-smt" alt="San Miguel de Tucumán" height="26" style="display:block;height:26px;width:auto;border:0;" />
+                <div style="font-size:22px;font-weight:bold;color:#ffffff;margin-top:10px;">Bus Turístico</div>
+              </td>
+              <td style="vertical-align:middle;text-align:right;width:86px;">
+                <img src="cid:migue-avatar" alt="Migue, el guía del Bus Turístico" width="78" height="78" style="display:inline-block;border-radius:50%;border:3px solid #ffffff;" />
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px;">${options.bodyHtml}</td>
+      </tr>
+      <tr>
+        <td style="background:#f1f5f9;border-top:1px solid #e3e8ef;padding:18px 26px;text-align:center;">
+          <p style="margin:0;font-size:12.5px;color:#5a6673;line-height:1.8;">
+            <strong style="color:#1f2933;">${escapeHtml(office.title)}</strong><br/>
+            📍 ${escapeHtml(office.address)}<br/>
+            ${office.hours.map((line) => escapeHtml(line)).join('<br/>')}<br/>
+            ✉️ <a href="mailto:turismo@smt.gob.ar" style="color:#126ff5;text-decoration:none;">turismo@smt.gob.ar</a>
+            · 📲 <a href="https://instagram.com/turismosmt" style="color:#126ff5;text-decoration:none;">@turismosmt</a><br/>
+            <a href="${publicSiteUrl()}" style="color:#126ff5;text-decoration:none;font-weight:bold;">busturistico.smt.gob.ar</a>
+          </p>
+          <p style="margin:10px 0 0;font-size:11px;color:#8a94a0;">Municipalidad de San Miguel de Tucumán</p>
+        </td>
+      </tr>
+    </table>
+  </div>`
+}
+
 function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
   const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
   const copy = bookingEmailCopy[language]
@@ -139,17 +203,10 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
     )
     .join('')
 
-  const html = `
-  <div style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;">
-      <tr>
-        <td style="background:#126ff5;padding:18px 26px;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">San Miguel de Tucumán</div>
-          <div style="font-size:20px;font-weight:bold;margin-top:2px;">Bus Turístico</div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:26px;">
+  const html = brandedEmailShell({
+    accent: '#126ff5',
+    language,
+    bodyHtml: `
           <p style="margin:0 0 12px;font-size:16px;color:#1f2933;font-weight:bold;">${escapeHtml(copy.greeting(booking.full_name))}</p>
           <p style="margin:0 0 18px;font-size:14px;color:#1f2933;line-height:1.6;">${escapeHtml(copy.intro)}</p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#eef6ff;border-radius:10px;padding:6px;border-collapse:separate;">
@@ -161,16 +218,8 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
           ${departure.notes ? `<p style="margin:12px 0 0;font-size:13px;color:#68737d;line-height:1.6;"><strong>${escapeHtml(copy.notesLabel)}:</strong> ${escapeHtml(departure.notes)}</p>` : ''}
           <p style="margin:18px 0 0;font-size:13px;color:#68737d;line-height:1.6;">${escapeHtml(copy.cancelInfo)}</p>
           ${cancelUrl ? `<p style="margin:12px 0 0;"><a href="${cancelUrl}" style="display:inline-block;background:#ffffff;border:1px solid #b42323;color:#b42323;font-size:13px;font-weight:bold;text-decoration:none;padding:9px 18px;border-radius:8px;">${escapeHtml(copy.cancelLinkLabel)}</a></p>` : ''}
-          <p style="margin:18px 0 0;font-size:13px;color:#68737d;line-height:1.6;">
-            <strong>${escapeHtml(copy.officeTitle)}</strong><br/>
-            ${escapeHtml(office.address)}<br/>
-            ${office.hours.map((line) => escapeHtml(line)).join('<br/>')}
-          </p>
-          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>
-        </td>
-      </tr>
-    </table>
-  </div>`
+          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>`,
+  })
 
   return {
     subject: copy.subject(title),
@@ -192,6 +241,9 @@ function createBookingEmailTransporter() {
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
+    // El servidor de correo municipal (mail.smt.gob.ar) tiene el certificado TLS
+    // vencido; este flag permite operar igual hasta que sistemas lo renueve.
+    tls: process.env.SMTP_ALLOW_INVALID_CERT === 'true' ? { rejectUnauthorized: false } : undefined,
   })
 }
 
@@ -208,6 +260,7 @@ export async function sendTouristBookingConfirmationEmail(input: BookingEmailInp
       subject: content.subject,
       text: content.text,
       html: content.html,
+      attachments: brandedEmailAttachments(),
     })
     return true
   } catch (error) {
@@ -271,31 +324,16 @@ function buildCancellationEmailContent({ booking, departure }: BookingEmailInput
     copy.farewell,
   ].join('\n')
 
-  const html = `
-  <div style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;">
-      <tr>
-        <td style="background:#b42323;padding:18px 26px;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">San Miguel de Tucumán</div>
-          <div style="font-size:20px;font-weight:bold;margin-top:2px;">Bus Turístico</div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:26px;">
+  const html = brandedEmailShell({
+    accent: '#b42323',
+    language,
+    bodyHtml: `
           <p style="margin:0 0 12px;font-size:16px;color:#1f2933;font-weight:bold;">${escapeHtml(copy.greeting(booking.full_name))}</p>
           <p style="margin:0 0 16px;font-size:14px;color:#1f2933;line-height:1.6;">${escapeHtml(bodyText)}</p>
           ${reasonText ? `<p style="margin:0 0 16px;font-size:14px;color:#1f2933;line-height:1.6;background:#FFF6E0;border:1px solid #EBD9A8;border-radius:8px;padding:10px 14px;"><strong>${escapeHtml(reasonText)}</strong></p>` : ''}
           <p style="margin:0 0 16px;font-size:13px;color:#68737d;line-height:1.6;">${escapeHtml(copy.next)}</p>
-          <p style="margin:0;font-size:13px;color:#68737d;line-height:1.6;">
-            <strong>${escapeHtml(office.title)}</strong><br/>
-            ${escapeHtml(office.address)}<br/>
-            ${office.hours.map((line) => escapeHtml(line)).join('<br/>')}
-          </p>
-          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>
-        </td>
-      </tr>
-    </table>
-  </div>`
+          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>`,
+  })
 
   return { subject: copy.subject(title), text, html }
 }
@@ -323,6 +361,7 @@ export async function sendTouristDepartureCancellationEmails(
           subject: content.subject,
           text: content.text,
           html: content.html,
+          attachments: brandedEmailAttachments(),
         })
       }),
     )
@@ -375,25 +414,15 @@ export async function sendTouristBookingCancelledEmail(input: BookingEmailInput)
     const bodyText = copy.body(title, dateLabel, timeLabel)
 
     const text = [copy.greeting(booking.full_name), '', bodyText, '', copy.next, '', copy.farewell].join('\n')
-    const html = `
-  <div style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;">
-      <tr>
-        <td style="background:#126ff5;padding:18px 26px;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;">San Miguel de Tucumán</div>
-          <div style="font-size:20px;font-weight:bold;margin-top:2px;">Bus Turístico</div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:26px;">
+    const html = brandedEmailShell({
+      accent: '#126ff5',
+      language,
+      bodyHtml: `
           <p style="margin:0 0 12px;font-size:16px;color:#1f2933;font-weight:bold;">${escapeHtml(copy.greeting(booking.full_name))}</p>
           <p style="margin:0 0 16px;font-size:14px;color:#1f2933;line-height:1.6;">${escapeHtml(bodyText)}</p>
           <p style="margin:0 0 16px;font-size:13px;color:#68737d;line-height:1.6;">${escapeHtml(copy.next)}</p>
-          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>
-        </td>
-      </tr>
-    </table>
-  </div>`
+          <p style="margin:20px 0 0;font-size:14px;color:#126ff5;font-weight:bold;">${escapeHtml(copy.farewell)}</p>`,
+    })
 
     const transporter = createBookingEmailTransporter()
     await transporter.sendMail({
@@ -403,6 +432,7 @@ export async function sendTouristBookingCancelledEmail(input: BookingEmailInput)
       subject: copy.subject(title),
       text,
       html,
+      attachments: brandedEmailAttachments(),
     })
     return true
   } catch (error) {
