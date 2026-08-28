@@ -3,7 +3,7 @@ import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { formatDateTimeToDisplay, formatDateToDisplay, parseBusinessDateParts } from '@/lib/educational-bus-requests'
 import { formatDepartureTime, type TouristBooking, type TouristDeparture } from '@/lib/tourist-bus'
-import { buildSimpleXlsxBuffer } from '@/lib/simple-xlsx'
+import { buildSimpleXlsxBuffer, type XlsxCell } from '@/lib/simple-xlsx'
 
 export const runtime = 'nodejs'
 
@@ -26,7 +26,7 @@ const departureStatusLabels: Record<TouristDeparture['status'], string> = {
 function buildExportRows(departures: TouristDeparture[], bookings: TouristBooking[]) {
   const departuresById = new Map(departures.map((departure) => [departure.id, departure]))
 
-  const header = [
+  const header: XlsxCell[] = [
     'ID reserva',
     'Salida',
     'Fecha de salida',
@@ -36,28 +36,30 @@ function buildExportRows(departures: TouristDeparture[], bookings: TouristBookin
     'Email',
     'Teléfono',
     'Procedencia',
-    'Cantidad de personas',
+    'Personas',
+    'Bicis municipales',
     'Idioma',
     'Estado de la reserva',
     'Fecha de reserva',
-  ]
+  ].map((label) => ({ value: label, style: 'header' }))
 
-  const rows = bookings.map((booking) => {
+  const rows = bookings.map((booking): Array<string | XlsxCell> => {
     const departure = departuresById.get(booking.departure_id)
     return [
-      String(booking.id),
-      departure?.title || `Salida #${booking.departure_id}`,
-      departure ? formatDateToDisplay(departure.departure_date) : '',
-      departure ? formatDepartureTime(departure.departure_time) : '',
-      departure ? departureStatusLabels[departure.status] : '',
-      booking.full_name,
-      booking.email,
-      booking.phone,
-      booking.origin_city || '',
-      String(booking.people_count),
-      booking.language === 'en' ? 'Inglés' : 'Español',
-      bookingStatusLabels[booking.status],
-      formatDateTimeToDisplay(booking.created_at),
+      { value: booking.id, style: 'cellCenter' },
+      { value: departure?.title || `Salida #${booking.departure_id}`, style: 'cell' },
+      { value: departure ? formatDateToDisplay(departure.departure_date) : '', style: 'cellCenter' },
+      { value: departure ? formatDepartureTime(departure.departure_time) : '', style: 'cellCenter' },
+      { value: departure ? departureStatusLabels[departure.status] : '', style: 'cellCenter' },
+      { value: booking.full_name, style: 'cell' },
+      { value: booking.email, style: 'cell' },
+      { value: booking.phone, style: 'cell' },
+      { value: booking.origin_city || '', style: 'cell' },
+      { value: booking.people_count, style: 'cellCenter' },
+      { value: booking.municipal_bikes || 0, style: 'cellCenter' },
+      { value: booking.language === 'en' ? 'Inglés' : 'Español', style: 'cellCenter' },
+      { value: bookingStatusLabels[booking.status], style: 'cellCenter' },
+      { value: formatDateTimeToDisplay(booking.created_at), style: 'cellCenter' },
     ]
   })
 
@@ -116,6 +118,9 @@ export async function GET(request: NextRequest) {
     {
       name: 'Reservas bus turístico',
       rows: buildExportRows(departureList, bookingList),
+      colWidths: [10, 30, 14, 8, 16, 28, 32, 16, 16, 10, 15, 10, 17, 18],
+      rowHeights: { 1: 26 },
+      freezeTopRows: 1,
     },
   ])
 

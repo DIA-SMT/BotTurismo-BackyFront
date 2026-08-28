@@ -1,8 +1,50 @@
 const encoder = new TextEncoder()
 
+// Nombres de estilo disponibles para las celdas. El índice se corresponde con
+// los <cellXfs> de styles.xml (más abajo): mantener ambos sincronizados.
+export type XlsxCellStyle =
+  | 'default'
+  | 'title'
+  | 'subtitle'
+  | 'meta'
+  | 'header'
+  | 'cell'
+  | 'cellCenter'
+  | 'bold'
+  | 'total'
+  | 'totalCenter'
+
+const styleIndex: Record<XlsxCellStyle, number> = {
+  default: 0,
+  title: 1,
+  subtitle: 2,
+  meta: 3,
+  header: 4,
+  cell: 5,
+  cellCenter: 6,
+  bold: 7,
+  total: 8,
+  totalCenter: 9,
+}
+
+export interface XlsxCell {
+  value: string | number | null | undefined
+  style?: XlsxCellStyle
+}
+
+type XlsxRowInput = Array<string | XlsxCell>
+
 interface XlsxWorksheet {
   name: string
-  rows: string[][]
+  rows: XlsxRowInput[]
+  /** Ancho de cada columna en caracteres (unidad de Excel). */
+  colWidths?: number[]
+  /** Rangos combinados, ej: 'A1:H1'. */
+  merges?: string[]
+  /** Alto puntual de filas (clave 1-based, alto en puntos). */
+  rowHeights?: Record<number, number>
+  /** Congela las primeras N filas al hacer scroll. */
+  freezeTopRows?: number
 }
 
 function escapeXml(value: string) {
@@ -27,24 +69,53 @@ function columnNumberToName(columnNumber: number) {
   return result
 }
 
-function buildWorksheetXml(rows: string[][]) {
-  const rowXml = rows
+function buildWorksheetXml(worksheet: XlsxWorksheet) {
+  const rowXml = worksheet.rows
     .map((row, rowIndex) => {
       const cells = row
-        .map((value, columnIndex) => {
-          if (!value) return ''
+        .map((rawCell, columnIndex) => {
+          const cell: XlsxCell = typeof rawCell === 'string' ? { value: rawCell } : rawCell
+          const style = styleIndex[cell.style || 'default']
+          const styleAttr = style ? ` s="${style}"` : ''
           const cellReference = `${columnNumberToName(columnIndex + 1)}${rowIndex + 1}`
-          return `<c r="${cellReference}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`
+
+          if (typeof cell.value === 'number' && Number.isFinite(cell.value)) {
+            return `<c r="${cellReference}"${styleAttr} t="n"><v>${cell.value}</v></c>`
+          }
+          const text = cell.value == null ? '' : String(cell.value)
+          if (!text) {
+            // Una celda vacía con estilo se emite igual (para bordes/relleno).
+            return style ? `<c r="${cellReference}"${styleAttr}/>` : ''
+          }
+          return `<c r="${cellReference}"${styleAttr} t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`
         })
         .join('')
 
-      return cells ? `<row r="${rowIndex + 1}">${cells}</row>` : `<row r="${rowIndex + 1}" />`
+      const height = worksheet.rowHeights?.[rowIndex + 1]
+      const heightAttr = height ? ` ht="${height}" customHeight="1"` : ''
+      return cells ? `<row r="${rowIndex + 1}"${heightAttr}>${cells}</row>` : `<row r="${rowIndex + 1}"${heightAttr} />`
     })
     .join('')
 
+  const sheetViewsXml = worksheet.freezeTopRows
+    ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${worksheet.freezeTopRows}" topLeftCell="A${worksheet.freezeTopRows + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+    : ''
+
+  const colsXml = worksheet.colWidths?.length
+    ? `<cols>${worksheet.colWidths
+        .map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`)
+        .join('')}</cols>`
+    : ''
+
+  const mergesXml = worksheet.merges?.length
+    ? `<mergeCells count="${worksheet.merges.length}">${worksheet.merges
+        .map((range) => `<mergeCell ref="${range}"/>`)
+        .join('')}</mergeCells>`
+    : ''
+
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData>${rowXml}</sheetData>
+  ${sheetViewsXml}${colsXml}<sheetData>${rowXml}</sheetData>${mergesXml}
 </worksheet>`
 }
 
@@ -106,26 +177,49 @@ const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
 </Relationships>`
 
+// Paleta institucional: azul #126FF5 para encabezados, celeste #EEF6FF para
+// totales, bordes gris suave. Los índices de <cellXfs> están mapeados en
+// styleIndex (arriba).
 const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="1">
-    <font>
-      <sz val="11"/>
-      <name val="Aptos"/>
-    </font>
+  <fonts count="6">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="16"/><color rgb="FF0B3E91"/><name val="Calibri"/></font>
+    <font><b/><sz val="12"/><color rgb="FF1F2933"/><name val="Calibri"/></font>
+    <font><sz val="11"/><color rgb="FF5A6673"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FF1F2933"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="2">
+  <fills count="4">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF126FF5"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEEF6FF"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
-  <borders count="1">
+  <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFB9C4D0"/></left>
+      <right style="thin"><color rgb="FFB9C4D0"/></right>
+      <top style="thin"><color rgb="FFB9C4D0"/></top>
+      <bottom style="thin"><color rgb="FFB9C4D0"/></bottom>
+      <diagonal/>
+    </border>
   </borders>
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="1">
+  <cellXfs count="10">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="4" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -141,9 +235,9 @@ function buildCoreXml() {
   const now = new Date().toISOString()
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <dc:title>Exportación de buses educativos</dc:title>
-  <dc:creator>Bus Turístico Educativo</dc:creator>
-  <cp:lastModifiedBy>Bus Turístico Educativo</cp:lastModifiedBy>
+  <dc:title>Exportación Bus Turístico</dc:title>
+  <dc:creator>Bus Turístico SMT</dc:creator>
+  <cp:lastModifiedBy>Bus Turístico SMT</cp:lastModifiedBy>
   <dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created>
   <dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified>
 </cp:coreProperties>`
@@ -245,7 +339,7 @@ export function buildSimpleXlsxBuffer(worksheets: XlsxWorksheet[]) {
     { name: 'xl/styles.xml', data: encoder.encode(stylesXml) },
     ...worksheets.map((worksheet, index) => ({
       name: `xl/worksheets/sheet${index + 1}.xml`,
-      data: encoder.encode(buildWorksheetXml(worksheet.rows)),
+      data: encoder.encode(buildWorksheetXml(worksheet)),
     })),
   ]
 
