@@ -26,6 +26,11 @@ export interface TouristPageCopy {
   bikesSoldOut: string
   bikesField: string
   bikesHint: (max: number) => string
+  bikesChoiceField: string
+  bikesChoicePlaceholder: string
+  bikesChoiceOwn: string
+  bikesChoiceMunicipal: string
+  bikesChoiceError: string
   meetingPointLabel: string
   bookCta: string
   moreDatesLabel: string
@@ -97,8 +102,13 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bikesLeft: (count) => (count === 1 ? '🚲 Queda 1 bici municipal' : `🚲 Quedan ${count} bicis municipales`),
     bikesBring: 'o traé tu propia bici',
     bikesSoldOut: '🚲 Bicis municipales agotadas: podés participar con la tuya',
-    bikesField: 'Bicicletas municipales que necesitan',
-    bikesHint: (max) => `Hay ${max} disponibles. Poné 0 si llevan bicis propias.`,
+    bikesField: '¿Cuántas bicicletas municipales necesitan?',
+    bikesHint: (max) => `Hay ${max} disponibles para esta salida.`,
+    bikesChoiceField: '¿Traen bicicletas propias?',
+    bikesChoicePlaceholder: 'Elegí una opción',
+    bikesChoiceOwn: 'Sí, llevamos bicicletas propias',
+    bikesChoiceMunicipal: 'No, necesitamos bicicletas municipales',
+    bikesChoiceError: 'Contanos si traen bicis propias o necesitan municipales.',
     meetingPointLabel: 'Punto de encuentro',
     bookCta: 'Reservar',
     moreDatesLabel: 'Más fechas',
@@ -190,8 +200,13 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bikesLeft: (count) => (count === 1 ? '🚲 1 municipal bike left' : `🚲 ${count} municipal bikes left`),
     bikesBring: 'or bring your own bike',
     bikesSoldOut: '🚲 Municipal bikes are gone: you can join with your own',
-    bikesField: 'Municipal bikes you need',
-    bikesHint: (max) => `${max} available. Enter 0 if you bring your own bikes.`,
+    bikesField: 'How many municipal bikes do you need?',
+    bikesHint: (max) => `${max} available for this departure.`,
+    bikesChoiceField: 'Are you bringing your own bikes?',
+    bikesChoicePlaceholder: 'Choose an option',
+    bikesChoiceOwn: 'Yes, we bring our own bikes',
+    bikesChoiceMunicipal: 'No, we need municipal bikes',
+    bikesChoiceError: 'Tell us if you bring your own bikes or need municipal ones.',
     meetingPointLabel: 'Meeting point',
     bookCta: 'Book',
     moreDatesLabel: 'More dates',
