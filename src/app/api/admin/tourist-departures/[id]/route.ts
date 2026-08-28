@@ -104,6 +104,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   let notification: { sent: number; failed: number; emailConfigured: boolean } | null = null
   if (body.notifyBookings === true && updatePayload.status === 'cancelled') {
     const emailConfigured = isBookingEmailConfigured()
+    const cancelReason = typeof body.cancelReason === 'string' ? body.cancelReason.trim().slice(0, 300) : ''
     let sent = 0
     let failed = 0
 
@@ -115,7 +116,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
         .eq('status', 'confirmed')
 
       const confirmedBookings = (bookings || []) as TouristBooking[]
-      const result = await sendTouristDepartureCancellationEmails(confirmedBookings, data as TouristDeparture)
+      const result = await sendTouristDepartureCancellationEmails(
+        confirmedBookings,
+        data as TouristDeparture,
+        cancelReason || undefined,
+      )
       sent = result.sent
       failed = result.failed
     }

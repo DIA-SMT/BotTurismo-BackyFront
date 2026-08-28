@@ -111,6 +111,9 @@ export function TouristExperience() {
   const [formData, setFormData] = useState<TouristBookingFormData>(initialTouristBookingFormData)
   const [selectedCircuitKey, setSelectedCircuitKey] = useState('')
   const [circuitError, setCircuitError] = useState(false)
+  // Bicis: '' sin elegir, 'own' llevan propias, 'municipal' necesitan prestadas
+  const [bikeChoice, setBikeChoice] = useState<'' | 'own' | 'municipal'>('')
+  const [bikeChoiceError, setBikeChoiceError] = useState(false)
   const [errors, setErrors] = useState<TouristBookingFormErrors>({})
   const [submitState, setSubmitState] = useState<SubmitState>({ type: 'idle' })
   const [submitting, setSubmitting] = useState(false)
@@ -248,13 +251,32 @@ export function TouristExperience() {
     carouselTrackRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' })
   }
 
-  // Si la salida elegida no presta bicicletas, el campo de bicis vuelve a 0
-  // (evita mandar bicis de una selección anterior).
+  // Si la salida elegida no presta bicicletas, el selector y el campo vuelven
+  // a cero (evita mandar bicis de una selección anterior).
   useEffect(() => {
     if (!selectedDeparture || selectedDeparture.bike_stock === null) {
+      setBikeChoice('')
+      setBikeChoiceError(false)
       setFormData((current) => (current.municipalBikes === '0' ? current : { ...current, municipalBikes: '0' }))
     }
   }, [selectedDeparture])
+
+  const handleBikeChoice = (value: '' | 'own' | 'municipal') => {
+    setBikeChoice(value)
+    setBikeChoiceError(false)
+    setFormData((current) => ({
+      ...current,
+      // Con bicis propias no piden municipales; al pedir municipales se
+      // precarga la cantidad de personas (el caso más común).
+      municipalBikes: value === 'municipal' ? current.peopleCount || '1' : '0',
+    }))
+    setErrors((current) => {
+      if (!current.municipalBikes) return current
+      const next = { ...current }
+      delete next.municipalBikes
+      return next
+    })
+  }
 
   // Si al refrescar los cupos el circuito o la salida elegida dejaron de estar
   // disponibles, se limpia la selección para no reservar sobre datos viejos.
@@ -325,11 +347,15 @@ export function TouristExperience() {
     event.preventDefault()
     setSubmitState({ type: 'idle' })
 
-    const validationErrors = validateTouristBookingForm(formData, {
-      bikesEnabled: selectedDeparture?.bike_stock != null,
-    })
+    const bikesEnabled = selectedDeparture?.bike_stock != null
+    const validationErrors = validateTouristBookingForm(formData, { bikesEnabled })
     if (!selectedCircuitKey) setCircuitError(true)
-    if (Object.keys(validationErrors).length > 0 || !selectedCircuitKey) {
+    const missingBikeChoice = bikesEnabled && bikeChoice === ''
+    if (missingBikeChoice) setBikeChoiceError(true)
+    if (bikesEnabled && bikeChoice === 'municipal' && Number(formData.municipalBikes) < 1) {
+      validationErrors.municipalBikes = 'bikes_invalid'
+    }
+    if (Object.keys(validationErrors).length > 0 || !selectedCircuitKey || missingBikeChoice) {
       setErrors(validationErrors)
       return
     }
@@ -370,6 +396,8 @@ export function TouristExperience() {
       setFormData(initialTouristBookingFormData)
       setSelectedCircuitKey('')
       setCircuitError(false)
+      setBikeChoice('')
+      setBikeChoiceError(false)
       setErrors({})
       void loadDepartures()
     } catch {
@@ -655,6 +683,25 @@ export function TouristExperience() {
 
                 {selectedDeparture && selectedDeparture.bike_stock !== null ? (
                   <FormField
+                    label={copy.bikesChoiceField}
+                    required
+                    error={bikeChoiceError ? copy.bikesChoiceError : undefined}
+                    className={formStyles.gridFull}
+                  >
+                    <Select
+                      value={bikeChoice}
+                      onChange={(event) => handleBikeChoice(event.target.value as '' | 'own' | 'municipal')}
+                      hasError={bikeChoiceError}
+                    >
+                      <option value="">{copy.bikesChoicePlaceholder}</option>
+                      <option value="own">{copy.bikesChoiceOwn}</option>
+                      <option value="municipal">{copy.bikesChoiceMunicipal}</option>
+                    </Select>
+                  </FormField>
+                ) : null}
+
+                {selectedDeparture && selectedDeparture.bike_stock !== null && bikeChoice === 'municipal' ? (
+                  <FormField
                     label={copy.bikesField}
                     required
                     hint={copy.bikesHint(selectedDeparture.bikes_remaining ?? 0)}
@@ -663,7 +710,7 @@ export function TouristExperience() {
                   >
                     <Input
                       type="number"
-                      min={0}
+                      min={1}
                       max={Math.min(
                         selectedDeparture.bikes_remaining ?? 0,
                         Number(formData.peopleCount) || maximumPeoplePerBooking,

@@ -40,6 +40,7 @@ export interface TouristBooking {
   municipal_bikes: number
   language: TouristLanguage
   status: TouristBookingStatus
+  cancel_token?: string
 }
 
 export interface TouristBookingFormData {

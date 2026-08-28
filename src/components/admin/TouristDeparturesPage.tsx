@@ -284,18 +284,23 @@ export default function TouristDeparturesPage() {
   }
 
   const cancelDepartureWithNotice = async (departure: TouristDepartureAvailability) => {
-    const confirmMessage =
+    const promptMessage =
       departure.reserved > 0
-        ? `¿Cancelar la salida "${departure.title}"? Se avisará por mail a los inscriptos (${departure.reserved} lugares reservados).`
-        : `¿Cancelar la salida "${departure.title}"?`
-    if (!window.confirm(confirmMessage)) return
+        ? `Motivo de la cancelación de "${departure.title}" (se incluye en el mail a los ${departure.reserved} inscriptos):`
+        : `Motivo de la cancelación de "${departure.title}" (queda registrado):`
+    const reason = window.prompt(promptMessage, '')
+    if (reason === null) return // canceló el diálogo
+    if (!reason.trim()) {
+      setFeedback('La cancelación necesita un motivo (es lo que le explicamos al turista).')
+      return
+    }
 
     setFeedback(null)
     try {
       const response = await fetch(`/api/admin/tourist-departures/${departure.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled', notifyBookings: true }),
+        body: JSON.stringify({ status: 'cancelled', notifyBookings: true, cancelReason: reason.trim() }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo cancelar la salida.')
