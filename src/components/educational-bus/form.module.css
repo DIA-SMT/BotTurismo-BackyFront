@@ -29,6 +29,7 @@
   background: rgba(255, 255, 255, 0.94);
   border-bottom: 1px solid rgba(37, 137, 234, 0.12);
   box-shadow: 0 8px 24px rgba(12, 28, 46, 0.06);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
@@ -496,7 +497,8 @@
   border-radius: 6px;
   background: #fbfcfc;
   color: var(--text-main);
-  font-size: 0.96rem;
+  /* Mínimo 16px: con menos, iOS Safari hace zoom automático al enfocar el campo. */
+  font-size: 1rem;
   outline: none;
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
@@ -632,6 +634,8 @@
   border-radius: 6px;
   background: #fff;
   color: var(--text-main);
+  /* Mínimo 16px: con menos, iOS Safari hace zoom automático al enfocar el campo. */
+  font-size: 1rem;
 }
 
 .publicCalendarMonthSelect:disabled {
@@ -1007,8 +1011,21 @@
     order: 3;
     width: 100%;
     justify-content: flex-start;
+    gap: 20px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 2px 0 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Cada ítem en una sola línea: el menú se desliza de costado, no se apila. */
+  .nav a {
+    white-space: nowrap;
+    padding: 4px 0;
   }
 
   .heroContent {
@@ -1070,16 +1087,26 @@
 
 @media (max-width: 520px) {
   .header {
-    padding-inline: 14px;
+    padding: 8px 14px;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brandDivider {
+    height: 26px;
   }
 
   .brandTitle {
-    font-size: 1rem;
+    font-size: 0.98rem;
   }
 
   .brandLogo {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
   }
 
   .muniText strong {
