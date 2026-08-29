@@ -70,6 +70,19 @@
   color: #fff;
 }
 
+/* En pantallas chicas el selector de idioma se achica para compartir la fila
+   con la marca y que el header pegajoso no ocupe media pantalla. */
+@media (max-width: 520px) {
+  .langToggle {
+    padding: 2px;
+  }
+
+  .langButton {
+    padding: 4px 9px;
+    font-size: 0.72rem;
+  }
+}
+
 .departuresSection {
   display: grid;
   gap: 18px;
