@@ -50,7 +50,7 @@ function buildExportRows(departures: TouristDeparture[], bookings: TouristBookin
       [{
         value: 'Sin reservas en el rango elegido. El filtro es por la FECHA DE LA SALIDA (no por la fecha en que se hizo la reserva): probá ampliar el rango.',
         style: 'meta',
-      }],
+      } satisfies XlsxCell],
     ]
   }
 
