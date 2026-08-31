@@ -632,6 +632,7 @@ export function TouristExperience() {
                 <FormField
                   label={copy.departureField}
                   required
+                  hint={copy.departureHint}
                   error={errors.departureId ? copy.fieldErrors[errors.departureId] : undefined}
                   className={formStyles.gridFull}
                 >
