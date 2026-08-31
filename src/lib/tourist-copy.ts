@@ -134,7 +134,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     submittingLabel: 'Enviando…',
     successTitle: '¡Reserva confirmada!',
     successBody: (title, dateLabel) =>
-      `Tu lugar para "${title}" (${dateLabel}) quedó confirmado. Presentate 10 minutos antes de la salida.`,
+      `Tu lugar para "${title}" (${dateLabel}) quedó confirmado. Presentate 30 minutos antes de la salida.`,
     successEmailNote: 'Te enviamos un correo con los detalles de tu reserva.',
     circuitsTitle: 'Nuestros circuitos',
     circuitsLead:
@@ -232,7 +232,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     submittingLabel: 'Sending…',
     successTitle: 'Booking confirmed!',
     successBody: (title, dateLabel) =>
-      `Your seat for "${title}" (${dateLabel}) is confirmed. Please arrive 10 minutes before departure.`,
+      `Your seat for "${title}" (${dateLabel}) is confirmed. Please arrive 30 minutes before departure.`,
     successEmailNote: 'We sent you an email with your booking details.',
     circuitsTitle: 'Our circuits',
     circuitsLead:

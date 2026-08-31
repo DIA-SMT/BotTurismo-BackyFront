@@ -51,7 +51,7 @@ const bookingEmailCopy: Record<TouristLanguage, BookingEmailCopy> = {
     meetingPointLabel: 'Punto de encuentro',
     peopleLabel: 'Personas',
     bikesLabel: 'Bicicletas municipales reservadas',
-    arriveEarly: 'Presentate 10 minutos antes de la salida.',
+    arriveEarly: 'Presentate 30 minutos antes de la salida.',
     notesLabel: 'Tené en cuenta',
     cancelInfo:
       'Si no podés asistir, cancelá tu reserva con el botón de abajo así liberamos tu lugar para otra persona.',
@@ -69,7 +69,7 @@ const bookingEmailCopy: Record<TouristLanguage, BookingEmailCopy> = {
     meetingPointLabel: 'Meeting point',
     peopleLabel: 'People',
     bikesLabel: 'Municipal bikes reserved',
-    arriveEarly: 'Please arrive 10 minutes before departure.',
+    arriveEarly: 'Please arrive 30 minutes before departure.',
     notesLabel: 'Keep in mind',
     cancelInfo: 'If you can’t make it, cancel your booking with the button below so we can free up your seat.',
     cancelLinkLabel: 'Cancel my booking',
@@ -214,7 +214,7 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
               <table role="presentation" cellpadding="0" cellspacing="0">${detailRowsHtml}</table>
             </td></tr>
           </table>
-          <p style="margin:18px 0 0;font-size:14px;color:#1f2933;font-weight:600;">${escapeHtml(copy.arriveEarly)}</p>
+          <p style="margin:18px 0 0;font-size:14px;color:#b42323;font-weight:800;">${escapeHtml(copy.arriveEarly)}</p>
           ${departure.notes ? `<p style="margin:12px 0 0;font-size:13px;color:#68737d;line-height:1.6;"><strong>${escapeHtml(copy.notesLabel)}:</strong> ${escapeHtml(departure.notes)}</p>` : ''}
           <p style="margin:18px 0 0;font-size:13px;color:#68737d;line-height:1.6;">${escapeHtml(copy.cancelInfo)}</p>
           ${cancelUrl ? `<p style="margin:12px 0 0;"><a href="${cancelUrl}" style="display:inline-block;background:#ffffff;border:1px solid #b42323;color:#b42323;font-size:13px;font-weight:bold;text-decoration:none;padding:9px 18px;border-radius:8px;">${escapeHtml(copy.cancelLinkLabel)}</a></p>` : ''}
