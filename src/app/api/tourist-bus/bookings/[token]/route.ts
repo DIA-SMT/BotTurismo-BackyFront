@@ -33,7 +33,9 @@ const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000
 
 function departureDateTimeMs(departure: TouristDeparture) {
   // Las salidas se cargan en hora de Argentina (UTC-3, sin horario de verano).
-  return new Date(`${departure.departure_date}T${departure.departure_time}:00-03:00`).getTime()
+  // La hora puede venir de la base como HH:MM o HH:MM:SS.
+  const time = departure.departure_time.slice(0, 5)
+  return new Date(`${departure.departure_date}T${time}:00-03:00`).getTime()
 }
 
 function canCancel(booking: TouristBooking, departure: TouristDeparture | null) {
