@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { getTodayDateStringInBuenosAires } from '@/lib/educational-bus-requests'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 import { sendTouristBookingCancelledEmail } from '@/lib/tourist-booking-email'
+import { sendTouristBookingCancelledWhatsApp } from '@/lib/tourist-whatsapp'
 
 export const runtime = 'nodejs'
 
@@ -27,11 +27,20 @@ async function findBookingByToken(token: string) {
   return { supabase, booking: booking as TouristBooking, departure: (departure as TouristDeparture) || null }
 }
 
+// La baja autogestionada se acepta hasta 24 horas antes de la salida, para que
+// el lugar liberado todavía pueda ser reservado por otra persona.
+const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000
+
+function departureDateTimeMs(departure: TouristDeparture) {
+  // Las salidas se cargan en hora de Argentina (UTC-3, sin horario de verano).
+  return new Date(`${departure.departure_date}T${departure.departure_time}:00-03:00`).getTime()
+}
+
 function canCancel(booking: TouristBooking, departure: TouristDeparture | null) {
   if (!departure) return false
   if (booking.status !== 'confirmed') return false
   if (departure.status !== 'active') return false
-  return departure.departure_date >= getTodayDateStringInBuenosAires()
+  return departureDateTimeMs(departure) - Date.now() >= CANCEL_WINDOW_MS
 }
 
 export async function GET(_: NextRequest, context: { params: Promise<{ token: string }> }) {
@@ -78,7 +87,7 @@ export async function POST(_: NextRequest, context: { params: Promise<{ token: s
 
   if (!canCancel(booking, departure)) {
     return NextResponse.json(
-      { error: 'Esta reserva ya no se puede cancelar (ya está cancelada o la salida ya pasó).' },
+      { error: 'Esta reserva ya no se puede cancelar: las bajas se aceptan hasta 24 horas antes de la salida.' },
       { status: 409 },
     )
   }
@@ -95,10 +104,11 @@ export async function POST(_: NextRequest, context: { params: Promise<{ token: s
     return NextResponse.json({ error: 'No se pudo cancelar la reserva. Intentá de nuevo.' }, { status: 500 })
   }
 
-  const emailSent = await sendTouristBookingCancelledEmail({
-    booking: updated as TouristBooking,
-    departure,
-  })
+  const input = { booking: updated as TouristBooking, departure }
+  const [emailSent, whatsappSent] = await Promise.all([
+    sendTouristBookingCancelledEmail(input),
+    sendTouristBookingCancelledWhatsApp(input),
+  ])
 
-  return NextResponse.json({ data: { cancelled: true, emailSent } })
+  return NextResponse.json({ data: { cancelled: true, emailSent, whatsappSent } })
 }

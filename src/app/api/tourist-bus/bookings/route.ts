@@ -10,6 +10,7 @@ import {
   type TouristLanguage,
 } from '@/lib/tourist-bus'
 import { isBookingEmailConfigured, sendTouristBookingConfirmationEmail } from '@/lib/tourist-booking-email'
+import { isBookingWhatsAppConfigured, sendTouristBookingConfirmationWhatsApp } from '@/lib/tourist-whatsapp'
 
 export const runtime = 'nodejs'
 
@@ -76,10 +77,11 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Correo de confirmación: se intenta después de asegurar la reserva y
-  // nunca la bloquea (si falla o no hay SMTP configurado, emailSent = false).
+  // Avisos de confirmación (mail y WhatsApp): se intentan después de asegurar
+  // la reserva y nunca la bloquean (si fallan o falta config, quedan en false).
   let emailSent = false
-  if (isBookingEmailConfigured() && result.booking) {
+  let whatsappSent = false
+  if ((isBookingEmailConfigured() || isBookingWhatsAppConfigured()) && result.booking) {
     const { data: departure } = await supabase
       .from('tourist_departures')
       .select('*')
@@ -87,15 +89,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (departure) {
-      emailSent = await sendTouristBookingConfirmationEmail({
+      const input = {
         booking: result.booking as TouristBooking,
         departure: departure as TouristDeparture,
-      })
+      }
+      ;[emailSent, whatsappSent] = await Promise.all([
+        sendTouristBookingConfirmationEmail(input),
+        sendTouristBookingConfirmationWhatsApp(input),
+      ])
     }
   }
 
   return NextResponse.json(
-    { data: { booking: result.booking, remaining: result.remaining ?? null, emailSent } },
+    { data: { booking: result.booking, remaining: result.remaining ?? null, emailSent, whatsappSent } },
     { status: 201 },
   )
 }

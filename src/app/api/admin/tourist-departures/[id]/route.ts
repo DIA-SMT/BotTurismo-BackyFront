@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { parseBusinessDateParts } from '@/lib/educational-bus-requests'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 import { isBookingEmailConfigured, sendTouristDepartureCancellationEmails } from '@/lib/tourist-booking-email'
+import { isBookingWhatsAppConfigured, sendTouristDepartureCancellationWhatsApps } from '@/lib/tourist-whatsapp'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -108,7 +109,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     let sent = 0
     let failed = 0
 
-    if (emailConfigured) {
+    if (emailConfigured || isBookingWhatsAppConfigured()) {
       const { data: bookings } = await supabase
         .from('tourist_bookings')
         .select('*')
@@ -116,13 +117,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
         .eq('status', 'confirmed')
 
       const confirmedBookings = (bookings || []) as TouristBooking[]
-      const result = await sendTouristDepartureCancellationEmails(
-        confirmedBookings,
-        data as TouristDeparture,
-        cancelReason || undefined,
-      )
-      sent = result.sent
-      failed = result.failed
+      const [emailResult] = await Promise.all([
+        sendTouristDepartureCancellationEmails(confirmedBookings, data as TouristDeparture, cancelReason || undefined),
+        sendTouristDepartureCancellationWhatsApps(confirmedBookings, data as TouristDeparture, cancelReason || undefined),
+      ])
+      sent = emailResult.sent
+      failed = emailResult.failed
     }
 
     notification = { sent, failed, emailConfigured }

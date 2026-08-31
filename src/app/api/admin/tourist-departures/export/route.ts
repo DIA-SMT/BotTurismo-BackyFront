@@ -43,6 +43,17 @@ function buildExportRows(departures: TouristDeparture[], bookings: TouristBookin
     'Fecha de reserva',
   ].map((label) => ({ value: label, style: 'header' }))
 
+  // Sin resultados, el archivo lo dice adentro (antes salía "vacío" sin explicación).
+  if (bookings.length === 0) {
+    return [
+      header,
+      [{
+        value: 'Sin reservas en el rango elegido. El filtro es por la FECHA DE LA SALIDA (no por la fecha en que se hizo la reserva): probá ampliar el rango.',
+        style: 'meta',
+      } satisfies XlsxCell],
+    ]
+  }
+
   const rows = bookings.map((booking): Array<string | XlsxCell> => {
     const departure = departuresById.get(booking.departure_id)
     return [

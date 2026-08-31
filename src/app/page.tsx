@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Bus, GraduationCap } from 'lucide-react'
 import styles from './landing.module.css'
 import { LandingHeroBackground } from '@/components/landing/LandingHeroBackground'
+import { getEducationalSettings } from '@/lib/educational-settings-server'
+import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export const metadata: Metadata = {
   title: 'Bus Turístico de San Miguel de Tucumán',
@@ -10,7 +12,12 @@ export const metadata: Metadata = {
     'Elegí tu experiencia: Bus Turístico con salidas programadas para turistas y vecinos, o Bus Educativo con turnos institucionales para escuelas.',
 }
 
-export default function HomePage() {
+// El estado del educativo (abierto/cerrado) se administra desde el panel.
+export const dynamic = 'force-dynamic'
+
+export default async function HomePage() {
+  const educationalSettings = await getEducationalSettings(createServerSupabaseClient())
+  const educationalOpen = educationalSettings.publicRequestsEnabled
   return (
     <main className={styles.page}>
       <LandingHeroBackground variant="split" />
@@ -57,22 +64,39 @@ export default function HomePage() {
             <span className={styles.choiceCta}>Reservar lugar →</span>
           </Link>
 
-          <Link href="/educativo" className={`${styles.choiceCard} ${styles.choiceCardEducational}`}>
-            <span className={styles.choiceIcon}>
-              <GraduationCap size={26} strokeWidth={1.9} />
-            </span>
-            <h2 className={styles.choiceTitle}>Bus Educativo</h2>
-            <p className={styles.choiceText}>
-              Para escuelas e instituciones. Turnos de lunes a viernes con solicitud institucional y acompañamiento
-              pedagógico.
-            </p>
-            <ul className={styles.choiceList}>
-              <li>Circuito Histórico Cultural por los museos municipales</li>
-              <li>Turnos de mañana y tarde según disponibilidad</li>
-              <li>Solicitud con nota institucional</li>
-            </ul>
-            <span className={styles.choiceCta}>Solicitar turno →</span>
-          </Link>
+          {educationalOpen ? (
+            <Link href="/educativo" className={`${styles.choiceCard} ${styles.choiceCardEducational}`}>
+              <span className={styles.choiceIcon}>
+                <GraduationCap size={26} strokeWidth={1.9} />
+              </span>
+              <h2 className={styles.choiceTitle}>Bus Educativo</h2>
+              <p className={styles.choiceText}>
+                Para escuelas e instituciones. Turnos de lunes a viernes con solicitud institucional y acompañamiento
+                pedagógico.
+              </p>
+              <ul className={styles.choiceList}>
+                <li>Circuito Histórico Cultural por los museos municipales</li>
+                <li>Turnos de mañana y tarde según disponibilidad</li>
+                <li>Solicitud con nota institucional</li>
+              </ul>
+              <span className={styles.choiceCta}>Solicitar turno →</span>
+            </Link>
+          ) : (
+            <div className={`${styles.choiceCard} ${styles.choiceCardEducational}`} style={{ opacity: 0.72, cursor: 'default' }}>
+              <span className={styles.choiceIcon}>
+                <GraduationCap size={26} strokeWidth={1.9} />
+              </span>
+              <h2 className={styles.choiceTitle}>Bus Educativo</h2>
+              <p className={styles.choiceText}>
+                Para escuelas e instituciones. Las solicitudes online están momentáneamente deshabilitadas.
+              </p>
+              <ul className={styles.choiceList}>
+                <li>Muy pronto volvemos a recibir solicitudes</li>
+                <li>Consultas: turismo@smt.gob.ar</li>
+              </ul>
+              <span className={styles.choiceCta} style={{ opacity: 0.85 }}>Momentáneamente sin solicitudes</span>
+            </div>
+          )}
         </div>
 
         <p className={styles.footerNote}>

@@ -694,9 +694,24 @@ export default function TouristDeparturesPage() {
             </select>
 
             <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <input type="date" className="input" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} style={{ width: 150 }} />
-              <input type="date" className="input" value={exportTo} onChange={(event) => setExportTo(event.target.value)} style={{ width: 150 }} />
-              <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Salidas entre:</span>
+              <input
+                type="date"
+                className="input"
+                title="Desde (fecha de la salida)"
+                value={exportFrom}
+                onChange={(event) => setExportFrom(event.target.value)}
+                style={{ width: 150 }}
+              />
+              <input
+                type="date"
+                className="input"
+                title="Hasta (fecha de la salida)"
+                value={exportTo}
+                onChange={(event) => setExportTo(event.target.value)}
+                style={{ width: 150 }}
+              />
+              <button className="btn btn-primary" onClick={handleExport} disabled={exporting} title="Exporta todas las reservas de las salidas cuya fecha cae en el rango">
                 <Download size={14} />
                 {exporting ? 'Exportando...' : 'Exportar reservas'}
               </button>
