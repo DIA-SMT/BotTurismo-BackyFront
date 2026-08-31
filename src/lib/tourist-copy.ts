@@ -44,6 +44,7 @@ export interface TouristPageCopy {
   circuitRequired: string
   departureField: string
   departurePlaceholder: string
+  departureHint: string
   departureSelectCircuitFirst: string
   fullNameField: string
   fullNamePlaceholder: string
@@ -94,8 +95,10 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     assuranceLeft: 'Servicio turístico municipal',
     assuranceRight: 'Salidas programadas con cupos limitados',
     departuresTitle: 'Próximas salidas',
-    departuresLead: 'Estas son las salidas con inscripción abierta. Los cupos se actualizan en tiempo real.',
-    departuresEmpty: 'Por el momento no hay salidas con inscripción abierta. Volvé a consultar pronto.',
+    departuresLead:
+      'Estas son las salidas con inscripción abierta. Los cupos se actualizan en tiempo real y los circuitos se renuevan cada lunes.',
+    departuresEmpty:
+      'Por el momento no hay salidas con inscripción abierta. Los circuitos se actualizan cada lunes: volvé a consultar pronto.',
     departuresError: 'No pudimos cargar las salidas. Intentá de nuevo en unos minutos.',
     departuresLoading: 'Cargando salidas disponibles…',
     seatsLeft: (count) => (count === 1 ? 'Queda 1 lugar' : `Quedan ${count} lugares`),
@@ -123,6 +126,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     circuitRequired: 'Elegí un circuito.',
     departureField: 'Salida',
     departurePlaceholder: 'Elegí fecha y horario',
+    departureHint: 'Los circuitos y salidas se actualizan cada lunes.',
     departureSelectCircuitFirst: 'Primero elegí un circuito',
     fullNameField: 'Nombre y apellido',
     fullNamePlaceholder: 'Ej: Ana Pérez',
@@ -193,8 +197,10 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     assuranceLeft: 'Municipal tourism service',
     assuranceRight: 'Scheduled departures with limited seats',
     departuresTitle: 'Upcoming departures',
-    departuresLead: 'These departures are open for registration. Seats update in real time.',
-    departuresEmpty: 'There are no departures open for registration right now. Check back soon.',
+    departuresLead:
+      'These departures are open for registration. Seats update in real time and circuits are refreshed every Monday.',
+    departuresEmpty:
+      'There are no departures open for registration right now. Circuits are updated every Monday — check back soon.',
     departuresError: 'We couldn’t load the departures. Please try again in a few minutes.',
     departuresLoading: 'Loading available departures…',
     seatsLeft: (count) => (count === 1 ? '1 seat left' : `${count} seats left`),
@@ -222,6 +228,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     circuitRequired: 'Choose a circuit.',
     departureField: 'Departure',
     departurePlaceholder: 'Choose date and time',
+    departureHint: 'Circuits and departures are updated every Monday.',
     departureSelectCircuitFirst: 'First choose a circuit',
     fullNameField: 'Full name',
     fullNamePlaceholder: 'E.g. Jane Smith',
