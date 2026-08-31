@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 import { sendTouristBookingCancelledEmail } from '@/lib/tourist-booking-email'
+import { sendTouristBookingCancelledWhatsApp } from '@/lib/tourist-whatsapp'
 
 export const runtime = 'nodejs'
 
@@ -103,10 +104,11 @@ export async function POST(_: NextRequest, context: { params: Promise<{ token: s
     return NextResponse.json({ error: 'No se pudo cancelar la reserva. Intentá de nuevo.' }, { status: 500 })
   }
 
-  const emailSent = await sendTouristBookingCancelledEmail({
-    booking: updated as TouristBooking,
-    departure,
-  })
+  const input = { booking: updated as TouristBooking, departure }
+  const [emailSent, whatsappSent] = await Promise.all([
+    sendTouristBookingCancelledEmail(input),
+    sendTouristBookingCancelledWhatsApp(input),
+  ])
 
-  return NextResponse.json({ data: { cancelled: true, emailSent } })
+  return NextResponse.json({ data: { cancelled: true, emailSent, whatsappSent } })
 }
