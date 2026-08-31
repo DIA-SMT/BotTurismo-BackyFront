@@ -168,6 +168,8 @@ export const circuitAvailability: Record<EducationalBusCircuit, Partial<Record<B
 // clave 'educational_settings'). Estos valores son los defaults si la tabla
 // todavía no existe o no tiene la clave.
 export interface EducationalSettings {
+  /** Permite apagar temporalmente las solicitudes online sin tocar código. */
+  publicRequestsEnabled: boolean
   blockedUntil: string | null
   minStudents: number
   maxStudents: number
@@ -175,6 +177,7 @@ export interface EducationalSettings {
 }
 
 export const defaultEducationalSettings: EducationalSettings = {
+  publicRequestsEnabled: true,
   blockedUntil: '2026-08-31',
   minStudents: minimumStudentCount,
   maxStudents: maximumStudentCount,
@@ -219,7 +222,11 @@ export function sanitizeEducationalSettings(raw: unknown): EducationalSettings {
     availability = parsed
   }
 
-  return { blockedUntil, minStudents, maxStudents, availability }
+  // Solo un false explícito apaga las solicitudes: settings guardados antes
+  // de que existiera el campo siguen funcionando como siempre.
+  const publicRequestsEnabled = value.publicRequestsEnabled !== false
+
+  return { publicRequestsEnabled, blockedUntil, minStudents, maxStudents, availability }
 }
 
 export const educationalBusAttachmentBucket = 'educational-bus-request-files'

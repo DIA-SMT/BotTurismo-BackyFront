@@ -237,6 +237,32 @@ function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
         </div>
       ) : settings ? (
         <>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 14,
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: settings.publicRequestsEnabled ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.1)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={settings.publicRequestsEnabled}
+              onChange={(event) =>
+                setSettings((current) => (current ? { ...current, publicRequestsEnabled: event.target.checked } : current))
+              }
+            />
+            {settings.publicRequestsEnabled
+              ? 'Solicitudes online ABIERTAS (la página pública muestra el formulario)'
+              : 'Solicitudes online DESHABILITADAS (la página pública muestra un aviso y no acepta solicitudes nuevas)'}
+          </label>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
               Bloquear reservas hasta (inclusive)

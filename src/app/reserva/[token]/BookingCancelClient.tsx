@@ -36,7 +36,7 @@ const texts = {
     confirmPrompt: '¿Seguro que querés cancelar tu reserva? El lugar se libera para otra persona.',
     cancelled: '✅ Tu reserva quedó cancelada y el lugar fue liberado. ¡Gracias por avisar!',
     cancelledWithEmail: '✅ Tu reserva quedó cancelada y te enviamos un correo de confirmación. ¡Gracias por avisar!',
-    cannotCancel: 'Esta reserva ya no se puede cancelar (ya está cancelada o la salida ya pasó).',
+    cannotCancel: 'Esta reserva ya no se puede cancelar: las bajas se aceptan hasta 24 horas antes de la salida.',
     backHome: '← Volver al Bus Turístico',
   },
   en: {
@@ -53,7 +53,7 @@ const texts = {
     confirmPrompt: 'Are you sure you want to cancel your booking? Your seat will be released.',
     cancelled: '✅ Your booking has been cancelled and your seat released. Thanks for letting us know!',
     cancelledWithEmail: '✅ Your booking has been cancelled and we sent you a confirmation email. Thanks for letting us know!',
-    cannotCancel: 'This booking can no longer be cancelled (it is already cancelled or the departure has passed).',
+    cannotCancel: 'This booking can no longer be cancelled: cancellations are accepted up to 24 hours before departure.',
     backHome: '← Back to the Tourist Bus',
   },
 }

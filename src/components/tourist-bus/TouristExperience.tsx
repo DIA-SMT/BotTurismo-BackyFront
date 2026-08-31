@@ -669,6 +669,7 @@ export function TouristExperience() {
                 <FormField
                   label={copy.peopleField}
                   required
+                  hint={copy.peopleHint}
                   error={errors.peopleCount ? copy.fieldErrors[errors.peopleCount] : undefined}
                 >
                   <Input

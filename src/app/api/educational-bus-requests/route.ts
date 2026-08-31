@@ -83,6 +83,13 @@ export async function POST(request: NextRequest) {
   const settingsSupabase = createServerSupabaseClient()
   const globalSettings = await getEducationalSettings(settingsSupabase)
 
+  if (!globalSettings.publicRequestsEnabled) {
+    return NextResponse.json(
+      { error: 'Las solicitudes online están momentáneamente deshabilitadas. Por consultas escribí a turismo@smt.gob.ar.' },
+      { status: 403 },
+    )
+  }
+
   // La disponibilidad es por circuito (catálogo educativo). Si la tabla no
   // existe todavía, solo el circuito histórico funciona con los defaults.
   let circuitAvailability = null

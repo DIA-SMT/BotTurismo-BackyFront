@@ -8,6 +8,7 @@ import { MouseExperience } from '@/components/MouseExperience'
 import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@/lib/educational-bus-requests'
 import { buildEducationalCircuitSeedRows } from '@/lib/educational-circuits'
 import { getActiveEducationalCircuits } from '@/lib/educational-circuits-server'
+import { getEducationalSettings } from '@/lib/educational-settings-server'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export const metadata: Metadata = {
@@ -55,7 +56,11 @@ async function loadCircuitAccordionItems(): Promise<AccordionItem[]> {
 }
 
 export default async function EducationalBusPage() {
-  const circuitItems = await loadCircuitAccordionItems()
+  const [circuitItems, settings] = await Promise.all([
+    loadCircuitAccordionItems(),
+    getEducationalSettings(createServerSupabaseClient()),
+  ])
+  const requestsOpen = settings.publicRequestsEnabled
   return (
     <main className={styles.page}>
       <MouseExperience />
@@ -77,16 +82,18 @@ export default async function EducationalBusPage() {
         </a>
 
         <nav className={styles.nav} aria-label="Navegación principal">
-          <a href="#solicitud">Reservar turno</a>
+          {requestsOpen ? <a href="#solicitud">Reservar turno</a> : null}
           <a href="#circuitos">Circuitos</a>
           <a href="/turistico">Bus turístico</a>
           <a href="/galeria">Galería</a>
           <a href="/login">Iniciar sesión</a>
         </nav>
 
-        <a className={styles.headerAction} href="#solicitud">
-          Solicitar turno
-        </a>
+        {requestsOpen ? (
+          <a className={styles.headerAction} href="#solicitud">
+            Solicitar turno
+          </a>
+        ) : null}
       </header>
 
       <section id="inicio" className={styles.hero}>
@@ -99,45 +106,78 @@ export default async function EducationalBusPage() {
             Solicitá un turno institucional para recorrer San Miguel de Tucumán en el Bus Turístico Educativo.
           </p>
           <div className={styles.heroActions}>
-            <a className={styles.primaryCta} href="#solicitud">
-              Solicitar turno
-            </a>
+            {requestsOpen ? (
+              <a className={styles.primaryCta} href="#solicitud">
+                Solicitar turno
+              </a>
+            ) : null}
             <a className={styles.secondaryCta} href="#circuitos">
               Ver circuitos
             </a>
+            {requestsOpen ? null : (
+              <a className={styles.secondaryCta} href="/turistico">
+                Ir al Bus Turístico
+              </a>
+            )}
           </div>
         </div>
       </section>
 
       <div className={styles.assuranceBar}>
         <span>Servicio educativo municipal</span>
-        <strong>Turnos sujetos a cupo, prioridad y disponibilidad</strong>
+        <strong>
+          {requestsOpen
+            ? 'Turnos sujetos a cupo, prioridad y disponibilidad'
+            : 'Las solicitudes online están momentáneamente deshabilitadas'}
+        </strong>
       </div>
 
       <div className={styles.shell}>
-        <section id="solicitud" className={styles.layoutSplit}>
-          <EducationalBusRequestForm />
-          <aside className={styles.sideStack} id="circuitos">
-            <section className={styles.sideCard}>
-              <p className={styles.sideTitle}>Antes de enviar</p>
-              <ul className={styles.infoList}>
-                <li>Elegí una fecha para ver los turnos disponibles.</li>
-                <li>Completá los datos de contacto.</li>
-                <li>Adjuntá la nota modelo en .docx.</li>
-              </ul>
-              <a href={educationalBusTemplatePublicPath} download className={styles.templateLink} style={{ marginTop: 18 }}>
-                {educationalBusTemplateLabel}
-              </a>
+        {requestsOpen ? (
+          <section id="solicitud" className={styles.layoutSplit}>
+            <EducationalBusRequestForm />
+            <aside className={styles.sideStack} id="circuitos">
+              <section className={styles.sideCard}>
+                <p className={styles.sideTitle}>Antes de enviar</p>
+                <ul className={styles.infoList}>
+                  <li>Elegí una fecha para ver los turnos disponibles.</li>
+                  <li>Completá los datos de contacto.</li>
+                  <li>Adjuntá la nota modelo en .docx.</li>
+                </ul>
+                <a href={educationalBusTemplatePublicPath} download className={styles.templateLink} style={{ marginTop: 18 }}>
+                  {educationalBusTemplateLabel}
+                </a>
+              </section>
+              <PriorityNotice />
+              <CircuitInfoAccordionGroup items={circuitItems} />
+              <section className={styles.sideCard}>
+                <p className={styles.sideTitle}>Qué sucede después</p>
+                <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
+                <p className={styles.sideText}>Si necesitás cancelar un turno confirmado, avisá con 48 horas de anticipación a turismo@smt.gob.ar.</p>
+              </section>
+            </aside>
+          </section>
+        ) : (
+          <section className={styles.layoutSplit} style={{ gridTemplateColumns: '1fr', maxWidth: 720, margin: '0 auto' }}>
+            <section className={styles.sideCard} style={{ textAlign: 'center' }}>
+              <p className={styles.sideTitle}>Solicitudes momentáneamente deshabilitadas</p>
+              <p className={styles.sideText}>
+                El formulario de turnos para escuelas e instituciones no está disponible por estos días. Muy pronto vamos
+                a volver a recibir solicitudes online.
+              </p>
+              <p className={styles.sideText}>
+                Por consultas o turnos ya confirmados, escribinos a{' '}
+                <a href="mailto:turismo@smt.gob.ar" style={{ color: '#126ff5', fontWeight: 700 }}>
+                  turismo@smt.gob.ar
+                </a>{' '}
+                o acercate a la Oficina de Informes Turísticos (Congreso de Tucumán 141).
+              </p>
             </section>
-            <PriorityNotice />
-            <CircuitInfoAccordionGroup items={circuitItems} />
-            <section className={styles.sideCard}>
-              <p className={styles.sideTitle}>Qué sucede después</p>
-              <p className={styles.sideText}>La solicitud será evaluada según cupo, prioridad y disponibilidad. El equipo podrá confirmar, pedir información o proponer otra fecha.</p>
-              <p className={styles.sideText}>Si necesitás cancelar un turno confirmado, avisá con 48 horas de anticipación a turismo@smt.gob.ar.</p>
-            </section>
-          </aside>
-        </section>
+            <aside className={styles.sideStack} id="circuitos">
+              <CircuitInfoAccordionGroup items={circuitItems} />
+            </aside>
+          </section>
+        )}
       </div>
     </main>
   )

@@ -52,6 +52,7 @@ export interface TouristPageCopy {
   originField: string
   originPlaceholder: string
   peopleField: string
+  peopleHint: string
   submitLabel: string
   submittingLabel: string
   successTitle: string
@@ -103,7 +104,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bikesBring: 'o traé tu propia bici',
     bikesSoldOut: '🚲 Bicis municipales agotadas: podés participar con la tuya',
     bikesField: '¿Cuántas bicicletas municipales necesitan?',
-    bikesHint: (max) => `Hay ${max} disponibles para esta salida.`,
+    bikesHint: (max) => `Una bici por persona del grupo como máximo. Hay ${max} disponibles para esta salida.`,
     bikesChoiceField: '¿Traen bicicletas propias?',
     bikesChoicePlaceholder: 'Elegí una opción',
     bikesChoiceOwn: 'Sí, llevamos bicicletas propias',
@@ -129,7 +130,8 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     phoneField: 'Teléfono',
     originField: 'Ciudad de procedencia (opcional)',
     originPlaceholder: 'Ej: Salta, Argentina',
-    peopleField: 'Cantidad de personas',
+    peopleField: 'Cantidad de personas (contate a vos también)',
+    peopleHint: 'Todo el grupo entra en este número, incluida la persona que completa el formulario.',
     submitLabel: 'Confirmar reserva',
     submittingLabel: 'Enviando…',
     successTitle: '¡Reserva confirmada!',
@@ -201,7 +203,7 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     bikesBring: 'or bring your own bike',
     bikesSoldOut: '🚲 Municipal bikes are gone: you can join with your own',
     bikesField: 'How many municipal bikes do you need?',
-    bikesHint: (max) => `${max} available for this departure.`,
+    bikesHint: (max) => `Up to one bike per person in your group. ${max} available for this departure.`,
     bikesChoiceField: 'Are you bringing your own bikes?',
     bikesChoicePlaceholder: 'Choose an option',
     bikesChoiceOwn: 'Yes, we bring our own bikes',
@@ -227,7 +229,8 @@ export const touristPageCopy: Record<TouristLanguage, TouristPageCopy> = {
     phoneField: 'Phone',
     originField: 'City of origin (optional)',
     originPlaceholder: 'E.g. Santiago, Chile',
-    peopleField: 'Number of people',
+    peopleField: 'Number of people (including you)',
+    peopleHint: 'Count the whole group in this number, including the person filling out the form.',
     submitLabel: 'Confirm booking',
     submittingLabel: 'Sending…',
     successTitle: 'Booking confirmed!',

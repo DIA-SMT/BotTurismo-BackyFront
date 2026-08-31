@@ -54,7 +54,7 @@ const bookingEmailCopy: Record<TouristLanguage, BookingEmailCopy> = {
     arriveEarly: 'Presentate 30 minutos antes de la salida.',
     notesLabel: 'Tené en cuenta',
     cancelInfo:
-      'Si no podés asistir, cancelá tu reserva con el botón de abajo así liberamos tu lugar para otra persona.',
+      'Si no podés asistir, cancelá tu reserva con el botón de abajo así liberamos tu lugar para otra persona. Las bajas se aceptan hasta 24 horas antes de la salida.',
     cancelLinkLabel: 'Cancelar mi reserva',
     officeTitle: 'Oficina de Informes Turísticos',
     farewell: '¡Te esperamos para recorrer la ciudad!',
@@ -71,7 +71,8 @@ const bookingEmailCopy: Record<TouristLanguage, BookingEmailCopy> = {
     bikesLabel: 'Municipal bikes reserved',
     arriveEarly: 'Please arrive 30 minutes before departure.',
     notesLabel: 'Keep in mind',
-    cancelInfo: 'If you can’t make it, cancel your booking with the button below so we can free up your seat.',
+    cancelInfo:
+      'If you can’t make it, cancel your booking with the button below so we can free up your seat. Cancellations are accepted up to 24 hours before departure.',
     cancelLinkLabel: 'Cancel my booking',
     officeTitle: 'Tourist Information Office',
     farewell: 'We look forward to showing you the city!',
