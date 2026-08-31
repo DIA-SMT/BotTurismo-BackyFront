@@ -12,6 +12,7 @@ import {
   Download,
   Mail,
   MessageCircle,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
@@ -135,6 +136,16 @@ export default function TouristDeparturesPage() {
   const [bookingsByDeparture, setBookingsByDeparture] = useState<Record<number, TouristBooking[]>>({})
   const [bookingsLoading, setBookingsLoading] = useState(false)
   const [capacityDrafts, setCapacityDrafts] = useState<Record<number, string>>({})
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState({
+    departureDate: '',
+    departureTime: '',
+    capacity: '',
+    bikeStock: '',
+    meetingPoint: '',
+    notes: '',
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
   const [exportFrom, setExportFrom] = useState(initialMonthBounds?.startDate || todayKey)
   const [exportTo, setExportTo] = useState(initialMonthBounds?.endDate || todayKey)
   const [exporting, setExporting] = useState(false)
@@ -333,8 +344,65 @@ export default function TouristDeparturesPage() {
       if (!response.ok) throw new Error(result.error || 'No se pudo actualizar la salida.')
       setFeedback(successMessage)
       await fetchDepartures()
+      return true
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'No se pudo actualizar la salida.')
+      return false
+    }
+  }
+
+  // Edición en línea de una salida: fecha, hora, cupo, bicis, punto y notas.
+  const startEditDeparture = (departure: TouristDepartureAvailability) => {
+    setEditingId(departure.id)
+    setEditDraft({
+      departureDate: departure.departure_date,
+      departureTime: departure.departure_time.slice(0, 5),
+      capacity: String(departure.capacity),
+      bikeStock: departure.bike_stock === null ? '' : String(departure.bike_stock),
+      meetingPoint: departure.meeting_point || '',
+      notes: departure.notes || '',
+    })
+  }
+
+  const saveEditDeparture = async (departure: TouristDepartureAvailability) => {
+    const capacity = Number(editDraft.capacity)
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setFeedback('Ingresá un cupo válido.')
+      return
+    }
+    if (capacity < departure.reserved) {
+      setFeedback(`El cupo no puede ser menor a los ${departure.reserved} lugares ya reservados.`)
+      return
+    }
+    if (editDraft.bikeStock !== '') {
+      const bikeStock = Number(editDraft.bikeStock)
+      if (!Number.isInteger(bikeStock) || bikeStock < 0) {
+        setFeedback('Ingresá una cantidad de bicicletas válida.')
+        return
+      }
+      if (bikeStock < departure.bikes_reserved) {
+        setFeedback(`Las bicicletas no pueden ser menos que las ${departure.bikes_reserved} ya reservadas.`)
+        return
+      }
+    }
+
+    setSavingEdit(true)
+    try {
+      const saved = await patchDeparture(
+        departure.id,
+        {
+          departureDate: editDraft.departureDate,
+          departureTime: editDraft.departureTime,
+          capacity,
+          bikeStock: editDraft.bikeStock === '' ? null : Number(editDraft.bikeStock),
+          meetingPoint: editDraft.meetingPoint,
+          notes: editDraft.notes,
+        },
+        'Salida actualizada correctamente.',
+      )
+      if (saved) setEditingId(null)
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -795,6 +863,14 @@ export default function TouristDeparturesPage() {
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                 Inscriptos ({departure.reserved})
                               </button>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ height: 32, padding: '0 10px', fontSize: 13 }}
+                                onClick={() => (editingId === departure.id ? setEditingId(null) : startEditDeparture(departure))}
+                              >
+                                <Pencil size={14} />
+                                Editar
+                              </button>
                               {departure.status === 'active' ? (
                                 <button
                                   className="btn btn-secondary"
@@ -826,6 +902,104 @@ export default function TouristDeparturesPage() {
                             </div>
                           </td>
                         </tr>
+                        {editingId === departure.id ? (
+                          <tr>
+                            <td colSpan={6} style={{ background: 'rgba(18,111,245,0.05)' }}>
+                              <div style={{ padding: '14px 6px', display: 'grid', gap: 12 }}>
+                                <strong style={{ fontSize: 13 }}>Editar salida — los cambios se ven al instante en la página pública</strong>
+                                <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                                    Fecha
+                                    <input
+                                      type="date"
+                                      className="input"
+                                      style={{ width: 150 }}
+                                      value={editDraft.departureDate}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, departureDate: event.target.value }))}
+                                    />
+                                  </label>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                                    Hora
+                                    <input
+                                      type="time"
+                                      className="input"
+                                      style={{ width: 110 }}
+                                      value={editDraft.departureTime}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, departureTime: event.target.value }))}
+                                    />
+                                  </label>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                                    Cupo
+                                    <input
+                                      type="number"
+                                      min={departure.reserved || 1}
+                                      max={500}
+                                      className="input"
+                                      style={{ width: 90 }}
+                                      value={editDraft.capacity}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, capacity: event.target.value }))}
+                                    />
+                                  </label>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                                    Bicis (vacío = sin bicis)
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={500}
+                                      className="input"
+                                      style={{ width: 130 }}
+                                      value={editDraft.bikeStock}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, bikeStock: event.target.value }))}
+                                    />
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12, flex: '1 1 260px' }}>
+                                    Punto de encuentro
+                                    <input
+                                      type="text"
+                                      className="input"
+                                      value={editDraft.meetingPoint}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, meetingPoint: event.target.value }))}
+                                    />
+                                  </label>
+                                  <label style={{ display: 'grid', gap: 4, fontSize: 12, flex: '1 1 260px' }}>
+                                    Notas (visibles para el turista)
+                                    <input
+                                      type="text"
+                                      className="input"
+                                      value={editDraft.notes}
+                                      onChange={(event) => setEditDraft((c) => ({ ...c, notes: event.target.value }))}
+                                    />
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    className="btn btn-primary"
+                                    style={{ height: 34, padding: '0 16px', fontSize: 13 }}
+                                    onClick={() => saveEditDeparture(departure)}
+                                    disabled={savingEdit}
+                                  >
+                                    {savingEdit ? 'Guardando…' : 'Guardar cambios'}
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ height: 34, padding: '0 14px', fontSize: 13 }}
+                                    onClick={() => setEditingId(null)}
+                                    disabled={savingEdit}
+                                  >
+                                    Cancelar edición
+                                  </button>
+                                  {departure.reserved > 0 ? (
+                                    <span className="td-muted" style={{ fontSize: 12 }}>
+                                      Ojo: hay {departure.reserved} personas inscriptas. Si cambiás fecha u hora, avisales (los mails de confirmación ya salieron con el horario anterior).
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
                         {isExpanded ? (
                           <tr>
                             <td colSpan={6} style={{ background: 'rgba(148,163,184,0.06)' }}>
