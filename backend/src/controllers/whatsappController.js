@@ -145,8 +145,19 @@ async function handleWhatsAppWebhook(req, res) {
     for (const change of entry.changes || []) {
       const value = change.value || {};
 
-      // Ignorar acuses de entrega/lectura
-      if (value.statuses) continue;
+      // Acuses de entrega/lectura: solo se loguean los fallos (sirve para
+      // diagnosticar plantillas que Meta acepta pero no entrega).
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          if (status.status === 'failed') {
+            console.error(
+              `[Webhook] Mensaje FALLIDO a ${status.recipient_id} (${status.id}):`,
+              JSON.stringify(status.errors || []),
+            );
+          }
+        }
+        continue;
+      }
 
       const contact = value.contacts?.[0];
       for (const message of value.messages || []) {
