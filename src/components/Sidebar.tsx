@@ -87,9 +87,9 @@ export default function Sidebar({ currentUserEmail }: { currentUserEmail?: strin
           <div className="sidebar-section-label" style={{ marginTop: 20 }}>
             Accesos rápidos
           </div>
-          <a href="https://manychat.com/live" target="_blank" rel="noopener noreferrer" className="nav-link">
+          <a href="https://wa.me/5493813898033" target="_blank" rel="noopener noreferrer" className="nav-link">
             <Bot />
-            ManyChat Live Chat
+            Migue en WhatsApp
             <span className="badge">↗</span>
           </a>
           <a href="https://agendaculturalsmt.com" target="_blank" rel="noopener noreferrer" className="nav-link">

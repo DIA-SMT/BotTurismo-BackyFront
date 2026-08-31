@@ -198,7 +198,7 @@ async function fetchTouristBusSummary() {
     return `CIRCUITOS DISPONIBLES:\n${catalogText}\n\nPRÓXIMAS SALIDAS CON CUPO (datos en tiempo real, la reserva es GRATUITA y se hace online):\n${departuresText}`;
   } catch (err) {
     console.error('Error fetching tourist bus summary:', err.message);
-    return 'No se pudo consultar la información de salidas en este momento. Recomendá visitar la página oficial de reservas o la Oficina de Turismo (Peatonal Congreso 121).';
+    return 'No se pudo consultar la información de salidas en este momento. Recomendá visitar la página oficial de reservas o la Oficina de Turismo (Congreso de Tucumán 141).';
   }
 }
 
