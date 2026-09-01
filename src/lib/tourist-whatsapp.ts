@@ -12,11 +12,22 @@ import { getTouristCircuitName } from '@/lib/tourist-circuits'
 // envían las plantillas reserva_confirmada / reserva_baja / salida_cancelada.
 // Igual que con los mails: si falta configuración o el envío falla, la
 // operación principal sigue y se devuelve false.
-//   WHATSAPP_TOKEN            -> token del usuario del sistema (mismo del bot)
-//   WHATSAPP_PHONE_NUMBER_ID  -> id del número de Migue
+//
+// ⏸ EN PAUSA (decisión de la dirección, 2026-09-01): por ahora los avisos van
+// SOLO por mail. Los mensajes iniciados por la empresa requieren facturación
+// en Meta (tarjeta de la muni, pendiente de aprobación del jefe). Cuando se
+// acuerde, activar seteando WHATSAPP_NOTIFICATIONS_ENABLED=true en Vercel
+// (las plantillas ya están aprobadas en la WABA y esta lógica está probada).
+//   WHATSAPP_NOTIFICATIONS_ENABLED -> 'true' para encender los avisos
+//   WHATSAPP_TOKEN                 -> token del usuario del sistema (mismo del bot)
+//   WHATSAPP_PHONE_NUMBER_ID       -> id del número de Migue
 
 export function isBookingWhatsAppConfigured() {
-  return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID)
+  return Boolean(
+    process.env.WHATSAPP_NOTIFICATIONS_ENABLED === 'true' &&
+      process.env.WHATSAPP_TOKEN &&
+      process.env.WHATSAPP_PHONE_NUMBER_ID,
+  )
 }
 
 // Normaliza teléfonos como los cargan los turistas ("381 467-6561",

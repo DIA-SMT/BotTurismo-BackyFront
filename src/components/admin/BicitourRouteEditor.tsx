@@ -78,6 +78,11 @@ export default function BicitourRouteEditor({ routeId }: { routeId: number }) {
   const [generatingAi, setGeneratingAi] = useState<number | null>(null)
   const [proposalDrafts, setProposalDrafts] = useState<Record<number, ProposalDraft>>({})
   const [suggestingHint, setSuggestingHint] = useState<number | null>(null)
+  // Alta de parada desde el mapa: el punto clickeado queda marcado (ámbar) y
+  // se completa el nombre en una tarjeta flotante, sin prompt() del navegador.
+  const [pendingStop, setPendingStop] = useState<{ lat: number; lng: number } | null>(null)
+  const [pendingStopName, setPendingStopName] = useState('')
+  const [creatingStop, setCreatingStop] = useState(false)
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -121,28 +126,37 @@ export default function BicitourRouteEditor({ routeId }: { routeId: number }) {
     }
   }
 
-  const handleMapClick = async (lat: number, lng: number) => {
+  const handleMapClick = (lat: number, lng: number) => {
     if (mapMode === 'path') {
       setPathDraft((current) => [...current, [lat, lng]])
       return
     }
-    const title = window.prompt('Nombre de la nueva parada:')
-    if (!title) return
-    setBusy(true)
+    // El punto queda marcado en el mapa y se pide el nombre en la tarjeta.
+    setPendingStop({ lat, lng })
+    setPendingStopName('')
+  }
+
+  const createPendingStop = async () => {
+    if (!pendingStop || pendingStopName.trim().length < 2) return
+    setCreatingStop(true)
+    setFeedback(null)
     try {
       const response = await fetch('/api/admin/bicitour/stops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ routeId, title, lat, lng }),
+        body: JSON.stringify({ routeId, title: pendingStopName.trim(), lat: pendingStop.lat, lng: pendingStop.lng }),
       })
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.error || 'No se pudo crear la parada.')
+      setPendingStop(null)
+      setPendingStopName('')
       await fetchDetail()
       setExpandedStopId(payload.data.id)
+      setFeedback(`Parada "${payload.data.title}" creada y marcada en el mapa.`)
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'No se pudo crear la parada.')
     } finally {
-      setBusy(false)
+      setCreatingStop(false)
     }
   }
 
@@ -483,19 +497,76 @@ export default function BicitourRouteEditor({ routeId }: { routeId: number }) {
             </>
           ) : null}
         </div>
-        <BicitourMap
-          stops={orderedStops.map((stop) => ({
-            id: stop.id,
-            position: stop.position,
-            title: stop.title,
-            status: stop.is_draft ? 'skipped' : 'locked',
-            lat: stop.lat,
-            lng: stop.lng,
-          }))}
-          path={pathDraft}
-          onMapClick={handleMapClick}
-          height={360}
-        />
+        <div style={{ position: 'relative' }}>
+          <BicitourMap
+            stops={orderedStops.map((stop) => ({
+              id: stop.id,
+              position: stop.position,
+              title: stop.title,
+              status: stop.is_draft ? 'skipped' : 'locked',
+              lat: stop.lat,
+              lng: stop.lng,
+            }))}
+            path={pathDraft}
+            draftMarker={pendingStop ? [pendingStop.lat, pendingStop.lng] : null}
+            onMapClick={handleMapClick}
+            height={360}
+          />
+          {pendingStop ? (
+            <div
+              style={{
+                position: 'absolute',
+                top: 12,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 1100,
+                width: 'min(340px, calc(100% - 24px))',
+                background: '#fff',
+                border: '2px solid #f59e0b',
+                borderRadius: 12,
+                boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
+                padding: 12,
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <strong style={{ fontSize: 13 }}>📍 Nueva parada en este punto</strong>
+              <input
+                className="input"
+                autoFocus
+                placeholder="Nombre o número de la parada"
+                maxLength={140}
+                value={pendingStopName}
+                onChange={(event) => setPendingStopName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') createPendingStop()
+                  if (event.key === 'Escape') setPendingStop(null)
+                }}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, height: 38 }}
+                  onClick={createPendingStop}
+                  disabled={creatingStop || pendingStopName.trim().length < 2}
+                >
+                  {creatingStop ? 'Creando…' : 'Crear parada'}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ height: 38 }}
+                  onClick={() => setPendingStop(null)}
+                  disabled={creatingStop}
+                >
+                  Cancelar
+                </button>
+              </div>
+              <span className="td-muted" style={{ fontSize: 11 }}>
+                Podés volver a hacer clic en el mapa para reubicar el punto.
+              </span>
+            </div>
+          ) : null}
+        </div>
         <p className="td-muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
           Las paradas grises claras son borradores creados en vivo por un guía: revisá su contenido y guardalas para publicarlas.
         </p>

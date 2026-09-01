@@ -26,6 +26,8 @@ interface BicitourMapProps {
   track?: [number, number][]
   /** Posición actual del guía (solo en el panel del guía). */
   guidePosition?: [number, number] | null
+  /** Punto provisorio (ámbar) mientras se completa el alta de una parada. */
+  draftMarker?: [number, number] | null
   onMapClick?: (lat: number, lng: number) => void
   height?: number
   /** Centro inicial si todavía no hay datos (default: centro de SMT). */
@@ -46,6 +48,7 @@ export default function BicitourMap({
   path = [],
   track = [],
   guidePosition = null,
+  draftMarker = null,
   onMapClick,
   height = 260,
   fallbackCenter = SMT_CENTER,
@@ -113,6 +116,16 @@ export default function BicitourMap({
       L.marker(guidePosition, { icon }).bindTooltip('Guía', { direction: 'top' }).addTo(layer)
     }
 
+    if (draftMarker) {
+      const icon = L.divIcon({
+        className: '',
+        html: '<span class="bt-marker bt-marker--draft">＋</span>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      })
+      L.marker(draftMarker, { icon }).bindTooltip('Nueva parada', { direction: 'top' }).addTo(layer)
+    }
+
     // Encuadre inicial: una sola vez, cuando hay algo para mostrar.
     if (!didFitRef.current) {
       const boundsPoints: [number, number][] = [
@@ -125,7 +138,7 @@ export default function BicitourMap({
         map.fitBounds(L.latLngBounds(boundsPoints), { padding: [30, 30], maxZoom: 16 })
       }
     }
-  }, [stops, path, track, guidePosition])
+  }, [stops, path, track, guidePosition, draftMarker])
 
   return <div ref={containerRef} style={{ height, width: '100%', borderRadius: 12, overflow: 'hidden' }} />
 }
