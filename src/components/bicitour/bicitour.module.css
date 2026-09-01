@@ -1,0 +1,644 @@
+/* Experiencia Bicitour del participante: mobile-first, botones grandes,
+   alto contraste para uso al sol, identidad institucional azul. */
+
+.page {
+  --bt-blue: #126ff5;
+  --bt-blue-deep: #0b3e91;
+  --bt-green: #10b981;
+  --bt-amber: #f59e0b;
+  --bt-red: #b42323;
+  --bt-ink: #12233c;
+  --bt-muted: #5a6673;
+  --bt-bg: #eef2f7;
+  --bt-surface: #ffffff;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bt-bg);
+  color: var(--bt-ink);
+  font-family: Arial, Helvetica, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bt-blue-deep);
+  color: #fff;
+}
+
+.headerTitle {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.headerTitle strong {
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerTitle span {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.scorePill {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.statusActive { background: var(--bt-green); }
+.statusPaused { background: var(--bt-amber); }
+.statusLobby { background: #64748b; }
+.statusFinished { background: var(--bt-blue); }
+
+.main {
+  flex: 1;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 14px 14px 96px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--bt-surface);
+  border: 1px solid #dde5ee;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.cardTitle {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.muted {
+  color: var(--bt-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* ── Ingreso ── */
+.joinLogo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 18px auto 6px;
+}
+
+.joinTitle {
+  margin: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 300;
+}
+
+.joinSubtitle {
+  margin: 4px 0 0;
+  text-align: center;
+  color: var(--bt-muted);
+  font-size: 0.95rem;
+}
+
+.input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 2px solid #cdd8e4;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  color: var(--bt-ink);
+  background: #fbfdff;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--bt-blue);
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.teamRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teamChip {
+  flex: 1 1 40%;
+  min-height: 48px;
+  border: 2px solid #cdd8e4;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--bt-ink);
+}
+
+.teamChipActive {
+  border-color: var(--bt-blue);
+  background: #e8f1ff;
+  color: var(--bt-blue-deep);
+}
+
+/* ── Botones ── */
+.primaryButton {
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--bt-blue);
+  color: #fff;
+  font-size: 1.08rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+}
+
+.optionButton {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 2px solid #cdd8e4;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--bt-ink);
+  font-size: 1.02rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.optionKey {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: var(--bt-blue-deep);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.optionSelected {
+  border-color: var(--bt-blue);
+  background: #e8f1ff;
+}
+
+.optionCorrect {
+  border-color: var(--bt-green);
+  background: #e7f8f1;
+}
+
+.optionWrong {
+  border-color: var(--bt-red);
+  background: #fdeeee;
+}
+
+/* ── Progreso ── */
+.progressRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.progressTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: #dbe4ee;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bt-blue), var(--bt-green));
+  transition: width 400ms ease;
+}
+
+.hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff8e8;
+  border: 1px solid #f0dfae;
+  color: #7a5b12;
+  font-size: 0.92rem;
+}
+
+/* ── Parada abierta ── */
+.stopBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: var(--bt-blue-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stopImages {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 10px 0;
+  scrollbar-width: none;
+}
+
+.stopImages img {
+  height: 160px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+  max-width: 85%;
+  object-fit: cover;
+}
+
+.funFact {
+  display: flex;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f0f6ff;
+  color: #23446e;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* ── Pasaporte ── */
+.passportGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stamp {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--bt-muted);
+}
+
+.stampCircle {
+  width: 62px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 3px dashed #cdd8e4;
+  color: #aab6c4;
+  font-size: 1.35rem;
+  background: #fff;
+}
+
+.stampEarned {
+  border-style: solid;
+  border-color: var(--bt-green);
+  background: #e7f8f1;
+  color: var(--bt-green);
+  transform: rotate(-6deg);
+}
+
+.stampBadge {
+  border-color: var(--bt-amber);
+  background: #fff6e0;
+  color: var(--bt-amber);
+}
+
+/* ── Ranking ── */
+.rankRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f6f9fc;
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.rankRowMe {
+  background: #e8f1ff;
+  border: 1px solid #b9d4fb;
+}
+
+.rankPosition {
+  flex: 0 0 26px;
+  color: var(--bt-muted);
+}
+
+.rankName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankTeam {
+  font-size: 0.72rem;
+  color: var(--bt-muted);
+  text-transform: uppercase;
+}
+
+.rankScore {
+  font-weight: 800;
+  color: var(--bt-blue-deep);
+}
+
+/* ── Tabs inferiores ── */
+.tabs {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  background: #fff;
+  border-top: 1px solid #dde5ee;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab {
+  flex: 1;
+  min-height: 58px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--bt-muted);
+  cursor: pointer;
+}
+
+.tabActive {
+  color: var(--bt-blue);
+}
+
+/* ── Avisos ── */
+.announcement {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 70px;
+  z-index: 40;
+  background: var(--bt-ink);
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.announcementClose {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.connectionBanner {
+  background: var(--bt-red);
+  color: #fff;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px;
+}
+
+.summaryStat {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.summaryStat strong {
+  font-size: 1.5rem;
+  color: var(--bt-blue-deep);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ── Insignias ── */
+.badgeRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f6f9fc;
+  margin-top: 10px;
+}
+
+.badgeRowEarned {
+  background: #fff8e8;
+  border: 1px solid #f0dfae;
+}
+
+.badgeEmoji {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e3e9f1;
+  font-size: 1.5rem;
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.badgeEmojiEarned {
+  background: #ffe9b3;
+  filter: none;
+  opacity: 1;
+}
+
+.badgeBody {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.badgeName {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.badgeDescription {
+  color: var(--bt-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.badgeProgressTrack {
+  height: 7px;
+  border-radius: 999px;
+  background: #dbe4ee;
+  overflow: hidden;
+}
+
+.badgeProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bt-amber);
+  transition: width 400ms ease;
+}
+
+.badgeToast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff8e8;
+  border: 2px solid var(--bt-amber);
+  color: #6b4d00;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  animation: btBadgeIn 420ms ease-out;
+}
+
+.badgeToast span:first-child {
+  font-size: 1.8rem;
+}
+
+@keyframes btBadgeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badgeToast {
+    animation: none;
+  }
+}
+
+/* ── Tarjeta de recuerdo ── */
+.cardPreview {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #dde5ee;
+  display: block;
+}
+
+.cardActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cardActions button {
+  flex: 1;
+}
+
+.secondaryButton {
+  width: 100%;
+  min-height: 54px;
+  border: 2px solid var(--bt-blue);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--bt-blue-deep);
+  font-size: 1.02rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdeeee;
+  border: 1px solid #efb9b9;
+  color: var(--bt-red);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
