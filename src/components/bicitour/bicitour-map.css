@@ -1,0 +1,53 @@
+/* Marcadores del mapa Bicitour (Leaflet divIcon usa clases globales). */
+.bt-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: #94a3b8;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  font-family: Arial, Helvetica, sans-serif;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+
+.bt-marker--open {
+  background: #126ff5;
+  animation: btPulse 1.6s ease-in-out infinite;
+}
+
+.bt-marker--completed {
+  background: #10b981;
+}
+
+.bt-marker--skipped {
+  background: #cbd5e1;
+  color: #64748b;
+}
+
+.bt-marker--guide {
+  width: 18px;
+  height: 18px;
+  background: #f59e0b;
+  border-width: 3px;
+}
+
+@keyframes btPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(18, 111, 245, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(18, 111, 245, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bt-marker--open {
+    animation: none;
+  }
+}
