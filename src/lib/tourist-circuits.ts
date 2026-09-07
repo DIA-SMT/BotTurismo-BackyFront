@@ -21,6 +21,25 @@ export function isTouristCircuitIcon(value: string): value is TouristCircuitIcon
   return touristCircuitIconOptions.some((option) => option.value === value)
 }
 
+// Modalidad del circuito (pedido de la Dirección de Turismo): define cómo se
+// recorre y se muestra como etiqueta en la página pública.
+export const touristCircuitModalityOptions = [
+  { value: 'bus', label: { es: 'Bus turístico', en: 'Tourist bus' } },
+  { value: 'walking', label: { es: 'Guiado a pie', en: 'Walking tour' } },
+  { value: 'bike', label: { es: 'Bicicletas', en: 'Bike tour' } },
+] as const
+
+export type TouristCircuitModality = (typeof touristCircuitModalityOptions)[number]['value']
+
+export function isTouristCircuitModality(value: string): value is TouristCircuitModality {
+  return touristCircuitModalityOptions.some((option) => option.value === value)
+}
+
+export function getTouristCircuitModalityLabel(modality: TouristCircuitModality, language: TouristLanguage = 'es') {
+  const option = touristCircuitModalityOptions.find((item) => item.value === modality)
+  return (option || touristCircuitModalityOptions[0]).label[language]
+}
+
 export interface TouristCircuitContent {
   name: string
   schedule: string
@@ -33,6 +52,9 @@ export interface TouristCircuitContent {
 export interface TouristCircuit {
   slug: string
   iconName: TouristCircuitIcon
+  // Ausente = 'bus' (los circuitos del catálogo estático son en bus salvo los
+  // que lo marcan explícitamente).
+  modality?: TouristCircuitModality
   content: Record<TouristLanguage, TouristCircuitContent>
 }
 
@@ -154,6 +176,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
   {
     slug: 'historico-a-pie',
     iconName: 'footprints',
+    modality: 'walking',
     content: {
       es: {
         name: 'Histórico a Pie',
@@ -226,6 +249,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
   {
     slug: 'museo-cielo-abierto',
     iconName: 'sparkles',
+    modality: 'walking',
     content: {
       es: {
         name: 'Museo a Cielo Abierto',
@@ -432,6 +456,7 @@ export const touristCircuitCatalog: TouristCircuit[] = [
   {
     slug: 'pedaleando-parque',
     iconName: 'bike',
+    modality: 'bike',
     content: {
       es: {
         name: 'Pedaleando el Parque',
@@ -528,6 +553,7 @@ export interface TouristCircuitRecord {
   updated_at: string
   slug: string
   icon: string
+  modality: string
   active: boolean
   sort_order: number
   default_capacity: number | null
@@ -574,6 +600,7 @@ export function mapTouristCircuitRecord(record: TouristCircuitRecord): TouristCi
   return {
     slug: record.slug,
     iconName: isTouristCircuitIcon(record.icon) ? record.icon : 'bus',
+    modality: isTouristCircuitModality(record.modality) ? record.modality : 'bus',
     content: { es, en },
   }
 }
@@ -582,6 +609,7 @@ export function buildTouristCircuitSeedRows() {
   return touristCircuitCatalog.map((circuit, index) => ({
     slug: circuit.slug,
     icon: circuit.iconName,
+    modality: circuit.modality ?? 'bus',
     active: true,
     sort_order: (index + 1) * 10,
     default_capacity: null,

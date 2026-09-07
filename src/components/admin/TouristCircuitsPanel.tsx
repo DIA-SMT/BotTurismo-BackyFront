@@ -3,7 +3,13 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Ban, CheckCircle2, Languages, Pencil, Plus, Trash2 } from 'lucide-react'
-import { touristCircuitIconOptions, type TouristCircuitRecord } from '@/lib/tourist-circuits'
+import {
+  getTouristCircuitModalityLabel,
+  isTouristCircuitModality,
+  touristCircuitIconOptions,
+  touristCircuitModalityOptions,
+  type TouristCircuitRecord,
+} from '@/lib/tourist-circuits'
 
 interface CircuitFormState {
   name: string
@@ -13,6 +19,7 @@ interface CircuitFormState {
   description: string
   highlightsText: string
   icon: string
+  modality: string
   sortOrder: string
   defaultCapacity: string
   defaultMeetingPoint: string
@@ -26,6 +33,7 @@ const emptyCircuitForm: CircuitFormState = {
   description: '',
   highlightsText: '',
   icon: 'bus',
+  modality: 'bus',
   sortOrder: '',
   defaultCapacity: '',
   defaultMeetingPoint: '',
@@ -40,6 +48,7 @@ function recordToForm(record: TouristCircuitRecord): CircuitFormState {
     description: record.description_es || '',
     highlightsText: (record.highlights_es || []).join('\n'),
     icon: record.icon,
+    modality: record.modality || 'bus',
     sortOrder: String(record.sort_order ?? ''),
     defaultCapacity: record.default_capacity ? String(record.default_capacity) : '',
     defaultMeetingPoint: record.default_meeting_point || '',
@@ -58,6 +67,7 @@ function formToPayload(form: CircuitFormState, extra: Record<string, unknown> = 
       .map((line) => line.trim())
       .filter(Boolean),
     icon: form.icon,
+    modality: form.modality,
     sortOrder: form.sortOrder === '' ? null : Number(form.sortOrder),
     defaultCapacity: form.defaultCapacity === '' ? null : Number(form.defaultCapacity),
     defaultMeetingPoint: form.defaultMeetingPoint,
@@ -214,7 +224,7 @@ export function TouristCircuitsPanel({
       <div className="table-container" style={{ marginBottom: 20 }}>
         <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
           <span className="td-muted" style={{ fontSize: 13 }}>
-            Catálogo exclusivo del <strong>bus turístico</strong> (no afecta al bus educativo). Los circuitos activos aparecen en la página pública y en el selector de nuevas salidas.
+            Catálogo de <strong>circuitos turísticos</strong> en bus, a pie o en bici (no afecta al bus educativo). Los circuitos activos aparecen en la página pública y en el selector de nuevas salidas.
           </span>
           <button className="btn btn-primary" onClick={startCreate}>
             <Plus size={14} />
@@ -238,6 +248,16 @@ export function TouristCircuitsPanel({
               <label style={fieldStyle}>
                 Duración
                 <input className="input" value={form.duration} onChange={(event) => updateForm('duration')(event.target.value)} placeholder="Ej. 2 horas" />
+              </label>
+              <label style={fieldStyle}>
+                Modalidad *
+                <select className="select" value={form.modality} onChange={(event) => updateForm('modality')(event.target.value)}>
+                  {touristCircuitModalityOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label.es}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label style={fieldStyle}>
                 Ícono
@@ -298,6 +318,7 @@ export function TouristCircuitsPanel({
             <thead>
               <tr>
                 <th>Circuito</th>
+                <th>Modalidad</th>
                 <th>Orden</th>
                 <th>Cupo por defecto</th>
                 <th>Inglés</th>
@@ -308,7 +329,7 @@ export function TouristCircuitsPanel({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="loading-state">
                       <div className="spinner" />
                       Cargando circuitos...
@@ -317,7 +338,7 @@ export function TouristCircuitsPanel({
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="empty-state">
                       <p>{loadError}</p>
                     </div>
@@ -325,7 +346,7 @@ export function TouristCircuitsPanel({
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="empty-state">
                       <p>No hay circuitos cargados todavía.</p>
                     </div>
@@ -337,6 +358,13 @@ export function TouristCircuitsPanel({
                     <td>
                       <div className="td-text-primary">{record.name_es}</div>
                       {record.summary_es ? <div className="td-muted">{record.summary_es}</div> : null}
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: 'rgba(18,111,245,0.12)', color: 'var(--info, #126ff5)', whiteSpace: 'nowrap' }}>
+                        {getTouristCircuitModalityLabel(
+                          isTouristCircuitModality(record.modality) ? record.modality : 'bus',
+                        )}
+                      </span>
                     </td>
                     <td>{record.sort_order}</td>
                     <td>{record.default_capacity ?? '—'}</td>

@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getTouristCircuitBySlug, isTouristCircuitIcon } from '@/lib/tourist-circuits'
+import {
+  getTouristCircuitBySlug,
+  isTouristCircuitIcon,
+  isTouristCircuitModality,
+  type TouristCircuitModality,
+} from '@/lib/tourist-circuits'
 import { getTouristCircuitRecordBySlug } from '@/lib/tourist-circuits-server'
 import { translateTouristCircuitContent } from '@/lib/ai-translate'
 
@@ -44,6 +49,7 @@ export interface TouristCircuitInput {
   description: string
   highlights: string[]
   icon: string
+  modality: TouristCircuitModality
   sortOrder: number | null
   defaultCapacity: number | null
   defaultMeetingPoint: string
@@ -83,6 +89,7 @@ export function parseCircuitInput(body: Record<string, unknown>): {
   }
 
   const iconRaw = String(body.icon ?? 'bus')
+  const modalityRaw = String(body.modality ?? 'bus')
 
   return {
     input: {
@@ -93,6 +100,7 @@ export function parseCircuitInput(body: Record<string, unknown>): {
       description: String(body.description ?? '').trim(),
       highlights,
       icon: isTouristCircuitIcon(iconRaw) ? iconRaw : 'bus',
+      modality: isTouristCircuitModality(modalityRaw) ? modalityRaw : 'bus',
       sortOrder,
       defaultCapacity,
       defaultMeetingPoint: String(body.defaultMeetingPoint ?? '').trim(),
@@ -141,6 +149,7 @@ export async function buildEnglishFields(input: TouristCircuitInput) {
 export function circuitInputToSpanishFields(input: TouristCircuitInput) {
   return {
     icon: input.icon,
+    modality: input.modality,
     active: input.active,
     default_capacity: input.defaultCapacity,
     default_meeting_point: input.defaultMeetingPoint || null,
