@@ -12,9 +12,10 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const title = String(payload.title || '').trim()
   const tourDate = String(payload.tour_date || '').trim()
   const description = String(payload.description || '').trim()
+  const guideName = String(payload.guide_name || '').trim().slice(0, 80)
 
-  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(tourDate)) {
-    return NextResponse.json({ error: 'Completá el nombre y la fecha del recorrido.' }, { status: 400 })
+  if (!title || !guideName || !/^\d{4}-\d{2}-\d{2}$/.test(tourDate)) {
+    return NextResponse.json({ error: 'Completá el recorrido, el guía y la fecha.' }, { status: 400 })
   }
 
   const supabase = createServerSupabaseClient()
@@ -24,6 +25,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       title,
       tour_date: tourDate,
       description: description || null,
+      guide_name: guideName,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -32,6 +34,20 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   if (error) return NextResponse.json({ error: 'No se pudo actualizar el book.' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Book no encontrado.' }, { status: 404 })
+
+  // Mantiene alineado el registro histórico por guía; los books anteriores a
+  // la migración pueden no tener fila, en ese caso se crea.
+  const logRow = { tour_date: tourDate, title, guide_name: guideName }
+  const { data: logUpdated, error: logError } = await supabase
+    .from('tour_guide_log')
+    .update(logRow)
+    .eq('book_id', id)
+    .select('id')
+  if (!logError && (logUpdated || []).length === 0) {
+    await supabase.from('tour_guide_log').insert({ ...logRow, book_id: id })
+  } else if (logError) {
+    console.error('No se pudo actualizar el registro de guías:', logError.message)
+  }
 
   return NextResponse.json({ data })
 }

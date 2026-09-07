@@ -22,9 +22,22 @@ export interface PhotoBook {
   title: string
   tour_date: string
   description: string | null
+  // Guía que hizo el recorrido (books viejos pueden no tenerlo).
+  guide_name?: string | null
   access_token: string
   expires_at: string
   photo_book_photos?: PhotoBookPhoto[]
+}
+
+// Fila del registro histórico de recorridos por guía (tabla tour_guide_log,
+// sobrevive a la limpieza semanal de books).
+export interface TourGuideLogEntry {
+  id: number
+  created_at: string
+  book_id: string | null
+  tour_date: string
+  title: string
+  guide_name: string
 }
 
 export function sanitizeFileName(name: string) {
