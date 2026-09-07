@@ -33,7 +33,6 @@ import {
   formatDepartureTime,
   initialTouristBookingFormData,
   maximumPeoplePerBooking,
-  touristOriginOptions,
   validateTouristBookingForm,
   type TouristBookingApiErrorCode,
   type TouristBookingFormData,
@@ -116,6 +115,16 @@ export function TouristExperience() {
   // Bicis: '' sin elegir, 'own' llevan propias, 'municipal' necesitan prestadas
   const [bikeChoice, setBikeChoice] = useState<'' | 'own' | 'municipal'>('')
   const [bikeChoiceError, setBikeChoiceError] = useState(false)
+
+  // Autocompletado de procedencia: el turista tipea y elige una localidad real
+  // ("Ciudad / Provincia / País") de /api/tourist-bus/places. Si el buscador
+  // externo está caído se acepta lo tipeado para no bloquear reservas.
+  const [originSuggestions, setOriginSuggestions] = useState<string[]>([])
+  const [originListOpen, setOriginListOpen] = useState(false)
+  const [originPicked, setOriginPicked] = useState(false)
+  const [originServiceDown, setOriginServiceDown] = useState(false)
+  const originDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const originAbortRef = useRef<AbortController | null>(null)
   const [errors, setErrors] = useState<TouristBookingFormErrors>({})
   const [submitState, setSubmitState] = useState<SubmitState>({ type: 'idle' })
   const [submitting, setSubmitting] = useState(false)
@@ -354,6 +363,52 @@ export function TouristExperience() {
     document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const handleOriginChange = (event: ChangeEvent<HTMLInputElement>) => {
+    updateField('originCity')(event)
+    setOriginPicked(false)
+    const query = event.target.value.trim()
+    if (originDebounceRef.current) clearTimeout(originDebounceRef.current)
+    if (query.length < 2) {
+      setOriginSuggestions([])
+      setOriginListOpen(false)
+      return
+    }
+    originDebounceRef.current = setTimeout(async () => {
+      originAbortRef.current?.abort()
+      const controller = new AbortController()
+      originAbortRef.current = controller
+      try {
+        const response = await fetch(`/api/tourist-bus/places?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(String(response.status))
+        const payload = (await response.json()) as { data?: string[] }
+        const suggestions = payload.data || []
+        setOriginServiceDown(false)
+        setOriginSuggestions(suggestions)
+        setOriginListOpen(suggestions.length > 0)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setOriginServiceDown(true)
+        setOriginSuggestions([])
+        setOriginListOpen(false)
+      }
+    }, 300)
+  }
+
+  const pickOrigin = (label: string) => {
+    setFormData((current) => ({ ...current, originCity: label }))
+    setOriginPicked(true)
+    setOriginSuggestions([])
+    setOriginListOpen(false)
+    setErrors((current) => {
+      if (!current.originCity) return current
+      const next = { ...current }
+      delete next.originCity
+      return next
+    })
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitState({ type: 'idle' })
@@ -365,6 +420,11 @@ export function TouristExperience() {
     if (missingBikeChoice) setBikeChoiceError(true)
     if (bikesEnabled && bikeChoice === 'municipal' && Number(formData.municipalBikes) < 1) {
       validationErrors.municipalBikes = 'bikes_invalid'
+    }
+    // La procedencia tiene que salir del autocompletado; solo si el buscador
+    // está caído se acepta lo tipeado (para no bloquear reservas).
+    if (!validationErrors.originCity && formData.originCity.trim() && !originPicked && !originServiceDown) {
+      validationErrors.originCity = 'origin_invalid'
     }
     if (Object.keys(validationErrors).length > 0 || !selectedCircuitKey || missingBikeChoice) {
       setErrors(validationErrors)
@@ -409,6 +469,9 @@ export function TouristExperience() {
       setCircuitError(false)
       setBikeChoice('')
       setBikeChoiceError(false)
+      setOriginSuggestions([])
+      setOriginListOpen(false)
+      setOriginPicked(false)
       setErrors({})
       void loadDepartures()
     } catch {
@@ -756,21 +819,40 @@ export function TouristExperience() {
 
                 <FormField
                   label={copy.originField}
+                  required
                   error={errors.originCity ? copy.fieldErrors[errors.originCity] : undefined}
                   className={formStyles.gridFull}
                 >
-                  <Select
-                    value={formData.originCity}
-                    onChange={updateField('originCity')}
-                    hasError={Boolean(errors.originCity)}
-                  >
-                    <option value="">{copy.originPlaceholder}</option>
-                    {touristOriginOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {language === 'en' && option.labelEn ? option.labelEn : option.value}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className={styles.originBox}>
+                    <Input
+                      value={formData.originCity}
+                      onChange={handleOriginChange}
+                      onBlur={() => setTimeout(() => setOriginListOpen(false), 150)}
+                      onFocus={() => setOriginListOpen(originSuggestions.length > 0)}
+                      placeholder={copy.originPlaceholder}
+                      autoComplete="off"
+                      hasError={Boolean(errors.originCity)}
+                    />
+                    {originListOpen ? (
+                      <ul className={styles.originList} role="listbox">
+                        {originSuggestions.map((suggestion) => (
+                          <li key={suggestion}>
+                            {/* onMouseDown: se elige antes de que el blur cierre la lista */}
+                            <button
+                              type="button"
+                              className={styles.originOption}
+                              onMouseDown={(event) => {
+                                event.preventDefault()
+                                pickOrigin(suggestion)
+                              }}
+                            >
+                              {suggestion}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
                 </FormField>
               </div>
 
