@@ -25,5 +25,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: 'No se pudieron obtener las reservas.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: data || [] })
+  // Historial de avisos enviados para esta salida (si la tabla todavía no
+  // existe en Supabase, se devuelve vacío sin romper el listado de reservas).
+  const { data: notificationLogs, error: logsError } = await supabase
+    .from('tourist_notification_logs')
+    .select('*')
+    .eq('departure_id', departureId)
+    .order('created_at', { ascending: false })
+
+  if (logsError) {
+    console.error('No se pudieron obtener los registros de avisos:', logsError.message)
+  }
+
+  return NextResponse.json({ data: data || [], notificationLogs: notificationLogs || [] })
 }

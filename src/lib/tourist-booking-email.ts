@@ -341,14 +341,34 @@ function buildCancellationEmailContent({ booking, departure }: BookingEmailInput
 
 // Aviso masivo al cancelar una salida. Envía en paralelo y nunca lanza:
 // devuelve cuántos salieron y cuántos fallaron.
+export interface CancellationEmailRecipientResult {
+  booking_id: number
+  name: string
+  email: string
+  ok: boolean
+  error?: string
+}
+
+export interface CancellationEmailBatchResult {
+  sent: number
+  failed: number
+  recipients: CancellationEmailRecipientResult[]
+}
+
 export async function sendTouristDepartureCancellationEmails(
   bookings: TouristBooking[],
   departure: TouristDeparture,
   reason?: string,
-): Promise<{ sent: number; failed: number }> {
+): Promise<CancellationEmailBatchResult> {
   if (!isBookingEmailConfigured() || bookings.length === 0) {
-    return { sent: 0, failed: 0 }
+    return { sent: 0, failed: 0, recipients: [] }
   }
+
+  const baseRecipient = (booking: TouristBooking) => ({
+    booking_id: booking.id,
+    name: booking.full_name,
+    email: booking.email,
+  })
 
   try {
     const transporter = createBookingEmailTransporter()
@@ -367,11 +387,24 @@ export async function sendTouristDepartureCancellationEmails(
       }),
     )
 
-    const sent = results.filter((result) => result.status === 'fulfilled').length
-    return { sent, failed: results.length - sent }
+    const recipients = results.map((result, index) => ({
+      ...baseRecipient(bookings[index]),
+      ok: result.status === 'fulfilled',
+      ...(result.status === 'rejected'
+        ? { error: result.reason instanceof Error ? result.reason.message : String(result.reason) }
+        : {}),
+    }))
+
+    const sent = recipients.filter((recipient) => recipient.ok).length
+    return { sent, failed: recipients.length - sent, recipients }
   } catch (error) {
     console.error('No se pudieron enviar los avisos de cancelación:', error)
-    return { sent: 0, failed: bookings.length }
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      sent: 0,
+      failed: bookings.length,
+      recipients: bookings.map((booking) => ({ ...baseRecipient(booking), ok: false, error: message })),
+    }
   }
 }
 

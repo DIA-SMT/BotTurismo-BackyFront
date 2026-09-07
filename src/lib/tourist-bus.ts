@@ -43,6 +43,21 @@ export interface TouristBooking {
   cancel_token?: string
 }
 
+// Registro de una tanda de avisos (tabla tourist_notification_logs): permite
+// auditar desde el panel si los mails de una cancelación salieron y a quiénes falló.
+export interface TouristNotificationLog {
+  id: number
+  created_at: string
+  departure_id: number | null
+  kind: string
+  channel: string
+  reason: string | null
+  total: number
+  sent: number
+  failed: number
+  recipients: { booking_id: number; name: string; email: string; ok: boolean; error?: string }[]
+}
+
 export interface TouristBookingFormData {
   departureId: string
   fullName: string
