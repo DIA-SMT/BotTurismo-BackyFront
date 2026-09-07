@@ -13,9 +13,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const tourDate = String(payload.tour_date || '').trim()
   const description = String(payload.description || '').trim()
   const guideName = String(payload.guide_name || '').trim().slice(0, 80)
+  const peopleCount = Number(payload.people_count)
 
   if (!title || !guideName || !/^\d{4}-\d{2}-\d{2}$/.test(tourDate)) {
     return NextResponse.json({ error: 'Completá el recorrido, el guía y la fecha.' }, { status: 400 })
+  }
+  if (!Number.isInteger(peopleCount) || peopleCount < 1 || peopleCount > 500) {
+    return NextResponse.json({ error: 'Indicá cuántas personas participaron (entre 1 y 500).' }, { status: 400 })
   }
 
   const supabase = createServerSupabaseClient()
@@ -26,6 +30,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       tour_date: tourDate,
       description: description || null,
       guide_name: guideName,
+      people_count: peopleCount,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -37,7 +42,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   // Mantiene alineado el registro histórico por guía; los books anteriores a
   // la migración pueden no tener fila, en ese caso se crea.
-  const logRow = { tour_date: tourDate, title, guide_name: guideName }
+  const logRow = { tour_date: tourDate, title, guide_name: guideName, people_count: peopleCount }
   const { data: logUpdated, error: logError } = await supabase
     .from('tour_guide_log')
     .update(logRow)

@@ -22,8 +22,9 @@ export interface PhotoBook {
   title: string
   tour_date: string
   description: string | null
-  // Guía que hizo el recorrido (books viejos pueden no tenerlo).
+  // Guía y cantidad de participantes del recorrido (books viejos pueden no tenerlos).
   guide_name?: string | null
+  people_count?: number | null
   access_token: string
   expires_at: string
   photo_book_photos?: PhotoBookPhoto[]
@@ -38,6 +39,7 @@ export interface TourGuideLogEntry {
   tour_date: string
   title: string
   guide_name: string
+  people_count: number | null
 }
 
 export function sanitizeFileName(name: string) {

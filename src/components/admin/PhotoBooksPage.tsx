@@ -78,6 +78,7 @@ export default function PhotoBooksPage() {
   const [customTitle, setCustomTitle] = useState('')
   const [titleDetail, setTitleDetail] = useState('')
   const [guideName, setGuideName] = useState('')
+  const [peopleCount, setPeopleCount] = useState('')
   const [tourDate, setTourDate] = useState('')
   const [description, setDescription] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
@@ -85,6 +86,7 @@ export default function PhotoBooksPage() {
   const [guideLog, setGuideLog] = useState<TourGuideLogEntry[]>([])
   const [editTitle, setEditTitle] = useState('')
   const [editGuideName, setEditGuideName] = useState('')
+  const [editPeopleCount, setEditPeopleCount] = useState('')
   const [editTourDate, setEditTourDate] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [morePhotos, setMorePhotos] = useState<File[]>([])
@@ -130,15 +132,19 @@ export default function PhotoBooksPage() {
     }
   }, [])
 
-  // Conteo histórico de recorridos por guía (de tour_guide_log, que no se
-  // borra con los books) — es la estadística que pidió turismo.
+  // Conteo histórico por guía (de tour_guide_log, que no se borra con los
+  // books): recorridos hechos y personas guiadas — la estadística de turismo.
   const guideStats = useMemo(() => {
-    const counts = new Map<string, number>()
+    const counts = new Map<string, { tours: number; people: number }>()
     for (const entry of guideLog) {
       const key = entry.guide_name.trim()
-      if (key) counts.set(key, (counts.get(key) || 0) + 1)
+      if (!key) continue
+      const current = counts.get(key) || { tours: 0, people: 0 }
+      current.tours += 1
+      current.people += entry.people_count || 0
+      counts.set(key, current)
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+    return [...counts.entries()].sort((a, b) => b[1].tours - a[1].tours)
   }, [guideLog])
 
   const baseTitle = titleChoice === customTitleChoice ? customTitle.trim() : titleChoice
@@ -174,6 +180,7 @@ export default function PhotoBooksPage() {
     setCustomTitle('')
     setTitleDetail('')
     setGuideName('')
+    setPeopleCount('')
     setTourDate('')
     setDescription('')
     setPhotos([])
@@ -199,6 +206,7 @@ export default function PhotoBooksPage() {
     setEditBook(book)
     setEditTitle(book.title)
     setEditGuideName(book.guide_name || '')
+    setEditPeopleCount(book.people_count ? String(book.people_count) : '')
     setEditTourDate(book.tour_date)
     setEditDescription(book.description || '')
     setMorePhotos([])
@@ -208,13 +216,15 @@ export default function PhotoBooksPage() {
 
   const createBook = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!baseTitle || !guideName.trim() || !tourDate || photos.length === 0) return
+    const people = Number(peopleCount)
+    if (!baseTitle || !guideName.trim() || !Number.isInteger(people) || people < 1 || !tourDate || photos.length === 0) return
 
     setSaving(true)
     setMessage(null)
     const formData = new FormData()
     formData.set('title', composedTitle)
     formData.set('guide_name', guideName.trim())
+    formData.set('people_count', String(people))
     formData.set('tour_date', tourDate)
     formData.set('description', description.trim())
     photos.forEach((photo) => formData.append('photos', photo))
@@ -237,7 +247,8 @@ export default function PhotoBooksPage() {
   }
 
   const saveBookDetails = async ({ showSuccessMessage = true } = {}) => {
-    if (!editBook || !editTitle.trim() || !editGuideName.trim() || !editTourDate) return false
+    const editPeople = Number(editPeopleCount)
+    if (!editBook || !editTitle.trim() || !editGuideName.trim() || !Number.isInteger(editPeople) || editPeople < 1 || !editTourDate) return false
 
     setEditing(true)
     setMessage(null)
@@ -248,6 +259,7 @@ export default function PhotoBooksPage() {
         body: JSON.stringify({
           title: editTitle.trim(),
           guide_name: editGuideName.trim(),
+          people_count: editPeople,
           tour_date: editTourDate,
           description: editDescription.trim(),
         }),
@@ -359,9 +371,10 @@ export default function PhotoBooksPage() {
               </span>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              {guideStats.map(([name, count]) => (
+              {guideStats.map(([name, stats]) => (
                 <span key={name} className="badge" style={{ background: 'rgba(18,111,245,0.12)', color: '#126ff5' }}>
-                  {name} · {count} {count === 1 ? 'recorrido' : 'recorridos'}
+                  {name} · {stats.tours} {stats.tours === 1 ? 'recorrido' : 'recorridos'}
+                  {stats.people > 0 ? ` · ${stats.people} personas` : ''}
                 </span>
               ))}
             </div>
@@ -415,6 +428,19 @@ export default function PhotoBooksPage() {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label>Cantidad de personas que participaron *</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={peopleCount}
+                  onChange={(event) => setPeopleCount(event.target.value)}
+                  placeholder="Ej. 25"
+                  required
+                />
+              </div>
               <div className="form-group photo-book-description">
                 <label>Descripción</label>
                 <textarea className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mensaje opcional para los pasajeros" />
@@ -436,7 +462,7 @@ export default function PhotoBooksPage() {
             </div>
             <div className="photo-book-form-actions">
               <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
-              <button className="btn btn-primary" disabled={saving || !baseTitle || !guideName.trim() || !tourDate || photos.length === 0}>
+              <button className="btn btn-primary" disabled={saving || !baseTitle || !guideName.trim() || !(Number(peopleCount) >= 1) || !tourDate || photos.length === 0}>
                 {saving ? <><span className="spinner" /> Subiendo fotos...</> : 'Crear book y generar QR'}
               </button>
             </div>
@@ -460,7 +486,12 @@ export default function PhotoBooksPage() {
                   </div>
                   <h3>{book.title}</h3>
                   <p className="photo-book-date">Recorrido: {dateFormatter.format(new Date(`${book.tour_date}T12:00:00`))}</p>
-                  {book.guide_name ? <p className="photo-book-date">Guía: {book.guide_name}</p> : null}
+                  {book.guide_name ? (
+                    <p className="photo-book-date">
+                      Guía: {book.guide_name}
+                      {book.people_count ? ` · ${book.people_count} personas` : ''}
+                    </p>
+                  ) : null}
                   {book.description ? <p className="photo-book-description-text">{book.description}</p> : null}
                   <p className="photo-book-expiry">Vence: {dateFormatter.format(new Date(book.expires_at))}</p>
                   <div className="photo-book-actions">
@@ -488,7 +519,7 @@ export default function PhotoBooksPage() {
                 <h3>Editar book</h3>
                 <p className="photo-book-modal-subtitle">{selectedBookPhotoCount}/{MAX_PHOTOS_PER_BOOK} fotos · quedan {remainingSlots} lugares</p>
               </div>
-              <button className="btn btn-primary" onClick={saveAndCloseEditModal} disabled={editing || uploadingMore || !editTitle.trim() || !editGuideName.trim() || !editTourDate}>
+              <button className="btn btn-primary" onClick={saveAndCloseEditModal} disabled={editing || uploadingMore || !editTitle.trim() || !editGuideName.trim() || !(Number(editPeopleCount) >= 1) || !editTourDate}>
                 {editing || uploadingMore ? <><span className="spinner" /> Guardando...</> : <><Save size={15} /> Guardar y salir</>}
               </button>
             </div>
@@ -508,6 +539,18 @@ export default function PhotoBooksPage() {
                       value={editGuideName}
                       onChange={(event) => setEditGuideName(event.target.value)}
                       placeholder="Nombre y apellido del guía"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Cantidad de personas *</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={editPeopleCount}
+                      onChange={(event) => setEditPeopleCount(event.target.value)}
+                      placeholder="Ej. 25"
                     />
                   </div>
                   <div className="form-group">
