@@ -28,6 +28,7 @@ import {
   getDepartureOccupancyPercent,
   type TouristBooking,
   type TouristDepartureAvailability,
+  type TouristNotificationLog,
 } from '@/lib/tourist-bus'
 import type { TouristCircuitRecord } from '@/lib/tourist-circuits'
 import { TouristCircuitsPanel } from './TouristCircuitsPanel'
@@ -134,6 +135,7 @@ export default function TouristDeparturesPage() {
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({})
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [bookingsByDeparture, setBookingsByDeparture] = useState<Record<number, TouristBooking[]>>({})
+  const [notificationLogsByDeparture, setNotificationLogsByDeparture] = useState<Record<number, TouristNotificationLog[]>>({})
   const [bookingsLoading, setBookingsLoading] = useState(false)
   const [capacityDrafts, setCapacityDrafts] = useState<Record<number, string>>({})
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -209,6 +211,7 @@ export default function TouristDeparturesPage() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudieron cargar las reservas.')
       setBookingsByDeparture((current) => ({ ...current, [departureId]: result.data || [] }))
+      setNotificationLogsByDeparture((current) => ({ ...current, [departureId]: result.notificationLogs || [] }))
     } catch (error) {
       console.error(error)
       setBookingsByDeparture((current) => ({ ...current, [departureId]: [] }))
@@ -1037,6 +1040,37 @@ export default function TouristDeparturesPage() {
                                   ) : null}
                                   {departure.notes ? <span className="td-muted">Notas: {departure.notes}</span> : null}
                                 </div>
+
+                                {(notificationLogsByDeparture[departure.id] || []).map((log) => (
+                                  <div
+                                    key={log.id}
+                                    style={{
+                                      border: `1px solid ${log.failed > 0 ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)'}`,
+                                      background: log.failed > 0 ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)',
+                                      borderRadius: 10,
+                                      padding: '10px 14px',
+                                      display: 'grid',
+                                      gap: 6,
+                                      fontSize: 13,
+                                    }}
+                                  >
+                                    <div className="td-text-primary">
+                                      📨 Avisos de cancelación por mail — {formatDateTimeToDisplay(log.created_at)}:{' '}
+                                      {log.sent} de {log.total} entregados al servidor de correo
+                                      {log.failed > 0 ? ` · fallaron ${log.failed}` : ''}
+                                    </div>
+                                    {log.reason ? <div className="td-muted">Motivo enviado: “{log.reason}”</div> : null}
+                                    {log.failed > 0 ? (
+                                      <div style={{ color: '#ef4444' }}>
+                                        No se les pudo enviar (contactalos a mano):{' '}
+                                        {log.recipients
+                                          .filter((recipient) => !recipient.ok)
+                                          .map((recipient) => `${recipient.name} <${recipient.email}>`)
+                                          .join(', ')}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ))}
 
                                 {bookingsLoading && bookings.length === 0 ? (
                                   <div className="loading-state" style={{ padding: 12 }}>

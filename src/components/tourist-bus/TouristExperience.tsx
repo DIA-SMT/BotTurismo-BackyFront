@@ -33,6 +33,7 @@ import {
   formatDepartureTime,
   initialTouristBookingFormData,
   maximumPeoplePerBooking,
+  touristOriginOptions,
   validateTouristBookingForm,
   type TouristBookingApiErrorCode,
   type TouristBookingFormData,
@@ -41,6 +42,7 @@ import {
   type TouristLanguage,
 } from '@/lib/tourist-bus'
 import {
+  getTouristCircuitModalityLabel,
   touristCircuitCatalog,
   touristOfficeInfo,
   type TouristCircuit,
@@ -117,6 +119,15 @@ export function TouristExperience() {
   const [errors, setErrors] = useState<TouristBookingFormErrors>({})
   const [submitState, setSubmitState] = useState<SubmitState>({ type: 'idle' })
   const [submitting, setSubmitting] = useState(false)
+  const submitFeedbackRef = useRef<HTMLDivElement | null>(null)
+
+  // El cartel de resultado vive debajo del botón: al confirmar (o fallar) se
+  // lo trae a la vista para que nadie se quede sin saber si se anotó.
+  useEffect(() => {
+    if (submitState.type === 'success' || submitState.type === 'error') {
+      submitFeedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [submitState])
   const [openCircuits, setOpenCircuits] = useState<Record<string, boolean>>({})
 
   const copy = touristPageCopy[language]
@@ -600,17 +611,6 @@ export function TouristExperience() {
               <span className={formStyles.sectionBadge}>{copy.freeLabel}</span>
             </div>
 
-            {submitState.type === 'success' ? (
-              <StatusBanner
-                tone="success"
-                title={copy.successTitle}
-                description={`${copy.successBody(submitState.title, submitState.dateLabel)}${submitState.emailSent ? ` ${copy.successEmailNote}` : ''}`}
-              />
-            ) : null}
-            {submitState.type === 'error' ? (
-              <StatusBanner tone="error" title={copy.apiErrors.VALIDATION} description={copy.apiErrors[submitState.code]} />
-            ) : null}
-
             <form onSubmit={handleSubmit} noValidate>
               <div className={formStyles.grid}>
                 <FormField
@@ -754,13 +754,23 @@ export function TouristExperience() {
                   />
                 </FormField>
 
-                <FormField label={copy.originField} className={formStyles.gridFull}>
-                  <Input
+                <FormField
+                  label={copy.originField}
+                  error={errors.originCity ? copy.fieldErrors[errors.originCity] : undefined}
+                  className={formStyles.gridFull}
+                >
+                  <Select
                     value={formData.originCity}
                     onChange={updateField('originCity')}
-                    placeholder={copy.originPlaceholder}
-                    autoComplete="address-level2"
-                  />
+                    hasError={Boolean(errors.originCity)}
+                  >
+                    <option value="">{copy.originPlaceholder}</option>
+                    {touristOriginOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {language === 'en' && option.labelEn ? option.labelEn : option.value}
+                      </option>
+                    ))}
+                  </Select>
                 </FormField>
               </div>
 
@@ -768,6 +778,24 @@ export function TouristExperience() {
                 {submitting ? <span className={formStyles.spinner} aria-hidden /> : null}
                 {submitting ? copy.submittingLabel : copy.submitLabel}
               </button>
+
+              {/* El resultado va DEBAJO del botón (la gente mira ahí después de
+                  tocar "Confirmar reserva"); el scroll automático lo asegura. */}
+              <div
+                ref={submitFeedbackRef}
+                style={submitState.type === 'success' || submitState.type === 'error' ? { marginTop: 16 } : undefined}
+              >
+                {submitState.type === 'success' ? (
+                  <StatusBanner
+                    tone="success"
+                    title={copy.successTitle}
+                    description={`${copy.successBody(submitState.title, submitState.dateLabel)}${submitState.emailSent ? ` ${copy.successEmailNote}` : ''}`}
+                  />
+                ) : null}
+                {submitState.type === 'error' ? (
+                  <StatusBanner tone="error" title={copy.apiErrors.VALIDATION} description={copy.apiErrors[submitState.code]} />
+                ) : null}
+              </div>
             </form>
           </section>
 
@@ -803,6 +831,9 @@ export function TouristExperience() {
                 <article key={circuit.slug} className={styles.catalogCard} data-mouse-tilt>
                   <span className={styles.catalogIcon}>
                     <Icon size={22} strokeWidth={1.9} />
+                  </span>
+                  <span className={styles.catalogModality}>
+                    {getTouristCircuitModalityLabel(circuit.modality ?? 'bus', language)}
                   </span>
                   <h3 className={styles.catalogName}>{content.name}</h3>
                   <p className={styles.catalogSummary}>{content.summary}</p>

@@ -43,6 +43,21 @@ export interface TouristBooking {
   cancel_token?: string
 }
 
+// Registro de una tanda de avisos (tabla tourist_notification_logs): permite
+// auditar desde el panel si los mails de una cancelación salieron y a quiénes falló.
+export interface TouristNotificationLog {
+  id: number
+  created_at: string
+  departure_id: number | null
+  kind: string
+  channel: string
+  reason: string | null
+  total: number
+  sent: number
+  failed: number
+  recipients: { booking_id: number; name: string; email: string; ok: boolean; error?: string }[]
+}
+
 export interface TouristBookingFormData {
   departureId: string
   fullName: string
@@ -63,6 +78,7 @@ export type TouristBookingErrorCode =
   | 'people_required'
   | 'people_invalid'
   | 'bikes_invalid'
+  | 'origin_invalid'
 
 export type TouristBookingFormErrors = Partial<Record<keyof TouristBookingFormData, TouristBookingErrorCode>>
 
@@ -78,6 +94,43 @@ export type TouristBookingApiErrorCode =
   | 'SERVER'
 
 export const maximumPeoplePerBooking = 20
+
+// Procedencia acotada (pedido de turismo, 2026-09-07): selector con opciones
+// fijas para que el dato sirva como estadística (nada de texto libre). El valor
+// guardado es SIEMPRE la etiqueta en español, elija el idioma que elija el
+// turista; labelEn es solo cómo se muestra en la versión en inglés.
+export const touristOriginOptions: { value: string; labelEn?: string }[] = [
+  { value: 'San Miguel de Tucumán' },
+  { value: 'Interior de Tucumán', labelEn: 'Tucumán province (outside the city)' },
+  { value: 'Buenos Aires' },
+  { value: 'Catamarca' },
+  { value: 'Chaco' },
+  { value: 'Chubut' },
+  { value: 'Ciudad de Buenos Aires' },
+  { value: 'Córdoba' },
+  { value: 'Corrientes' },
+  { value: 'Entre Ríos' },
+  { value: 'Formosa' },
+  { value: 'Jujuy' },
+  { value: 'La Pampa' },
+  { value: 'La Rioja' },
+  { value: 'Mendoza' },
+  { value: 'Misiones' },
+  { value: 'Neuquén' },
+  { value: 'Río Negro' },
+  { value: 'Salta' },
+  { value: 'San Juan' },
+  { value: 'San Luis' },
+  { value: 'Santa Cruz' },
+  { value: 'Santa Fe' },
+  { value: 'Santiago del Estero' },
+  { value: 'Tierra del Fuego' },
+  { value: 'Otro país', labelEn: 'Another country' },
+]
+
+export function isTouristOriginOption(value: string) {
+  return touristOriginOptions.some((option) => option.value === value)
+}
 
 export const initialTouristBookingFormData: TouristBookingFormData = {
   departureId: '',
@@ -130,6 +183,12 @@ export function validateTouristBookingForm(
     errors.peopleCount = 'people_required'
   } else if (!isValidPeopleCount(data.peopleCount)) {
     errors.peopleCount = 'people_invalid'
+  }
+
+  // Opcional, pero si viene tiene que ser una de las opciones del selector
+  // (misma regla en el server: bloquea texto libre mandado por API).
+  if (data.originCity.trim() && !isTouristOriginOption(data.originCity.trim())) {
+    errors.originCity = 'origin_invalid'
   }
 
   return errors

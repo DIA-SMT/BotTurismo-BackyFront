@@ -123,6 +123,24 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       ])
       sent = emailResult.sent
       failed = emailResult.failed
+
+      // Registro persistente de la tanda (los logs de Vercel se borran a la
+      // hora): si falla el insert no se frena la cancelación, solo se loguea.
+      if (confirmedBookings.length > 0) {
+        const { error: logError } = await supabase.from('tourist_notification_logs').insert({
+          departure_id: departureId,
+          kind: 'departure_cancelled',
+          channel: 'email',
+          reason: cancelReason || null,
+          total: confirmedBookings.length,
+          sent,
+          failed,
+          recipients: emailResult.recipients,
+        })
+        if (logError) {
+          console.error('No se pudo guardar el registro de avisos de cancelación:', logError.message)
+        }
+      }
     }
 
     notification = { sent, failed, emailConfigured }

@@ -357,6 +357,22 @@
   line-height: 1.25;
 }
 
+/* Etiqueta de modalidad del circuito (bus / a pie / bici). */
+.catalogModality {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #28469f;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+}
+
 .catalogSummary {
   color: #68737d;
   font-size: 0.9rem;
