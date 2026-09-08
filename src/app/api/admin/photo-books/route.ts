@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
-import { uploadPhotoFilesToBook, validatePhotoFiles } from '@/lib/photo-book-upload'
+import { createSignedPhotoUploads, parsePhotoDescriptors, validatePhotoDescriptors } from '@/lib/photo-book-upload'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export async function GET() {
@@ -32,17 +32,27 @@ export async function GET() {
   return NextResponse.json({ data: data || [], guideLog: guideLog || [] })
 }
 
+// Crea el book y devuelve URLs firmadas para que el navegador suba las fotos
+// DIRECTO a Supabase Storage (los bodies por Vercel se cortan en ~4,5 MB, así
+// que las fotos no pueden viajar por esta función). El cliente después llama
+// a /[id]/photos/register para registrar las que subió.
 export async function POST(request: NextRequest) {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
 
-  const formData = await request.formData()
-  const title = String(formData.get('title') || '').trim()
-  const tourDate = String(formData.get('tour_date') || '').trim()
-  const description = String(formData.get('description') || '').trim()
-  const guideName = String(formData.get('guide_name') || '').trim().slice(0, 80)
-  const peopleCount = Number(formData.get('people_count'))
-  const photos = formData.getAll('photos').filter((item): item is File => item instanceof File && item.size > 0)
+  let payload: Record<string, unknown>
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
+  }
+
+  const title = String(payload.title || '').trim()
+  const tourDate = String(payload.tour_date || '').trim()
+  const description = String(payload.description || '').trim()
+  const guideName = String(payload.guide_name || '').trim().slice(0, 80)
+  const peopleCount = Number(payload.people_count)
+  const photos = parsePhotoDescriptors(payload.photos)
 
   if (!title || !guideName || !/^\d{4}-\d{2}-\d{2}$/.test(tourDate)) {
     return NextResponse.json({ error: 'Completá el recorrido, el guía y la fecha.' }, { status: 400 })
@@ -54,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Seleccioná entre 1 y ${MAX_PHOTOS_PER_BOOK} fotos.` }, { status: 400 })
   }
 
-  const validationError = validatePhotoFiles(photos)
+  const validationError = validatePhotoDescriptors(photos)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
   const supabase = createServerSupabaseClient()
@@ -78,17 +88,22 @@ export async function POST(request: NextRequest) {
     console.error('No se pudo registrar el recorrido en tour_guide_log:', logError.message)
   }
 
-  const uploadResult = await uploadPhotoFilesToBook({ supabase, bookId: book.id, photos, startSortOrder: 0 })
-  if (uploadResult.error) {
+  const { uploads, error: uploadsError } = await createSignedPhotoUploads({
+    supabase,
+    bookId: book.id,
+    photos,
+    startSortOrder: 0,
+  })
+  if (uploadsError) {
     await supabase.from('photo_books').delete().eq('id', book.id)
-    return NextResponse.json({ error: 'No se pudieron subir todas las fotos. No se guardó el book.' }, { status: 500 })
+    return NextResponse.json({ error: 'No se pudieron preparar las subidas. No se guardó el book.' }, { status: 500 })
   }
 
   return NextResponse.json({
     data: {
       ...book,
-      photo_count: photos.length,
       access_url: `${request.nextUrl.origin}/fotos/${book.access_token}`,
     },
+    uploads,
   }, { status: 201 })
 }
