@@ -10,6 +10,64 @@ import type { PhotoBook, TourGuideLogEntry } from '@/lib/photo-books'
 // (eventos fuera del catálogo de circuitos).
 const customTitleChoice = '__custom__'
 
+interface ApiResult {
+  error?: string
+  data?: unknown
+  uploads?: Array<{ path: string; signedUrl: string; name: string }>
+  added_count?: number
+}
+
+// Vercel responde con TEXTO plano (no JSON) en errores de infraestructura
+// (ej. 413 "Request Entity Too Large"): parsear a mano para no mostrar
+// "Unexpected token ..." al usuario.
+async function safeJson(response: Response): Promise<ApiResult | null> {
+  try {
+    return (await response.json()) as ApiResult
+  } catch {
+    return null
+  }
+}
+
+// Sube las fotos DIRECTO a Supabase Storage con las URLs firmadas que dio el
+// server (los bodies por Vercel se cortan en ~4,5 MB, por eso no viajan por
+// la API). Concurrencia 3, con progreso.
+async function uploadFilesToSignedUrls(
+  uploads: Array<{ path: string; signedUrl: string; name: string }>,
+  files: File[],
+  onProgress: (done: number) => void,
+) {
+  const registered: Array<{ path: string; name: string; type: string; size: number }> = []
+  const failedNames: string[] = []
+  let done = 0
+  const queue = uploads.map((upload, index) => ({ upload, file: files[index] }))
+
+  const workers = Array.from({ length: 3 }, async () => {
+    for (;;) {
+      const item = queue.shift()
+      if (!item) break
+      try {
+        const response = await fetch(item.upload.signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': item.file.type },
+          body: item.file,
+        })
+        if (!response.ok) throw new Error(String(response.status))
+        registered.push({ path: item.upload.path, name: item.file.name, type: item.file.type, size: item.file.size })
+      } catch {
+        failedNames.push(item.file.name)
+      } finally {
+        done += 1
+        onProgress(done)
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  // El prefijo numerado del path restaura el orden original de las fotos.
+  registered.sort((a, b) => a.path.localeCompare(b.path))
+  return { registered, failedNames }
+}
+
 interface Book extends Omit<PhotoBook, 'photo_book_photos'> {
   photo_book_photos: Array<{
     id: string
@@ -90,6 +148,7 @@ export default function PhotoBooksPage() {
   const [editTourDate, setEditTourDate] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [morePhotos, setMorePhotos] = useState<File[]>([])
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
   const [currentPhotoPreviews, setCurrentPhotoPreviews] = useState<CurrentPhotoPreview[]>([])
   const [loadingPhotoPreviews, setLoadingPhotoPreviews] = useState(false)
 
@@ -221,28 +280,62 @@ export default function PhotoBooksPage() {
 
     setSaving(true)
     setMessage(null)
-    const formData = new FormData()
-    formData.set('title', composedTitle)
-    formData.set('guide_name', guideName.trim())
-    formData.set('people_count', String(people))
-    formData.set('tour_date', tourDate)
-    formData.set('description', description.trim())
-    photos.forEach((photo) => formData.append('photos', photo))
-
     try {
-      const response = await fetch('/api/admin/photo-books', { method: 'POST', body: formData })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'No se pudo crear el book.')
+      // 1. Crear el book y pedir las URLs firmadas (las fotos NO viajan acá).
+      const response = await fetch('/api/admin/photo-books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: composedTitle,
+          guide_name: guideName.trim(),
+          people_count: people,
+          tour_date: tourDate,
+          description: description.trim(),
+          photos: photos.map((photo) => ({ name: photo.name, type: photo.type, size: photo.size })),
+        }),
+      })
+      const result = await safeJson(response)
+      if (!response.ok || !result) throw new Error(result?.error || 'No se pudo crear el book.')
 
-      const qrDataUrl = await QRCode.toDataURL(result.data.access_url, { width: 360, margin: 2 })
-      setShareModal({ title: result.data.title, url: result.data.access_url, qrDataUrl })
-      setMessage({ text: 'Book creado y fotos cargadas correctamente.', type: 'success' })
+      // 2. Subir las fotos directo a Storage.
+      setUploadProgress({ done: 0, total: photos.length })
+      const uploads = result.uploads || []
+      const bookData = result.data as { id: string; title: string; access_url: string }
+      const { registered, failedNames } = await uploadFilesToSignedUrls(uploads, photos, (done) =>
+        setUploadProgress({ done, total: photos.length }),
+      )
+
+      if (registered.length === 0) {
+        await fetch(`/api/admin/photo-books/${bookData.id}`, { method: 'DELETE' }).catch(() => null)
+        throw new Error('No se pudo subir ninguna foto (¿problema de conexión?). No se guardó el book: intentá de nuevo.')
+      }
+
+      // 3. Registrar las subidas en la base.
+      const registerResponse = await fetch(`/api/admin/photo-books/${bookData.id}/photos/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos: registered }),
+      })
+      const registerResult = await safeJson(registerResponse)
+      if (!registerResponse.ok) throw new Error(registerResult?.error || 'Las fotos se subieron pero no se pudieron registrar.')
+
+      const qrDataUrl = await QRCode.toDataURL(bookData.access_url, { width: 360, margin: 2 })
+      setShareModal({ title: bookData.title, url: bookData.access_url, qrDataUrl })
+      setMessage(
+        failedNames.length > 0
+          ? {
+              text: `Book creado con ${registered.length} fotos, pero ${failedNames.length} fallaron (${failedNames.join(', ')}). Reintentalas desde Editar.`,
+              type: 'error',
+            }
+          : { text: 'Book creado y fotos cargadas correctamente.', type: 'success' },
+      )
       resetForm()
       await fetchBooks()
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : 'No se pudo crear el book.', type: 'error' })
     } finally {
       setSaving(false)
+      setUploadProgress(null)
     }
   }
 
@@ -264,10 +357,10 @@ export default function PhotoBooksPage() {
           description: editDescription.trim(),
         }),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'No se pudo actualizar el book.')
+      const result = await safeJson(response)
+      if (!response.ok || !result) throw new Error(result?.error || 'No se pudo actualizar el book.')
 
-      updateBookInState(result.data)
+      updateBookInState(result.data as Book)
       if (showSuccessMessage) setMessage({ text: 'Book actualizado.', type: 'success' })
       return true
     } catch (error) {
@@ -283,27 +376,48 @@ export default function PhotoBooksPage() {
 
     setUploadingMore(true)
     setMessage(null)
-    const formData = new FormData()
-    morePhotos.forEach((photo) => formData.append('photos', photo))
-
     try {
-      const response = await fetch(`/api/admin/photo-books/${editBook.id}/photos`, {
+      // Mismo esquema que el alta: URLs firmadas → subida directa → registro.
+      const urlsResponse = await fetch(`/api/admin/photo-books/${editBook.id}/photos/upload-urls`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos: morePhotos.map((photo) => ({ name: photo.name, type: photo.type, size: photo.size })) }),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'No se pudieron agregar las fotos.')
+      const urlsResult = await safeJson(urlsResponse)
+      if (!urlsResponse.ok || !urlsResult) throw new Error(urlsResult?.error || 'No se pudieron preparar las subidas.')
 
-      updateBookInState(result.data)
+      setUploadProgress({ done: 0, total: morePhotos.length })
+      const uploads = urlsResult.uploads || []
+      const { registered, failedNames } = await uploadFilesToSignedUrls(uploads, morePhotos, (done) =>
+        setUploadProgress({ done, total: morePhotos.length }),
+      )
+      if (registered.length === 0) {
+        throw new Error('No se pudo subir ninguna foto (¿problema de conexión?). Intentá de nuevo.')
+      }
+
+      const response = await fetch(`/api/admin/photo-books/${editBook.id}/photos/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos: registered }),
+      })
+      const result = await safeJson(response)
+      if (!response.ok || !result) throw new Error(result?.error || 'No se pudieron registrar las fotos.')
+
+      updateBookInState(result.data as Book)
       setMorePhotos([])
       await loadCurrentPhotoPreviews(editBook.id)
-      if (showSuccessMessage) setMessage({ text: `${result.added_count || morePhotos.length} fotos agregadas al book.`, type: 'success' })
+      if (failedNames.length > 0) {
+        setMessage({ text: `${registered.length} fotos agregadas, pero ${failedNames.length} fallaron (${failedNames.join(', ')}). Reintentalas.`, type: 'error' })
+        return false
+      }
+      if (showSuccessMessage) setMessage({ text: `${registered.length} fotos agregadas al book.`, type: 'success' })
       return true
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : 'No se pudieron agregar las fotos.', type: 'error' })
       return false
     } finally {
       setUploadingMore(false)
+      setUploadProgress(null)
     }
   }
 
@@ -463,7 +577,14 @@ export default function PhotoBooksPage() {
             <div className="photo-book-form-actions">
               <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
               <button className="btn btn-primary" disabled={saving || !baseTitle || !guideName.trim() || !(Number(peopleCount) >= 1) || !tourDate || photos.length === 0}>
-                {saving ? <><span className="spinner" /> Subiendo fotos...</> : 'Crear book y generar QR'}
+                {saving ? (
+                  <>
+                    <span className="spinner" />{' '}
+                    {uploadProgress ? `Subiendo foto ${Math.min(uploadProgress.done + 1, uploadProgress.total)} de ${uploadProgress.total}...` : 'Creando book...'}
+                  </>
+                ) : (
+                  'Crear book y generar QR'
+                )}
               </button>
             </div>
           </form>
@@ -520,7 +641,14 @@ export default function PhotoBooksPage() {
                 <p className="photo-book-modal-subtitle">{selectedBookPhotoCount}/{MAX_PHOTOS_PER_BOOK} fotos · quedan {remainingSlots} lugares</p>
               </div>
               <button className="btn btn-primary" onClick={saveAndCloseEditModal} disabled={editing || uploadingMore || !editTitle.trim() || !editGuideName.trim() || !(Number(editPeopleCount) >= 1) || !editTourDate}>
-                {editing || uploadingMore ? <><span className="spinner" /> Guardando...</> : <><Save size={15} /> Guardar y salir</>}
+                {editing || uploadingMore ? (
+                  <>
+                    <span className="spinner" />{' '}
+                    {uploadProgress ? `Subiendo ${Math.min(uploadProgress.done + 1, uploadProgress.total)}/${uploadProgress.total}...` : 'Guardando...'}
+                  </>
+                ) : (
+                  <><Save size={15} /> Guardar y salir</>
+                )}
               </button>
             </div>
             <div className="modal-body">
