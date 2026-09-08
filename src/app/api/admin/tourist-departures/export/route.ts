@@ -7,10 +7,11 @@ import { buildSimpleXlsxBuffer, type XlsxCell } from '@/lib/simple-xlsx'
 
 export const runtime = 'nodejs'
 
-function buildExportFileName(from: string, to: string) {
+function buildExportFileName(from: string, to: string, circuitSlug?: string) {
   const [fromYear, fromMonth, fromDay] = from.split('-')
   const [toYear, toMonth, toDay] = to.split('-')
-  return `reservas-bus-turistico-${fromDay}-${fromMonth}-${fromYear}_a_${toDay}-${toMonth}-${toYear}.xlsx`
+  const base = circuitSlug ? `reservas-${circuitSlug}` : 'reservas-bus-turistico'
+  return `${base}-${fromDay}-${fromMonth}-${fromYear}_a_${toDay}-${toMonth}-${toYear}.xlsx`
 }
 
 const bookingStatusLabels: Record<TouristBooking['status'], string> = {
@@ -48,7 +49,7 @@ function buildExportRows(departures: TouristDeparture[], bookings: TouristBookin
     return [
       header,
       [{
-        value: 'Sin reservas en el rango elegido. El filtro es por la FECHA DE LA SALIDA (no por la fecha en que se hizo la reserva): probá ampliar el rango.',
+        value: 'Sin reservas para el filtro elegido. El rango es por la FECHA DE LA SALIDA (no por la fecha en que se hizo la reserva): probá ampliar las fechas o cambiar el circuito.',
         style: 'meta',
       } satisfies XlsxCell],
     ]
@@ -86,6 +87,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const from = String(searchParams.get('from') || '').trim()
   const to = String(searchParams.get('to') || '').trim()
+  // Filtro opcional por circuito (pedido de turismo 2026-09-08: poder exportar
+  // las reservas de UN circuito en vez de todo junto).
+  const circuitSlug = String(searchParams.get('circuit') || '').trim().slice(0, 80)
 
   if (!parseBusinessDateParts(from) || !parseBusinessDateParts(to)) {
     return NextResponse.json({ error: 'El rango de fechas es inválido.' }, { status: 400 })
@@ -96,13 +100,17 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServerSupabaseClient()
-  const { data: departures, error: departuresError } = await supabase
+  let departuresQuery = supabase
     .from('tourist_departures')
     .select('*')
     .gte('departure_date', from)
     .lte('departure_date', to)
     .order('departure_date', { ascending: true })
     .order('departure_time', { ascending: true })
+  if (circuitSlug) {
+    departuresQuery = departuresQuery.eq('circuit_slug', circuitSlug)
+  }
+  const { data: departures, error: departuresError } = await departuresQuery
 
   if (departuresError) {
     return NextResponse.json({ error: 'No se pudieron obtener las salidas.' }, { status: 500 })
@@ -139,7 +147,7 @@ export async function GET(request: NextRequest) {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${buildExportFileName(from, to)}"`,
+      'Content-Disposition': `attachment; filename="${buildExportFileName(from, to, circuitSlug || undefined)}"`,
       'Cache-Control': 'no-store',
     },
   })

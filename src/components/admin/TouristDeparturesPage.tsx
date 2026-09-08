@@ -151,6 +151,9 @@ export default function TouristDeparturesPage() {
   const [exportFrom, setExportFrom] = useState(initialMonthBounds?.startDate || todayKey)
   const [exportTo, setExportTo] = useState(initialMonthBounds?.endDate || todayKey)
   const [exporting, setExporting] = useState(false)
+  // Filtro por circuito: aplica a la tabla, los contadores y el export
+  // (pedido de turismo 2026-09-08: exportar las reservas de UN circuito).
+  const [circuitFilter, setCircuitFilter] = useState('')
 
   const fetchDepartures = useCallback(async () => {
     setLoading(true)
@@ -194,15 +197,20 @@ export default function TouristDeparturesPage() {
 
   const activeCircuits = useMemo(() => circuitRecords.filter((record) => record.active), [circuitRecords])
 
+  const filteredDepartures = useMemo(
+    () => (circuitFilter ? departures.filter((departure) => departure.circuit_slug === circuitFilter) : departures),
+    [departures, circuitFilter],
+  )
+
   const stats = useMemo(() => {
-    const active = departures.filter((departure) => departure.status === 'active')
+    const active = filteredDepartures.filter((departure) => departure.status === 'active')
     return {
-      total: departures.length,
-      reserved: departures.reduce((total, departure) => total + departure.reserved, 0),
+      total: filteredDepartures.length,
+      reserved: filteredDepartures.reduce((total, departure) => total + departure.reserved, 0),
       remaining: active.reduce((total, departure) => total + departure.remaining, 0),
-      cancelled: departures.filter((departure) => departure.status === 'cancelled').length,
+      cancelled: filteredDepartures.filter((departure) => departure.status === 'cancelled').length,
     }
-  }, [departures])
+  }, [filteredDepartures])
 
   const loadBookings = useCallback(async (departureId: number) => {
     setBookingsLoading(true)
@@ -485,7 +493,9 @@ export default function TouristDeparturesPage() {
     setExporting(true)
     setFeedback(null)
     try {
-      const response = await fetch(`/api/admin/tourist-departures/export?from=${exportFrom}&to=${exportTo}`)
+      const response = await fetch(
+        `/api/admin/tourist-departures/export?from=${exportFrom}&to=${exportTo}${circuitFilter ? `&circuit=${encodeURIComponent(circuitFilter)}` : ''}`,
+      )
       if (!response.ok) {
         const result = await response.json().catch(() => null)
         throw new Error(result?.error || 'No se pudo exportar el archivo.')
@@ -758,11 +768,28 @@ export default function TouristDeparturesPage() {
 
         <div className="table-container">
           <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
-            <select className="select" value={scope} onChange={(event) => setScope(event.target.value as Scope)} style={{ width: 180 }}>
-              <option value="upcoming">Próximas salidas</option>
-              <option value="past">Salidas pasadas</option>
-              <option value="all">Todas</option>
-            </select>
+            <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+              <select className="select" value={scope} onChange={(event) => setScope(event.target.value as Scope)} style={{ width: 180 }}>
+                <option value="upcoming">Próximas salidas</option>
+                <option value="past">Salidas pasadas</option>
+                <option value="all">Todas</option>
+              </select>
+              <select
+                className="select"
+                value={circuitFilter}
+                onChange={(event) => setCircuitFilter(event.target.value)}
+                style={{ width: 230 }}
+                title="Filtra la tabla, los contadores y el export"
+              >
+                <option value="">Todos los circuitos</option>
+                {circuitRecords.map((circuit) => (
+                  <option key={circuit.slug} value={circuit.slug}>
+                    {circuit.name_es}
+                    {circuit.active ? '' : ' (inactivo)'}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Salidas entre:</span>
@@ -811,7 +838,7 @@ export default function TouristDeparturesPage() {
                       </div>
                     </td>
                   </tr>
-                ) : departures.length === 0 ? (
+                ) : filteredDepartures.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
                       <div className="empty-state">
@@ -823,7 +850,7 @@ export default function TouristDeparturesPage() {
                     </td>
                   </tr>
                 ) : (
-                  departures.map((departure) => {
+                  filteredDepartures.map((departure) => {
                     const isExpanded = expandedId === departure.id
                     const bookings = bookingsByDeparture[departure.id] || []
                     const occupancy = getDepartureOccupancyPercent(departure)
