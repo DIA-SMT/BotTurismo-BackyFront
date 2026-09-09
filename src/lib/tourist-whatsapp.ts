@@ -123,7 +123,7 @@ interface BookingWhatsAppInput {
 
 function commonParams({ booking, departure }: BookingWhatsAppInput) {
   const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
-  const title = getTouristCircuitName(departure.circuit_slug, language) || departure.title
+  const title = departure.title || getTouristCircuitName(departure.circuit_slug, language) || ''
   return {
     language,
     firstName: booking.full_name.trim().split(/\s+/)[0] || booking.full_name,

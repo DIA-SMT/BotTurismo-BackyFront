@@ -121,10 +121,13 @@ export function TouristCircuitsPanel({
     setFormErrors({})
     try {
       const url = editingId ? `/api/admin/tourist-circuits/${editingId}` : '/api/admin/tourist-circuits'
+      // Al editar hay que reenviar el estado actual: si no viaja `active`, el
+      // server asume true y un circuito desactivado se reactivaría en silencio.
+      const editingRecord = editingId ? records.find((record) => record.id === editingId) : null
       const response = await fetch(url, {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToPayload(form)),
+        body: JSON.stringify(formToPayload(form, editingRecord ? { active: editingRecord.active } : {})),
       })
       const result = await response.json()
       if (!response.ok) {

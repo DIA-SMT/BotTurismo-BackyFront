@@ -160,7 +160,7 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
   const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
   const copy = bookingEmailCopy[language]
   const office = touristOfficeInfo[language]
-  const title = getTouristCircuitName(departure.circuit_slug, language) || departure.title
+  const title = departure.title || getTouristCircuitName(departure.circuit_slug, language) || ''
   const dateLabel = formatDepartureDate(departure.departure_date, language)
   const timeLabel = `${formatDepartureTime(departure.departure_time)} h`
 
@@ -305,7 +305,7 @@ function buildCancellationEmailContent({ booking, departure }: BookingEmailInput
   const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
   const copy = cancellationEmailCopy[language]
   const office = touristOfficeInfo[language]
-  const title = getTouristCircuitName(departure.circuit_slug, language) || departure.title
+  const title = departure.title || getTouristCircuitName(departure.circuit_slug, language) || ''
   const dateLabel = formatDepartureDate(departure.departure_date, language)
   const timeLabel = `${formatDepartureTime(departure.departure_time)} h`
   const reasonText = reason ? `${copy.reasonLabel}: ${reason}` : ''
@@ -442,7 +442,7 @@ export async function sendTouristBookingCancelledEmail(input: BookingEmailInput)
     const { booking, departure } = input
     const language: TouristLanguage = booking.language === 'en' ? 'en' : 'es'
     const copy = unsubscribeEmailCopy[language]
-    const title = getTouristCircuitName(departure.circuit_slug, language) || departure.title
+    const title = departure.title || getTouristCircuitName(departure.circuit_slug, language) || ''
     const dateLabel = formatDepartureDate(departure.departure_date, language)
     const timeLabel = `${formatDepartureTime(departure.departure_time)} h`
     const bodyText = copy.body(title, dateLabel, timeLabel)
