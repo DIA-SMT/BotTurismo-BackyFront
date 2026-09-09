@@ -95,6 +95,19 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No se pudo actualizar el circuito.' }, { status: 500 })
   }
 
+  // Las salidas guardan una copia del nombre (title) de cuando se crearon: al
+  // renombrar el circuito hay que propagar el nombre nuevo, si no el panel de
+  // salidas, los exports y los mails siguen mostrando el nombre viejo.
+  if (record.name_es !== spanishFields.name_es) {
+    const { error: renameError } = await supabase
+      .from('tourist_departures')
+      .update({ title: spanishFields.name_es })
+      .eq('circuit_slug', record.slug)
+    if (renameError) {
+      console.error('No se pudo propagar el nombre nuevo a las salidas:', renameError.message)
+    }
+  }
+
   return NextResponse.json({ data: data as TouristCircuitRecord, translated })
 }
 
