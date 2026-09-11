@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Camera, CalendarDays, ChevronLeft, Images } from 'lucide-react'
 import GalleryBackground from './GalleryBackground'
+import { DateInput } from '@/components/DateInput'
 import { PHOTO_BOOK_BUCKET } from '@/lib/photo-books'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import styles from './gallery-index.module.css'
@@ -67,7 +68,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
         <form className={styles.search} action="/galeria" method="get">
           <label htmlFor="fecha"><CalendarDays size={18} /> Fecha del recorrido</label>
           <div>
-            <input id="fecha" name="fecha" type="date" defaultValue={selectedDate} required />
+            <DateInput id="fecha" name="fecha" defaultValue={selectedDate} required />
             <button type="submit">Buscar fotos</button>
           </div>
         </form>

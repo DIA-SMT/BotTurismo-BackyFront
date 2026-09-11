@@ -641,7 +641,8 @@ export function formatDateToDisplay(dateString: string) {
   if (!dateString) return ''
   const [year, month, day] = dateString.slice(0, 10).split('-')
   if (!year || !month || !day) return dateString
-  return `${day}-${month}-${year}`
+  // DD/MM/AAAA con barras: pedido de turismo 2026-09-11 (antes iba con guiones).
+  return `${day}/${month}/${year}`
 }
 
 export function formatDateTimeToDisplay(dateString: string) {
@@ -656,7 +657,7 @@ export function formatDateTimeToDisplay(dateString: string) {
   const minute = parts.find((part) => part.type === 'minute')?.value ?? ''
 
   if (!day || !month || !year || !hour || !minute) return dateString
-  return `${day}-${month}-${year} ${hour}:${minute}`
+  return `${day}/${month}/${year} ${hour}:${minute}`
 }
 
 export function getMonthLabel(date: Date) {

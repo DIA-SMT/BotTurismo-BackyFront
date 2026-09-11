@@ -117,7 +117,9 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     },
   ])
 
-  const fileName = `lista-embarque-${departureRecord.departure_date}-${formatDepartureTime(departureRecord.departure_time).replace(':', '')}.xlsx`
+  // Fecha DD-MM-AAAA en el nombre (con guiones: las barras no valen en filenames).
+  const [depYear, depMonth, depDay] = departureRecord.departure_date.split('-')
+  const fileName = `lista-embarque-${depDay}-${depMonth}-${depYear}-${formatDepartureTime(departureRecord.departure_time).replace(':', '')}.xlsx`
 
   return new NextResponse(workbookBuffer, {
     status: 200,

@@ -198,7 +198,9 @@ export function formatDepartureDate(dateKey: string, language: TouristLanguage) 
 
 const shortDepartureDateFormatters: Record<TouristLanguage, Intl.DateTimeFormat> = {
   es: new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-  en: new Intl.DateTimeFormat('en-US', { weekday: 'short', month: '2-digit', day: '2-digit' }),
+  // month short y no numérico: "Sat, Aug 22" es inequívoco para cualquier
+  // anglófono; "08/22" solo lo es para estadounidenses.
+  en: new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
 }
 
 // Versión corta para chips: "Sáb 22/08".

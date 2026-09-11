@@ -32,6 +32,7 @@ import {
 } from '@/lib/tourist-bus'
 import type { TouristCircuitRecord } from '@/lib/tourist-circuits'
 import { TouristCircuitsPanel } from './TouristCircuitsPanel'
+import { DateInput } from '@/components/DateInput'
 
 type Scope = 'upcoming' | 'past' | 'all'
 type AdminTab = 'salidas' | 'circuitos'
@@ -608,8 +609,7 @@ export default function TouristDeparturesPage() {
                 {!newDeparture.recurring ? (
                   <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
                     Fecha
-                    <input
-                      type="date"
+                    <DateInput
                       className="input"
                       min={todayKey}
                       value={newDeparture.departureDate}
@@ -621,8 +621,7 @@ export default function TouristDeparturesPage() {
                   <>
                     <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
                       Desde
-                      <input
-                        type="date"
+                      <DateInput
                         className="input"
                         min={todayKey}
                         value={newDeparture.fromDate}
@@ -632,8 +631,7 @@ export default function TouristDeparturesPage() {
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
                       Hasta
-                      <input
-                        type="date"
+                      <DateInput
                         className="input"
                         min={newDeparture.fromDate || todayKey}
                         value={newDeparture.toDate}
@@ -793,16 +791,14 @@ export default function TouristDeparturesPage() {
 
             <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Salidas entre:</span>
-              <input
-                type="date"
+              <DateInput
                 className="input"
                 title="Desde (fecha de la salida)"
                 value={exportFrom}
                 onChange={(event) => setExportFrom(event.target.value)}
                 style={{ width: 150 }}
               />
-              <input
-                type="date"
+              <DateInput
                 className="input"
                 title="Hasta (fecha de la salida)"
                 value={exportTo}
@@ -940,8 +936,7 @@ export default function TouristDeparturesPage() {
                                 <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
                                   <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
                                     Fecha
-                                    <input
-                                      type="date"
+                                    <DateInput
                                       className="input"
                                       style={{ width: 150 }}
                                       value={editDraft.departureDate}
