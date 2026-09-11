@@ -25,6 +25,7 @@ import {
 } from '@/lib/educational-bus-requests'
 import { Bus, CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Filter, List, Mail, MessageCircle, Plus, RefreshCw, Search, Settings } from 'lucide-react'
 import { EducationalCircuitsPanel } from './EducationalCircuitsPanel'
+import { DateInput } from '@/components/DateInput'
 import type { EducationalCircuitRecord } from '@/lib/educational-circuits'
 
 // Carga manual de turnos tomados por teléfono/presencial (reemplaza al Excel).
@@ -73,7 +74,7 @@ function ManualRequestPanel({
         if (result.fieldErrors) setFieldErrors(result.fieldErrors)
         throw new Error(result.error || 'No se pudo cargar el turno.')
       }
-      setFeedback(`Turno cargado y aprobado: ${result.data.institution_name} — ${result.data.requested_date} (${result.data.preferred_shift === 'manana' ? 'mañana' : 'tarde'}). El calendario público ya lo muestra ocupado.`)
+      setFeedback(`Turno cargado y aprobado: ${result.data.institution_name} — ${formatDateToDisplay(result.data.requested_date)} (${result.data.preferred_shift === 'manana' ? 'mañana' : 'tarde'}). El calendario público ya lo muestra ocupado.`)
       setForm((current) => ({ ...emptyForm, circuit: current.circuit }))
       onCreated()
     } catch (error) {
@@ -110,7 +111,7 @@ function ManualRequestPanel({
           </label>
           <label style={fieldStyle}>
             Fecha *
-            <input type="date" className="input" value={form.requestedDate} onChange={(event) => update('requestedDate')(event.target.value)} />
+            <DateInput className="input" value={form.requestedDate} onChange={(event) => update('requestedDate')(event.target.value)} />
             {fieldErrors.requestedDate ? <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.requestedDate}</span> : null}
           </label>
           <label style={fieldStyle}>
@@ -267,8 +268,7 @@ function EducationalSettingsPanel({ onSaved }: { onSaved: () => void }) {
             <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
               Bloquear reservas hasta (inclusive)
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
+                <DateInput
                   className="input"
                   value={settings.blockedUntil || ''}
                   onChange={(event) =>
@@ -718,7 +718,7 @@ export default function EducationalRequestsPage() {
                 </option>
               ))}
             </select>
-            <input type="date" className="input" value={filters.requestedDate || ''} onChange={(event) => setFilters((current) => ({ ...current, requestedDate: event.target.value }))} />
+            <DateInput className="input" value={filters.requestedDate || ''} onChange={(event) => setFilters((current) => ({ ...current, requestedDate: event.target.value }))} />
           </div>
 
           <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
@@ -745,8 +745,8 @@ export default function EducationalRequestsPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <input type="date" className="input" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} style={{ width: 150 }} />
-                <input type="date" className="input" value={exportTo} onChange={(event) => setExportTo(event.target.value)} style={{ width: 150 }} />
+                <DateInput className="input" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} style={{ width: 150 }} />
+                <DateInput className="input" value={exportTo} onChange={(event) => setExportTo(event.target.value)} style={{ width: 150 }} />
                 <button className="btn btn-primary" onClick={handleExportApproved} disabled={exporting}>
                   <Download size={14} />
                   {exporting ? 'Exportando...' : 'Exportar aprobadas'}

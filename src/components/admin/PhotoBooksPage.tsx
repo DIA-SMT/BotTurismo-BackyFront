@@ -5,6 +5,7 @@ import { Copy, Edit3, ExternalLink, ImagePlus, Plus, QrCode, Save, Trash2, Uploa
 import QRCode from 'qrcode'
 import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
 import type { PhotoBook, TourGuideLogEntry } from '@/lib/photo-books'
+import { DateInput } from '@/components/DateInput'
 
 // Valor especial del selector de recorrido para escribir un nombre a mano
 // (eventos fuera del catálogo de circuitos).
@@ -519,7 +520,7 @@ export default function PhotoBooksPage() {
               </div>
               <div className="form-group">
                 <label>Fecha del recorrido *</label>
-                <input className="input" type="date" value={tourDate} onChange={(event) => setTourDate(event.target.value)} required />
+                <DateInput className="input" value={tourDate} onChange={(event) => setTourDate(event.target.value)} required />
               </div>
               {titleChoice === customTitleChoice ? (
                 <div className="form-group">
@@ -683,7 +684,7 @@ export default function PhotoBooksPage() {
                   </div>
                   <div className="form-group">
                     <label>Fecha *</label>
-                    <input className="input" type="date" value={editTourDate} onChange={(event) => setEditTourDate(event.target.value)} />
+                    <DateInput className="input" value={editTourDate} onChange={(event) => setEditTourDate(event.target.value)} />
                   </div>
                   <div className="form-group photo-book-description">
                     <label>Descripción</label>

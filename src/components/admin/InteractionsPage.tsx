@@ -5,6 +5,7 @@ import { INTENT_LABELS } from '@/lib/supabase'
 import type { TouristInteraction } from '@/lib/supabase'
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { DateInput } from '@/components/DateInput'
 import { es } from 'date-fns/locale'
 
 const PAGE_SIZE = 50
@@ -136,16 +137,14 @@ export default function InteractionsPage() {
                             {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
                         </select>
 
-                        <input
-                            type="date"
+                        <DateInput
                             className="input"
                             value={dateFrom}
                             onChange={e => { setDateFrom(e.target.value); setPage(0) }}
                             title="Desde"
                             style={{ width: 130, flexShrink: 0 }}
                         />
-                        <input
-                            type="date"
+                        <DateInput
                             className="input"
                             value={dateTo}
                             onChange={e => { setDateTo(e.target.value); setPage(0) }}
