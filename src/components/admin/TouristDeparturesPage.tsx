@@ -80,6 +80,25 @@ const initialNewDeparture: NewDepartureForm = {
   toDate: '',
 }
 
+// Lunes (inicio) de la semana de una fecha YYYY-MM-DD: las salidas se agrupan
+// por semanas de lunes a domingo en la tabla (pedido de turismo 2026-09-15).
+function getWeekStartKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const dayOfWeek = date.getUTCDay() // 0 = domingo
+  date.setUTCDate(date.getUTCDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+  return date.toISOString().slice(0, 10)
+}
+
+function formatWeekLabel(weekStartKey: string) {
+  const start = new Date(`${weekStartKey}T12:00:00Z`)
+  const end = new Date(start)
+  end.setUTCDate(end.getUTCDate() + 6)
+  const shortDate = (date: Date) =>
+    `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+  return `Semana del ${shortDate(start)} al ${shortDate(end)}/${end.getUTCFullYear()}`
+}
+
 function toWhatsAppLink(phone: string) {
   const digits = phone.replace(/\D/g, '')
   if (!digits) return null
@@ -846,13 +865,46 @@ export default function TouristDeparturesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredDepartures.map((departure) => {
+                  filteredDepartures.map((departure, index) => {
                     const isExpanded = expandedId === departure.id
                     const bookings = bookingsByDeparture[departure.id] || []
                     const occupancy = getDepartureOccupancyPercent(departure)
+                    const weekStart = getWeekStartKey(departure.departure_date)
+                    const showWeekHeader =
+                      index === 0 || getWeekStartKey(filteredDepartures[index - 1].departure_date) !== weekStart
+                    const isCurrentWeek = weekStart === getWeekStartKey(todayKey)
 
                     return (
                       <Fragment key={departure.id}>
+                        {showWeekHeader ? (
+                          <tr>
+                            <td
+                              colSpan={6}
+                              style={{
+                                padding: '9px 12px',
+                                background: isCurrentWeek ? 'rgba(18,111,245,0.08)' : 'rgba(148,163,184,0.10)',
+                                borderTop: '1px solid rgba(148,163,184,0.25)',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  color: isCurrentWeek ? '#126ff5' : 'var(--text-secondary)',
+                                }}
+                              >
+                                <CalendarDays size={13} />
+                                {formatWeekLabel(weekStart)}
+                                {isCurrentWeek ? ' · esta semana' : ''}
+                              </span>
+                            </td>
+                          </tr>
+                        ) : null}
                         <tr>
                           <td>
                             <div className="td-text-primary">{departure.title}</div>
