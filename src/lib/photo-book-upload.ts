@@ -63,14 +63,33 @@ export async function createSignedPhotoUploads({
   photos: PhotoUploadDescriptor[]
   startSortOrder: number
 }): Promise<{ uploads: SignedPhotoUpload[]; error: unknown }> {
-  const uploads: SignedPhotoUpload[] = []
-  for (const [index, photo] of photos.entries()) {
+  // Firmar de a una tardaba ~8 s con 30 fotos (peligrosamente cerca del límite
+  // de la función) y una sola firma lenta tumbaba el book entero: reporte de
+  // guías 2026-09-21. Ahora se firman en tandas concurrentes y cada firma
+  // reintenta una vez antes de darse por perdida.
+  const CONCURRENCY = 6
+  const uploads: SignedPhotoUpload[] = new Array(photos.length)
+  let failure: unknown = null
+
+  const signOne = async (photo: PhotoUploadDescriptor, index: number) => {
     const displayOrder = startSortOrder + index + 1
-    const storagePath = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
-    const { data, error } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(storagePath)
-    if (error || !data?.signedUrl) return { uploads: [], error: error || new Error('sin signedUrl') }
-    uploads.push({ path: storagePath, signedUrl: data.signedUrl, name: photo.name })
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const storagePath = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
+      const { data, error } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(storagePath)
+      if (!error && data?.signedUrl) {
+        uploads[index] = { path: storagePath, signedUrl: data.signedUrl, name: photo.name }
+        return
+      }
+      failure = error || new Error('sin signedUrl')
+    }
   }
+
+  for (let start = 0; start < photos.length; start += CONCURRENCY) {
+    const batch = photos.slice(start, start + CONCURRENCY)
+    await Promise.all(batch.map((photo, offset) => signOne(photo, start + offset)))
+  }
+
+  if (uploads.some((upload) => !upload)) return { uploads: [], error: failure || new Error('firmas incompletas') }
   return { uploads, error: null }
 }
 
