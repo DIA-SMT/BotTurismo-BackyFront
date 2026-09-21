@@ -69,6 +69,35 @@ async function uploadFilesToSignedUrls(
   return { registered, failedNames }
 }
 
+const MAX_PHOTO_MB = 15
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+
+// Antes, elegir más fotos que el tope las descartaba en silencio y una sola
+// foto pesada hacía fallar el book entero (reporte de guías 2026-09-21).
+// Ahora se separan las que no entran y el guía se entera de cuáles y por qué.
+function filterSelectedPhotos(files: File[], slots: number) {
+  const problems: string[] = []
+  const valid = files.filter((file) => {
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      problems.push(`"${file.name}" no es una foto compatible`)
+      return false
+    }
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+      problems.push(`"${file.name}" pesa ${(file.size / 1024 / 1024).toFixed(1)} MB (máximo ${MAX_PHOTO_MB} MB)`)
+      return false
+    }
+    return true
+  })
+
+  const accepted = valid.slice(0, slots)
+  const droppedByLimit = valid.length - accepted.length
+  if (droppedByLimit > 0) {
+    problems.push(`quedaron afuera ${droppedByLimit} fotos: en este book entran ${slots} más`)
+  }
+
+  return { accepted, problems }
+}
+
 interface Book extends Omit<PhotoBook, 'photo_book_photos'> {
   photo_book_photos: Array<{
     id: string
@@ -569,7 +598,18 @@ export default function PhotoBooksPage() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
-                    onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, MAX_PHOTOS_PER_BOOK))}
+                    onChange={(event) => {
+                      const { accepted, problems } = filterSelectedPhotos(
+                        Array.from(event.target.files || []),
+                        MAX_PHOTOS_PER_BOOK,
+                      )
+                      setPhotos(accepted)
+                      setMessage(
+                        problems.length > 0
+                          ? { text: `Se van a subir ${accepted.length} fotos. No entraron: ${problems.join('; ')}.`, type: 'error' }
+                          : null,
+                      )
+                    }}
                   />
                 </label>
                 <SelectedPhotoPreviews files={photos} />
@@ -714,7 +754,15 @@ export default function PhotoBooksPage() {
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
                     disabled={remainingSlots === 0 || selectedBookExpired}
-                    onChange={(event) => setMorePhotos(Array.from(event.target.files || []).slice(0, remainingSlots))}
+                    onChange={(event) => {
+                      const { accepted, problems } = filterSelectedPhotos(Array.from(event.target.files || []), remainingSlots)
+                      setMorePhotos(accepted)
+                      setMessage(
+                        problems.length > 0
+                          ? { text: `Se van a agregar ${accepted.length} fotos. No entraron: ${problems.join('; ')}.`, type: 'error' }
+                          : null,
+                      )
+                    }}
                   />
                 </label>
                 <SelectedPhotoPreviews files={morePhotos} />

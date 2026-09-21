@@ -3,6 +3,11 @@ import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { parsePhotoDescriptors, registerUploadedPhotos, validatePhotoDescriptors } from '@/lib/photo-book-upload'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 
+// Margen de sobra para firmar/registrar tandas grandes de fotos (el default
+// de la plataforma es 10 s y con 30 fotos se quedaba corto).
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 // Registra en la base las fotos que el navegador ya subió a Storage con las
 // URLs firmadas (verifica contra el bucket que los archivos existan).
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {

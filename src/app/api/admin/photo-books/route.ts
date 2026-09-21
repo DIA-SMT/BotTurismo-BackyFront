@@ -4,6 +4,11 @@ import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
 import { createSignedPhotoUploads, parsePhotoDescriptors, validatePhotoDescriptors } from '@/lib/photo-book-upload'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 
+// Margen de sobra para firmar/registrar tandas grandes de fotos (el default
+// de la plataforma es 10 s y con 30 fotos se quedaba corto).
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function GET() {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
