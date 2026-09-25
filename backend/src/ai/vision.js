@@ -2,7 +2,8 @@ const axios = require('axios');
 
 // imageUrl puede ser una URL pública o un data URL base64 (WhatsApp Cloud API).
 // caption: texto que el turista mandó junto con la foto (opcional).
-async function visionAnalyzeImage(imageUrl, caption = '') {
+async function visionAnalyzeImage(imageUrl, caption = '', channel = 'whatsapp') {
+  const channelName = channel === 'telegram' ? 'Telegram' : 'WhatsApp';
   const promptText = `Analizá esta fotografía con mucho cuidado y determiná si muestra un edificio, plaza, monumento o lugar de San Miguel de Tucumán, Argentina.
 
 PROCESO DE ANÁLISIS:
@@ -51,7 +52,7 @@ LUGARES DE TUCUMÁN MÁS FOTOGRAFIADOS:
       messages: [
         {
           role: 'system',
-          content: 'Sos el asistente de reconocimiento visual del Bot Turístico de San Miguel de Tucumán, Argentina. Analizás fotos para identificar edificios, monumentos y lugares de Tucumán y brindás información histórica y turística. El mensaje generado será enviado por whatsapp, por lo que la respuesta debe ser breve'
+          content: `Sos el asistente de reconocimiento visual del Bot Turístico de San Miguel de Tucumán, Argentina. Analizás fotos para identificar edificios, monumentos y lugares de Tucumán y brindás información histórica y turística. El mensaje generado será enviado por ${channelName}, por lo que la respuesta debe ser breve`
         },
         {
           role: 'user',

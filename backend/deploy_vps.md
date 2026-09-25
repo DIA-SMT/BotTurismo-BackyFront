@@ -71,3 +71,27 @@ sudo nginx -t
 sudo systemctl restart nginx
 sudo certbot --nginx -d turismo.tudominio.com
 ```
+
+### 6. Bot de Telegram (proceso aparte)
+El bot de Telegram vive en el mismo backend (comparte agente, Supabase y métricas) pero corre como otro proceso de PM2. Usa long polling: **no necesita nginx, dominio ni puerto**.
+
+```bash
+cd /var/www/bots/bot-turismo
+git pull
+cd backend
+npm install
+nano .env   # agregar TELEGRAM_BOT_TOKEN=<token completo de @BotFather>
+
+# Probar el arranque a mano (Ctrl+C para cortar). Tiene que decir "escuchando como @...".
+node src/telegram.js
+
+# Levantar SOLO el bot de Telegram, sin reiniciar el de WhatsApp
+pm2 start ecosystem.config.js --only bot-turismo-telegram
+pm2 save
+pm2 logs bot-turismo-telegram --lines 30 --nostream
+```
+
+- `--only` es importante: `pm2 start ecosystem.config.js` a secas intentaría levantar también el backend de WhatsApp.
+- Solo puede haber **una** instancia por token. Si da error 409, ya hay otra corriendo: `pm2 restart bot-turismo-telegram` en vez de levantar otra.
+- Para actualizarlo después: `pm2 restart bot-turismo-telegram` (no toca el de WhatsApp).
+- En el dashboard, las conversaciones de Telegram aparecen con `chat_id` `tg:<id>`.
