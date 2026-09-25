@@ -11,10 +11,13 @@ const model = new ChatOpenAI({
   maxTokens: 2500,
 });
 
-async function mainAgentProcess(inputText, hasPhoto, faqsSummary, eventsSummary, busSummary, chatHistory) {
+const CHANNEL_NAMES = { whatsapp: 'WhatsApp', telegram: 'Telegram' };
+
+async function mainAgentProcess(inputText, hasPhoto, faqsSummary, eventsSummary, busSummary, chatHistory, channel = 'whatsapp') {
   const siteUrl = process.env.PUBLIC_SITE_URL || 'https://smt.gob.ar';
+  const channelName = CHANNEL_NAMES[channel] || 'WhatsApp';
   const systemPrompt = `Eres el Asistente Turístico Virtual oficial de la Dirección Municipal de Turismo (SMT) de San Miguel de Tucumán, Argentina.
-Tu canal de comunicación es WhatsApp.
+Tu canal de comunicación es ${channelName}.
 Usa un tono cálido, amigable, entusiasta y resolutivo. Emojis moderados 🏛️🍽️🎭🌿
 
 🌐 IDIOMA

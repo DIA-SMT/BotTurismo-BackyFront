@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, Fragment } from 'react'
-import { INTENT_LABELS } from '@/lib/supabase'
+import { INTENT_LABELS, CHANNEL_LABELS, getChannel } from '@/lib/supabase'
 import type { TouristInteraction } from '@/lib/supabase'
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -16,6 +16,16 @@ const IDIOMAS = [
     { value: 'es', label: '🇦🇷 Español' },
     { value: 'en', label: '🌐 Inglés' },
 ]
+const CANALES = [
+    { value: '', label: 'Todos los canales' },
+    { value: 'whatsapp', label: CHANNEL_LABELS.whatsapp.label },
+    { value: 'telegram', label: CHANNEL_LABELS.telegram.label },
+]
+
+function ChannelBadge({ chatId }: { chatId: string | null }) {
+    const info = CHANNEL_LABELS[getChannel(chatId)]
+    return <span className="badge" style={{ background: `${info.color}22`, color: info.color }}>{info.label}</span>
+}
 
 function IntentBadge({ intent }: { intent: string | null }) {
     if (!intent) return <span className="text-muted">—</span>
@@ -42,6 +52,7 @@ export default function InteractionsPage() {
     const [search, setSearch] = useState('')
     const [intentFilter, setIntent] = useState('')
     const [langFilter, setLang] = useState('')
+    const [channelFilter, setChannel] = useState('')
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
     const [expandedRow, setExpanded] = useState<number | null>(null)
@@ -55,6 +66,7 @@ export default function InteractionsPage() {
                 page: String(page),
                 intent: intentFilter,
                 language: langFilter,
+                channel: channelFilter,
                 dateFrom,
                 dateTo,
                 search,
@@ -69,13 +81,13 @@ export default function InteractionsPage() {
         } finally {
             setLoading(false)
         }
-    }, [page, intentFilter, langFilter, dateFrom, dateTo, search, refreshKey])
+    }, [page, intentFilter, langFilter, channelFilter, dateFrom, dateTo, search, refreshKey])
 
     useEffect(() => { fetchData() }, [fetchData])
 
     const totalPages = Math.ceil(total / PAGE_SIZE)
 
-    const hasFilters = !!(intentFilter || langFilter || dateFrom || dateTo || search)
+    const hasFilters = !!(intentFilter || langFilter || channelFilter || dateFrom || dateTo || search)
 
     return (
         <>
@@ -137,6 +149,15 @@ export default function InteractionsPage() {
                             {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
                         </select>
 
+                        <select
+                            className="select"
+                            style={{ minWidth: 90, flex: '0 1 auto' }}
+                            value={channelFilter}
+                            onChange={e => { setChannel(e.target.value); setPage(0) }}
+                        >
+                            {CANALES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+
                         <DateInput
                             className="input"
                             value={dateFrom}
@@ -155,7 +176,7 @@ export default function InteractionsPage() {
                         {hasFilters && (
                             <button
                                 className="btn btn-secondary"
-                                onClick={() => { setIntent(''); setLang(''); setDateFrom(''); setDateTo(''); setSearch(''); setPage(0) }}
+                                onClick={() => { setIntent(''); setLang(''); setChannel(''); setDateFrom(''); setDateTo(''); setSearch(''); setPage(0) }}
                             >
                                 ✕ Limpiar
                             </button>
@@ -193,7 +214,10 @@ export default function InteractionsPage() {
                                             </td>
                                             <td>
                                                 <div className="td-text-primary">{row.user_name || '—'}</div>
-                                                <div className="td-muted">{row.chat_id ? `${row.chat_id}` : '—'}</div>
+                                                <div className="td-muted flex items-center gap-2">
+                                                    <ChannelBadge chatId={row.chat_id} />
+                                                    {row.chat_id ? `${row.chat_id}` : '—'}
+                                                </div>
                                             </td>
                                             <td><IntentBadge intent={row.intent} /></td>
                                             <td className="interactions-col-lang"><LangBadge lang={row.language} /></td>

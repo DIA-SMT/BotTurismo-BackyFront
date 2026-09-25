@@ -76,6 +76,21 @@ export const CATEGORIAS: Record<string, { label: string; emoji: string; color: s
   general:      { label: 'General',         emoji: '✨',  color: '#6366f1' },
 }
 
+// El canal se deduce del chat_id: el bot de Telegram guarda 'tg:<id>' y el de
+// WhatsApp el teléfono. Todo lo anterior a Telegram (incluso sin chat_id) es WhatsApp.
+export type Channel = 'whatsapp' | 'telegram'
+
+export const TELEGRAM_CHAT_PREFIX = 'tg:'
+
+export const CHANNEL_LABELS: Record<Channel, { label: string; color: string }> = {
+  whatsapp: { label: 'WhatsApp', color: '#16a34a' },
+  telegram: { label: 'Telegram', color: '#0284c7' },
+}
+
+export function getChannel(chatId: string | null): Channel {
+  return chatId?.startsWith(TELEGRAM_CHAT_PREFIX) ? 'telegram' : 'whatsapp'
+}
+
 export const INTENT_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
   recomendacion_gastronomica: { label: 'Gastronomía',    emoji: '🍽️', color: '#f59e0b' },
   recomendacion_alojamiento:  { label: 'Alojamiento',    emoji: '🏨', color: '#8b5cf6' },

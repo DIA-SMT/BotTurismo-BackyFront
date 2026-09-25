@@ -1,10 +1,6 @@
 const crypto = require('crypto');
-const { fetchActiveFAQs, getChatHistory, saveChatMessage, logInteraction, fetchTouristBusSummary } = require('../services/supabase');
-const { fetchCulturalEvents } = require('../services/api');
 const { sendWhatsAppText, markMessageAsRead, downloadWhatsAppMedia } = require('../services/whatsapp');
-const { mainAgentProcess } = require('../ai/agent');
-const { visionAnalyzeImage } = require('../ai/vision');
-const { transcribeAudio } = require('../ai/audio');
+const { processTouristMessage } = require('../services/conversation');
 
 // ── Verificación del webhook (GET de Meta al configurar la app) ──
 function verifyWhatsAppWebhook(req, res) {
@@ -58,75 +54,29 @@ async function processIncomingMessage(message, contact) {
   const chatId = from.startsWith('+') ? from : `+${from}`;
   const userName = contact?.profile?.name || '';
 
-  let inputText = '';
-  let hasPhoto = false;
-  let finalResponseJson = null;
-
   markMessageAsRead(message.id);
 
-  // 1. Normalizar la entrada según el tipo de mensaje
+  const base = {
+    channel: 'whatsapp',
+    chatId,
+    userName,
+    send: (text) => sendWhatsAppText(chatId, text)
+  };
+
+  // Normalizar la entrada según el tipo de mensaje y delegar al flujo común
   if (message.type === 'text') {
-    inputText = message.text?.body || '';
+    await processTouristMessage({ ...base, kind: 'text', text: message.text?.body || '' });
   } else if (message.type === 'audio' || message.type === 'voice') {
-    console.log(`[${chatId}] Audio recibido, transcribiendo...`);
     const media = await downloadWhatsAppMedia(message.audio?.id || message.voice?.id);
-    inputText = await transcribeAudio(media.dataUrl);
-    console.log(`[${chatId}] Transcripción: ${inputText.substring(0, 120)}`);
+    await processTouristMessage({ ...base, kind: 'audio', mediaDataUrl: media.dataUrl });
   } else if (message.type === 'image') {
-    console.log(`[${chatId}] Imagen recibida, analizando (geo-quiz)...`);
-    hasPhoto = true;
     const media = await downloadWhatsAppMedia(message.image?.id);
-    const caption = message.image?.caption || '';
-    finalResponseJson = await visionAnalyzeImage(media.dataUrl, caption);
-    inputText = caption ? `[Foto] ${caption}` : '[El usuario envió una imagen]';
+    await processTouristMessage({ ...base, kind: 'image', mediaDataUrl: media.dataUrl, caption: message.image?.caption || '' });
   } else {
     // Stickers, ubicaciones, documentos, etc.
     console.log(`[${chatId}] Tipo de mensaje no soportado: ${message.type}`);
     await sendWhatsAppText(chatId, 'Por ahora entiendo mensajes de texto, notas de voz y fotos de lugares de la ciudad 🏛️. ¡Contame en qué te puedo ayudar!');
-    return;
   }
-
-  // 2. Si no fue imagen, procesar con el agente principal con todo el contexto
-  if (!finalResponseJson) {
-    if (!inputText.trim()) return;
-
-    console.log(`[${chatId}] Buscando contexto (FAQs, eventos, bus turístico)...`);
-    const [faqsSummary, eventsSummary, busSummary, chatHistory] = await Promise.all([
-      fetchActiveFAQs(),
-      fetchCulturalEvents(),
-      fetchTouristBusSummary(),
-      getChatHistory(chatId, 6)
-    ]);
-
-    console.log(`[${chatId}] Consultando al agente principal...`);
-    finalResponseJson = await mainAgentProcess(inputText, hasPhoto, faqsSummary, eventsSummary, busSummary, chatHistory);
-  }
-
-  console.log(`[${chatId}] Respuesta generada: "${finalResponseJson.additional_info.substring(0, 100)}..."`);
-
-  // 3. Responder por WhatsApp
-  await sendWhatsAppText(chatId, finalResponseJson.additional_info);
-
-  // 4. Memoria conversacional persistente
-  await saveChatMessage(chatId, 'user', inputText);
-  await saveChatMessage(chatId, 'assistant', finalResponseJson.additional_info);
-
-  // 5. Log para analíticas del dashboard
-  await logInteraction({
-    chat_id: chatId,
-    user_name: userName,
-    intent: finalResponseJson.intent || 'consulta_general',
-    language: finalResponseJson.language || 'es',
-    origen_provincia: finalResponseJson.origen_provincia || null,
-    medio_transporte: finalResponseJson.medio_transporte || null,
-    query_text: inputText,
-    bot_response: finalResponseJson.additional_info,
-    has_photo: hasPhoto,
-    budget: finalResponseJson.budget || null,
-    live_chat_url: ''
-  });
-
-  console.log(`[${chatId}] Flujo completado.`);
 }
 
 async function handleWhatsAppWebhook(req, res) {
