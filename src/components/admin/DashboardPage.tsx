@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { INTENT_LABELS } from '@/lib/supabase'
-import type { KpiIntent, KpiOrigen, KpiActividad, KpiFranja, KpiInternacional } from '@/lib/supabase'
+import { INTENT_LABELS, CHANNEL_LABELS } from '@/lib/supabase'
+import type { KpiIntent, KpiOrigen, KpiActividad, KpiFranja, KpiInternacional, Channel } from '@/lib/supabase'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, CartesianGrid,
@@ -13,6 +13,27 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const COLORS = ['#126ff5', '#2589ea', '#28469f', '#3c74d8', '#10b981', '#f59e0b', '#ef4444', '#6b8fe8', '#8fb9ff']
+
+type ChannelCounts = Record<Channel, number>
+interface ByChannel {
+  interactions: ChannelCounts
+  tourists: ChannelCounts
+}
+
+function ChannelSplit({ counts, fallback }: { counts: ChannelCounts | undefined; fallback: string }) {
+  if (!counts) return <div className="card-sub">{fallback}</div>
+  return (
+    <div className="card-sub">
+      {(Object.keys(CHANNEL_LABELS) as Channel[]).map((channel, i) => (
+        <span key={channel}>
+          {i > 0 && ' · '}
+          <span style={{ color: CHANNEL_LABELS[channel].color, fontWeight: 600 }}>{CHANNEL_LABELS[channel].label}</span>{' '}
+          {counts[channel].toLocaleString('es-AR')}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -41,6 +62,7 @@ export default function DashboardPage() {
   const [totalInteracciones, setTotal] = useState(0)
   const [totalTuristas, setTotalT] = useState(0)
   const [pctInternacional, setPct] = useState(0)
+  const [porCanal, setPorCanal] = useState<ByChannel | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -58,6 +80,7 @@ export default function DashboardPage() {
       setTotal(payload.totalInteractions || 0)
       setTotalT(payload.totalTourists || 0)
       setPct(payload.internationalPct || 0)
+      setPorCanal(payload.byChannel || null)
       setLastUpdated(new Date())
     } catch (e) {
       console.error(e)
@@ -126,13 +149,13 @@ export default function DashboardPage() {
             <div className="card-icon">💬</div>
             <div className="card-value">{totalInteracciones.toLocaleString('es-AR')}</div>
             <div className="card-label">Total Interacciones</div>
-            <div className="card-sub">desde el inicio</div>
+            <ChannelSplit counts={porCanal?.interactions} fallback="desde el inicio" />
           </div>
           <div className="stat-card" style={{ '--card-color': '#2589ea', '--card-color-bg': 'rgba(37,137,234,0.12)' } as any}>
             <div className="card-icon">👥</div>
             <div className="card-value">{totalTuristas.toLocaleString('es-AR')}</div>
             <div className="card-label">Turistas Únicos</div>
-            <div className="card-sub">por número de WhatsApp</div>
+            <ChannelSplit counts={porCanal?.tourists} fallback="por chat de WhatsApp o Telegram" />
           </div>
           <div className="stat-card" style={{ '--card-color': '#28469f', '--card-color-bg': 'rgba(40,70,159,0.12)' } as any}>
             <div className="card-icon">🌐</div>
