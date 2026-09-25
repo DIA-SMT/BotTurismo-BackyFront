@@ -50,11 +50,26 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// El modelo a veces responde con etiquetas HTML (<strong>, <br>, <a href>...)
+// en lugar de Markdown. Se pasan a los marcadores que entiende toTelegramHtml;
+// solo se tocan etiquetas conocidas, asi un "<consultar>" del texto se conserva.
+function normalizeModelHtml(text) {
+  return text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(strong|b)>/gi, '**')
+    .replace(/<a\s+href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
+    .replace(/<\/?code>/gi, '`')
+    .replace(/<h[1-6][^>]*>/gi, '# ')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<\/(p|div|li|h[1-6]|ul|ol)>/gi, '\n')
+    .replace(/<\/?(em|i|u|s|del|ins|span|p|div|ul|ol)(\s[^>]*)?>/gi, '');
+}
+
 // Convierte el formato que suele devolver el modelo (estilo WhatsApp/Markdown)
 // al subconjunto de HTML que acepta Telegram. El orden importa: primero se
 // escapa TODO el texto y recien despues se agregan las etiquetas propias.
 function toTelegramHtml(text) {
-  let s = escapeHtml(text);
+  let s = escapeHtml(normalizeModelHtml(text));
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, label, url) => `<a href="${url.replace(/"/g, '&quot;')}">${label}</a>`);
   s = s.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
   s = s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
@@ -66,7 +81,7 @@ function toTelegramHtml(text) {
 
 // Version sin marcado, para el reenvio si Telegram rechaza el HTML.
 function toPlainText(text) {
-  return text
+  return normalizeModelHtml(text)
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1: $2')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1')
     .replace(/\*(?!\s)([^*\n]+?)(?<!\s)\*/g, '$1')

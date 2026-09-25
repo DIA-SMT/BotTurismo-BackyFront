@@ -57,8 +57,8 @@ async function fetchCulturalEvents() {
       
       const dateObj = fechaInicio ? new Date(fechaInicio) : null;
       const dateStr = dateObj ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' }) : '';
-      const timeStr = dateObj ? dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
-      const endTimeStr = fechaFin ? new Date(fechaFin).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+      const timeStr = dateObj ? dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+      const endTimeStr = fechaFin ? new Date(fechaFin).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
       let info = `• ${nombre}`;
       if (dateStr) info += ` — ${dateStr}`;
