@@ -12,6 +12,7 @@ const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 const MAX_TEXT_CHARS = 1000;
 const MAX_CAPTION_CHARS = 500;
 const MAX_MEDIA_BYTES = 6 * 1024 * 1024;
+const RESPONSE_DEADLINE_MS = 75 * 1000;
 
 // El widget manda fotos en JPEG y audio en WAV; se aceptan también los formatos
 // que Gemini entiende sin conversión.
@@ -151,30 +152,49 @@ async function handleWebChat(req, res) {
   }
 
   let replied = false;
-  const run = enqueue(chatId, () => processTouristMessage({
-    ...input,
-    channel: 'web',
-    chatId,
-    userName: '',
-    // La respuesta sale apenas está lista; memoria y métricas se guardan después.
-    send: async (reply) => {
-      replied = true;
-      if (!res.headersSent) res.json({ reply });
-    }
-  }));
+  let timedOut = false;
+  const run = enqueue(chatId, () => {
+    // Si el turno llega cuando el pedido ya venció, no se procesa (ni se gasta modelo).
+    if (timedOut) return Promise.resolve();
+    return processTouristMessage({
+      ...input,
+      channel: 'web',
+      chatId,
+      userName: '',
+      // La respuesta sale apenas está lista; memoria y métricas se guardan después.
+      send: async (reply) => {
+        // Respuesta tardía: el turista ya vio el error. Se corta acá para no
+        // guardar en el historial una respuesta que nunca le llegó.
+        if (timedOut) throw new Error('respuesta web fuera de tiempo');
+        replied = true;
+        res.json({ reply });
+      }
+    });
+  });
 
   if (!run) {
     return fail(res, 429, 'busy', 'Todavía estoy respondiendo tu mensaje anterior.');
   }
 
+  // Menor que el timeout del widget y que el proxy_read_timeout de nginx (90 s),
+  // así el turista recibe un mensaje claro en vez de un error de conexión.
+  const deadline = setTimeout(() => {
+    if (replied || res.headersSent) return;
+    timedOut = true;
+    console.warn(`[${chatId}] Mensaje web sin respuesta a los ${RESPONSE_DEADLINE_MS / 1000} s`);
+    fail(res, 504, 'bot_error', 'Estoy tardando más de lo normal. Probá de nuevo en un ratito.');
+  }, RESPONSE_DEADLINE_MS);
+
   try {
     await run;
-    if (!replied) fail(res, 400, 'empty_message', 'No pude entender el mensaje. ¿Me lo escribís de nuevo?');
+    if (!replied && !res.headersSent) fail(res, 400, 'empty_message', 'No pude entender el mensaje. ¿Me lo escribís de nuevo?');
   } catch (err) {
     console.error(`[${chatId}] Error procesando mensaje web:`, err?.response?.data || err.message);
     if (!replied && !res.headersSent) {
       fail(res, 502, 'bot_error', 'Perdón, tuve un problema para responderte. Probá de nuevo en un ratito o escribinos a turismo@smt.gob.ar');
     }
+  } finally {
+    clearTimeout(deadline);
   }
 }
 

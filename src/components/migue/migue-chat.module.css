@@ -132,6 +132,11 @@
   animation: migue-pop 0.22s ease-out;
 }
 
+/* Recibe el foco (tabIndex -1) para no perderlo en celular; sin anillo visible */
+.panel:focus {
+  outline: none;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -253,8 +258,9 @@
   color: #ffffff;
 }
 
+/* Contraste AA con texto blanco (4.8:1) */
 .bubbleFailed {
-  background: #93a4bd;
+  background: #64748b;
 }
 
 .paragraph {
@@ -310,7 +316,7 @@
 .retryButton {
   border: 0;
   background: transparent;
-  color: var(--migue-blue);
+  color: var(--migue-deep);
   font: inherit;
   font-weight: 700;
   text-decoration: underline;
@@ -546,10 +552,13 @@
     bottom: 84px;
   }
 
+  /* Ocupa el área visible: con el teclado abierto la ajusta MigueChat (visualViewport) */
   .panel {
     inset: 0;
+    top: var(--migue-vv-top, 0px);
+    bottom: auto;
     width: 100%;
-    height: 100%;
+    height: var(--migue-vv-height, 100%);
     border-radius: 0;
   }
 

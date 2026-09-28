@@ -112,7 +112,15 @@ aparecen como canal **Web** (`chat_id` `web:<uuid>`).
    (`WEB_CHAT_MAX_*`) tienen valores por defecto; ver `.env.example`.
 3. **nginx**: dentro del `location /turismo/` de `/etc/nginx/sites-available/panel`
    agregar `client_max_body_size 10m;` (fotos y notas de voz; el default de nginx
-   es 1 MB y cortaría casi todas). Después `nginx -t && systemctl reload nginx`.
+   es 1 MB y cortaría casi todas). En ese mismo bloque tienen que estar (hoy ya están):
+   - `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`: el límite
+     por IP usa la IP real del turista. Sin esta línea, todo el sitio compartiría
+     un solo cupo y cualquiera podría saltearlo inventando el header.
+   - `proxy_read_timeout 90s;`: el backend corta a los 75 s con un mensaje claro;
+     con el default de nginx (60 s) el turista vería un error de conexión.
+
+   Verificar con `nginx -T 2>/dev/null | grep -A20 'location /turismo/'` y
+   después `nginx -t && systemctl reload nginx`.
 4. `pm2 restart bot-turismo-smt` y probar:
    ```bash
    curl -X POST https://DOMINIO/turismo/api/chat/web \

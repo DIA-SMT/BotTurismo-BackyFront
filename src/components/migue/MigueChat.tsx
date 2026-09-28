@@ -56,7 +56,6 @@ const COPY = {
   es: {
     name: 'Migue',
     subtitle: 'Asistente turístico · Municipalidad de SMT',
-    open: 'Chatear con Migue',
     launcherLabel: '¿Consultas? Hablá con Migue',
     close: 'Cerrar chat',
     newChat: 'Nueva conversación',
@@ -112,7 +111,6 @@ También podés mandarme una nota de voz 🎙️, o una foto de un edificio o lu
   en: {
     name: 'Migue',
     subtitle: 'Tourist assistant · City of San Miguel de Tucumán',
-    open: 'Chat with Migue',
     launcherLabel: 'Questions? Ask Migue',
     close: 'Close chat',
     newChat: 'New conversation',
@@ -313,7 +311,12 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   const chunksRef = useRef<Blob[]>([])
   const discardRecordingRef = useRef(false)
   const recordTimerRef = useRef<number | null>(null)
+  // Pedido de micrófono en curso (el permiso puede tardar): evita dos
+  // grabaciones a la vez y descarta el micrófono si el chat se cerró mientras tanto.
+  const startingMicRef = useRef(false)
+  const micRequestRef = useRef(0)
   const returnFocusRef = useRef(false)
+  const stopButtonRef = useRef<HTMLButtonElement>(null)
 
   // 1. Restaurar la conversación y el idioma (solo en el navegador)
   useEffect(() => {
@@ -321,7 +324,13 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
     const id = stored?.sessionId || createSessionId()
     sessionRef.current = id
     setSessionId(id)
-    setMessages(stored?.messages || [])
+    // Si la página se recargó mientras Migue respondía, esa respuesta se perdió:
+    // el último mensaje queda como no enviado para poder reintentarlo.
+    const restored = stored?.messages || []
+    const last = restored[restored.length - 1]
+    setMessages(
+      last?.role === 'user' && !last.failed ? [...restored.slice(0, -1), { ...last, failed: true }] : restored,
+    )
     setLanguage(detectLanguage())
     setReady(true)
   }, [])
@@ -362,10 +371,41 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
     writeStorage(MIGUE_TEASER_KEY, '1')
   }, [])
 
-  // 4. Al abrir: foco en el campo (solo con mouse, en celular abriría el teclado)
+  // 4. Foco dentro del chat: en el campo si hay mouse; en celular, en el panel
+  //    (enfocar el campo abriría el teclado).
+  const focusInside = useCallback(() => {
+    if (window.matchMedia?.('(pointer: fine)').matches && inputRef.current) inputRef.current.focus()
+    else panelRef.current?.focus()
+  }, [])
+
   useEffect(() => {
-    if (!open) return
-    if (window.matchMedia?.('(pointer: fine)').matches) inputRef.current?.focus()
+    if (open) focusInside()
+  }, [open, focusInside])
+
+  // Celular: con el teclado abierto el navegador solo achica el área visible
+  // (visual viewport) y el panel quedaría con el encabezado tapado. Se ajusta
+  // el panel a esa área.
+  useEffect(() => {
+    const viewport = window.visualViewport
+    const panel = panelRef.current
+    if (!open || !viewport || !panel) return
+    const narrow = window.matchMedia('(max-width: 560px)')
+    const sync = () => {
+      if (narrow.matches) {
+        panel.style.setProperty('--migue-vv-top', `${viewport.offsetTop}px`)
+        panel.style.setProperty('--migue-vv-height', `${viewport.height}px`)
+      } else {
+        panel.style.removeProperty('--migue-vv-top')
+        panel.style.removeProperty('--migue-vv-height')
+      }
+    }
+    sync()
+    viewport.addEventListener('resize', sync)
+    viewport.addEventListener('scroll', sync)
+    return () => {
+      viewport.removeEventListener('resize', sync)
+      viewport.removeEventListener('scroll', sync)
+    }
   }, [open])
 
   // Respuesta nueva de Migue: se muestra desde su comienzo (suelen ser largas);
@@ -414,6 +454,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   // Al desmontar (cambio a una página sin chat) se corta el micrófono
   useEffect(
     () => () => {
+      micRequestRef.current++
       discardRecordingRef.current = true
       if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
       releaseMicrophone()
@@ -466,7 +507,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
 
   const retry = useCallback(
     (message: MigueMessage) => {
-      if (pending) return
+      if (pending || recordingState !== 'idle') return
       const payload =
         failedPayloads.current.get(message.id) ||
         (message.kind === 'text' ? ({ kind: 'text', text: message.text } as Payload) : null)
@@ -474,9 +515,19 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
       setNotice('')
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, failed: false } : m)))
       void deliver(message.id, payload)
+      // El botón desaparece: el foco se queda dentro del chat
+      focusInside()
     },
-    [deliver, pending],
+    [deliver, focusInside, pending, recordingState],
   )
+
+  // Las sugerencias no se pueden usar mientras se graba: la nota de voz se
+  // enviaría en paralelo al terminar.
+  const sendSuggestion = (text: string) => {
+    if (recordingState !== 'idle') return
+    sendMessage({ kind: 'text', text }, { kind: 'text', text })
+    focusInside()
+  }
 
   const submit = useCallback(
     (event?: FormEvent) => {
@@ -501,7 +552,9 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   )
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+    // keyCode 229: Safari confirma una palabra del teclado japonés/chino con
+    // Enter y no marca isComposing; ese Enter no debe enviar el mensaje.
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
       event.preventDefault()
       submit()
     }
@@ -544,18 +597,27 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   )
 
   const startRecording = async () => {
-    if (pending || recordingState !== 'idle') return
+    if (pending || recordingState !== 'idle' || startingMicRef.current || recorderRef.current) return
     if (!canRecordAudio()) {
       setNotice(copy.micUnsupported)
       return
     }
 
+    startingMicRef.current = true
+    const request = ++micRequestRef.current
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch (err) {
       const name = (err as Error)?.name
       setNotice(name === 'NotAllowedError' || name === 'SecurityError' ? copy.micDenied : copy.micUnavailable)
+      return
+    } finally {
+      startingMicRef.current = false
+    }
+    // El chat se cerró (o se cambió de página) mientras el navegador pedía permiso
+    if (request !== micRequestRef.current) {
+      stream.getTracks().forEach(track => track.stop())
       return
     }
 
@@ -617,6 +679,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   }
 
   const closeChat = () => {
+    micRequestRef.current++
     if (recordingState === 'recording') stopRecording(true)
     setOpen(false)
     returnFocusRef.current = true
@@ -629,12 +692,25 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
     launcherRef.current?.focus()
   }, [open])
 
-  const onPanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation()
-      closeChat()
+  // Escape cierra el chat esté donde esté el foco: varios botones desaparecen
+  // al usarlos (sugerencias, reintentar, micrófono) y el foco queda en la página.
+  const closeChatRef = useRef(closeChat)
+  closeChatRef.current = closeChat
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') closeChatRef.current()
     }
-  }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // Al grabar, el foco pasa a "Terminar y enviar"; al terminar, vuelve al chat
+  useEffect(() => {
+    if (!open) return
+    if (recordingState === 'recording') stopButtonRef.current?.focus()
+    else if (recordingState === 'idle' && document.activeElement === document.body) focusInside()
+  }, [recordingState, open, focusInside])
 
   const startNewChat = () => {
     if (pending) return
@@ -666,7 +742,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
           role="dialog"
           aria-modal="false"
           aria-labelledby="migue-chat-title"
-          onKeyDown={onPanelKeyDown}
+          tabIndex={-1}
         >
           <header className={styles.header}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -713,8 +789,8 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
                     key={suggestion}
                     type="button"
                     className={styles.suggestion}
-                    disabled={pending}
-                    onClick={() => sendMessage({ kind: 'text', text: suggestion }, { kind: 'text', text: suggestion })}
+                    disabled={pending || recordingState !== 'idle'}
+                    onClick={() => sendSuggestion(suggestion)}
                   >
                     {suggestion}
                   </button>
@@ -759,7 +835,12 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
                   <div className={styles.failedNote}>
                     {copy.notSent}{' '}
                     {(failedPayloads.current.has(message.id) || message.kind === 'text') && (
-                      <button type="button" className={styles.retryButton} onClick={() => retry(message)} disabled={pending}>
+                      <button
+                        type="button"
+                        className={styles.retryButton}
+                        onClick={() => retry(message)}
+                        disabled={pending || recordingState !== 'idle'}
+                      >
                         {copy.retry}
                       </button>
                     )}
@@ -879,6 +960,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
                       {copy.recording} {formatSeconds(recordSeconds)} / {formatSeconds(MAX_AUDIO_SECONDS)}
                     </span>
                     <button
+                      ref={stopButtonRef}
                       type="button"
                       className={`${styles.iconButton} ${styles.sendButton}`}
                       onClick={() => stopRecording(false)}
@@ -921,7 +1003,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
           type="button"
           className={styles.launcher}
           onClick={openChat}
-          aria-label={copy.open}
+          aria-label={copy.launcherLabel}
           aria-expanded={open}
           aria-controls="migue-chat-panel"
         >

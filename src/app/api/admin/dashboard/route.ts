@@ -3,6 +3,34 @@ import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { TELEGRAM_CHAT_PREFIX, WEB_CHAT_PREFIX, getChannel } from '@/lib/supabase'
 
+type SupabaseClient = ReturnType<typeof createServerSupabaseClient>
+
+// Supabase devuelve como mucho 1000 filas por consulta: los chat_id se leen por
+// páginas para que los turistas únicos no se corten (los chats nuevos, como los
+// de la web, quedaban afuera).
+const PAGE_SIZE = 1000
+
+async function fetchUniqueChatIds(supabase: SupabaseClient) {
+  const chatIds = new Set<string>()
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('tourist_interactions')
+      .select('chat_id')
+      .not('chat_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
+    // Como el resto de las métricas: un error no tira abajo el dashboard entero
+    if (error) {
+      console.error('Dashboard: no se pudieron leer los chat_id', error.message)
+      return chatIds
+    }
+    for (const row of (data || []) as { chat_id: string | null }[]) {
+      if (row.chat_id) chatIds.add(row.chat_id)
+    }
+    if (!data || data.length < PAGE_SIZE) return chatIds
+  }
+}
+
 export async function GET() {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) {
@@ -17,7 +45,7 @@ export async function GET() {
     { data: timeSlots },
     { data: international },
     { count: totalInteractions },
-    { data: uniqueRows },
+    uniqueChats,
     { count: internationalCount },
     { count: telegramCount },
     { count: webCount },
@@ -28,14 +56,13 @@ export async function GET() {
     supabase.from('kpi_franja_horaria').select('*'),
     supabase.from('kpi_turistas_internacionales').select('*').limit(6),
     supabase.from('tourist_interactions').select('*', { count: 'exact', head: true }),
-    supabase.from('tourist_interactions').select('chat_id').not('chat_id', 'is', null),
+    fetchUniqueChatIds(supabase),
     supabase.from('tourist_interactions').select('*', { count: 'exact', head: true }).eq('language', 'en'),
     supabase.from('tourist_interactions').select('*', { count: 'exact', head: true }).like('chat_id', `${TELEGRAM_CHAT_PREFIX}%`),
     supabase.from('tourist_interactions').select('*', { count: 'exact', head: true }).like('chat_id', `${WEB_CHAT_PREFIX}%`),
   ])
 
   const total = totalInteractions || 0
-  const uniqueChats = new Set((uniqueRows || []).map((row: { chat_id: string | null }) => row.chat_id))
   const unique = uniqueChats.size
   const uniqueTelegram = [...uniqueChats].filter(chatId => getChannel(chatId) === 'telegram').length
   const uniqueWeb = [...uniqueChats].filter(chatId => getChannel(chatId) === 'web').length

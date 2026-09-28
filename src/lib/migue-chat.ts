@@ -269,12 +269,21 @@ function parseInline(text: string, allowBold = true): RichInline[] {
     const [whole, bold, linkLabel, linkUrl, bareUrl, email, singleBold] = match
     const boldContent = bold ?? singleBold
 
-    if (boldContent !== undefined && !allowBold) continue
     pushText(text.slice(cursor, index))
     cursor = index + whole.length
 
     if (boldContent !== undefined) {
-      result.push({ type: 'bold', children: parseInline(boldContent, false) })
+      const children = parseInline(boldContent, false)
+      if (allowBold) {
+        result.push({ type: 'bold', children })
+      } else {
+        // Negrita dentro de algo que ya es negrita (un título "### **Casa Histórica**"):
+        // se quitan los asteriscos y se conservan los links que haya adentro.
+        for (const child of children) {
+          if (child.type === 'text') pushText(child.value)
+          else result.push(child)
+        }
+      }
     } else if (linkUrl) {
       result.push({ type: 'link', href: linkUrl, label: linkLabel })
     } else if (bareUrl) {
