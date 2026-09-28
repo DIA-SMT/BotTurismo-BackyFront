@@ -1,0 +1,600 @@
+/* Chat de Migue Turista: botón flotante + panel. Colores de la identidad municipal. */
+
+.root {
+  --migue-blue: #126ff5;
+  --migue-deep: #28469f;
+  --migue-ink: #1f2933;
+  --migue-muted: #68737d;
+  --migue-border: #e3e8ef;
+  --migue-surface: #f4f7fb;
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: var(--migue-ink);
+}
+
+/* ── Botón flotante ── */
+
+.launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 18px 4px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--migue-deep);
+  color: #ffffff;
+  box-shadow: 0 14px 34px rgba(18, 38, 90, 0.32);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.launcher:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(18, 38, 90, 0.38);
+}
+
+.launcher:focus-visible,
+.teaserText:focus-visible,
+.teaserClose:focus-visible,
+.headerButton:focus-visible,
+.iconButton:focus-visible,
+.suggestion:focus-visible,
+.retryButton:focus-visible,
+.stagedRemove:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.launcherAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  object-fit: cover;
+  background: #ffffff;
+}
+
+.launcherLabel {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ── Globito de bienvenida ── */
+
+.teaser {
+  position: fixed;
+  right: 20px;
+  bottom: 92px;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: min(300px, calc(100vw - 40px));
+  padding: 12px 8px 12px 14px;
+  border: 1px solid var(--migue-border);
+  border-radius: 16px 16px 4px 16px;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(12, 28, 46, 0.16);
+  animation: migue-pop 0.28s ease-out;
+}
+
+.teaserText {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--migue-ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.teaserClose {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--migue-muted);
+  cursor: pointer;
+}
+
+.teaserClose:hover {
+  background: var(--migue-surface);
+}
+
+/* ── Panel ── */
+
+.panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  width: 390px;
+  height: min(640px, calc(100vh - 40px));
+  height: min(640px, calc(100dvh - 40px));
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--migue-surface);
+  box-shadow: 0 24px 60px rgba(12, 28, 46, 0.28);
+  animation: migue-pop 0.22s ease-out;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px 14px 16px;
+  background: linear-gradient(135deg, var(--migue-deep), var(--migue-blue));
+  color: #ffffff;
+}
+
+.headerAvatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  object-fit: cover;
+  background: #ffffff;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.onlineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.headerSubtitle {
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  opacity: 0.88;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerButton {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.headerButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.headerButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Mensajes ── */
+
+.messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+}
+
+.rowBot {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.rowUser {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.bubble {
+  padding: 10px 13px;
+  border-radius: 16px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.bubbleBot {
+  border: 1px solid var(--migue-border);
+  border-bottom-left-radius: 4px;
+  background: #ffffff;
+  color: var(--migue-ink);
+}
+
+.bubbleUser {
+  border-bottom-right-radius: 4px;
+  background: var(--migue-blue);
+  color: #ffffff;
+}
+
+.bubbleFailed {
+  background: #93a4bd;
+}
+
+.paragraph {
+  white-space: pre-wrap;
+}
+
+.paragraph + .paragraph,
+.paragraph + .list,
+.list + .paragraph,
+.list + .list,
+.photo + .paragraph {
+  margin-top: 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.link {
+  color: var(--migue-blue);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bubbleUser .link {
+  color: #ffffff;
+}
+
+.photo {
+  display: block;
+  max-width: 100%;
+  width: 220px;
+  border-radius: 10px;
+}
+
+.mediaLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.failedNote {
+  margin-top: 4px;
+  color: #b42318;
+  font-size: 0.78rem;
+}
+
+.retryButton {
+  border: 0;
+  background: transparent;
+  color: var(--migue-blue);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.suggestion {
+  padding: 7px 12px;
+  border: 1px solid rgba(18, 111, 245, 0.35);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--migue-deep);
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover:not(:disabled) {
+  border-color: var(--migue-blue);
+  background: #eef6ff;
+}
+
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--migue-muted);
+}
+
+.typingLabel {
+  font-size: 0.85rem;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--migue-muted);
+  animation: migue-dot 1.2s infinite ease-in-out;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.notice {
+  align-self: center;
+  max-width: 94%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff4e5;
+  color: #8a4b00;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ── Campo de escritura ── */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--migue-border);
+  background: #ffffff;
+}
+
+.staged {
+  position: relative;
+  align-self: flex-start;
+}
+
+.stagedImage {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.stagedRemove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--migue-ink);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.inputRow,
+.recordingRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.recordingRow {
+  align-items: center;
+  min-height: 42px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.input {
+  flex: 1;
+  min-height: 42px;
+  max-height: 120px;
+  padding: 10px 14px;
+  border: 1px solid var(--migue-border);
+  border-radius: 21px;
+  background: var(--migue-surface);
+  color: var(--migue-ink);
+  font: inherit;
+  /* 16px: con menos, Safari de iPhone hace zoom al enfocar */
+  font-size: 16px;
+  line-height: 1.35;
+  resize: none;
+}
+
+.input:focus {
+  border-color: var(--migue-blue);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(18, 111, 245, 0.15);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--migue-deep);
+  cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--migue-surface);
+}
+
+.iconButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.sendButton {
+  background: var(--migue-blue);
+  color: #ffffff;
+}
+
+.sendButton:hover:not(:disabled) {
+  background: var(--migue-deep);
+}
+
+.recordingLabel {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--migue-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.recordingDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: migue-blink 1s infinite;
+}
+
+.disclaimer {
+  color: var(--migue-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* ── Celular: panel a pantalla completa ── */
+
+@media (max-width: 560px) {
+  .launcher {
+    right: 16px;
+    bottom: 16px;
+    padding: 3px;
+  }
+
+  .launcherLabel {
+    display: none;
+  }
+
+  .teaser {
+    right: 16px;
+    bottom: 84px;
+  }
+
+  .panel {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .row {
+    max-width: 92%;
+  }
+}
+
+@keyframes migue-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes migue-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes migue-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher,
+  .teaser,
+  .panel,
+  .dots span,
+  .recordingDot {
+    animation: none;
+    transition: none;
+  }
+}

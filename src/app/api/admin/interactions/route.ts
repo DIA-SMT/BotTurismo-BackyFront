@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
 import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { TELEGRAM_CHAT_PREFIX } from '@/lib/supabase'
+import { TELEGRAM_CHAT_PREFIX, WEB_CHAT_PREFIX } from '@/lib/supabase'
 
 const PAGE_SIZE = 50
 
@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
   if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`)
   if (search) query = query.ilike('query_text', `%${search}%`)
   if (channel === 'telegram') query = query.like('chat_id', `${TELEGRAM_CHAT_PREFIX}%`)
-  if (channel === 'whatsapp') query = query.or(`chat_id.is.null,chat_id.not.like.${TELEGRAM_CHAT_PREFIX}*`)
+  if (channel === 'web') query = query.like('chat_id', `${WEB_CHAT_PREFIX}%`)
+  if (channel === 'whatsapp') {
+    query = query.or(`chat_id.is.null,and(chat_id.not.like.${TELEGRAM_CHAT_PREFIX}*,chat_id.not.like.${WEB_CHAT_PREFIX}*)`)
+  }
 
   const { data, count, error } = await query
   if (error) {

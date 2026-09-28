@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import './globals.css'
+import { MigueChat } from '@/components/migue/MigueChat'
 
 export const metadata: Metadata = {
   title: {
@@ -66,7 +67,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        {children}
+        <MigueChat />
+      </body>
     </html>
   )
 }

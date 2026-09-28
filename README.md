@@ -37,6 +37,14 @@ Para probar localmente con ManyChat:
 - `/admin/turistico`: Panel para crear salidas (individuales o recurrentes por semana), ver inscriptos, cancelar salidas con aviso por mail, exportar a Excel, y administrar el catálogo de circuitos (pestaña Circuitos: crear/editar/desactivar, cupo por defecto, traducción automática al inglés).
 - `/admin/solicitudes` (Bus Educativo): solicitudes + botón **Circuitos** (catálogo educativo propio, separado del turístico, con días y turnos por circuito) + botón **Configuración** (bloqueo temporal de reservas, mínimo/máximo de alumnos).
 
+### 💬 Chat de Migue en el sitio
+
+En las páginas públicas aparece Migue, el mismo asistente de WhatsApp y Telegram (texto, notas de voz y fotos de lugares). El widget habla con el backend del bot (`POST /api/chat/web`); se activa con la URL de ese endpoint en el `.env.local` (y en Vercel). Deploy completo en `backend/DEPLOY.md`.
+
+```
+NEXT_PUBLIC_MIGUE_CHAT_URL=http://localhost:3005/api/chat/web   # en producción, la URL del VPS
+```
+
 ### 🌐 Traducción automática de circuitos (opcional)
 
 Al crear o editar un circuito turístico desde el panel, el contenido se traduce al inglés con IA (OpenRouter, mismo proveedor que el bot). Requiere `OPENROUTER_API_KEY` en el `.env` (y en Vercel). Sin la clave, los circuitos nuevos se muestran en español también en la versión en inglés.
