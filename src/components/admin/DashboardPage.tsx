@@ -155,7 +155,7 @@ export default function DashboardPage() {
             <div className="card-icon">👥</div>
             <div className="card-value">{totalTuristas.toLocaleString('es-AR')}</div>
             <div className="card-label">Turistas Únicos</div>
-            <ChannelSplit counts={porCanal?.tourists} fallback="por chat de WhatsApp o Telegram" />
+            <ChannelSplit counts={porCanal?.tourists} fallback="por chat de WhatsApp, Telegram o la web" />
           </div>
           <div className="stat-card" style={{ '--card-color': '#28469f', '--card-color-bg': 'rgba(40,70,159,0.12)' } as any}>
             <div className="card-icon">🌐</div>

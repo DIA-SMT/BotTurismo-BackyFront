@@ -3,7 +3,7 @@ const axios = require('axios');
 // imageUrl puede ser una URL pública o un data URL base64 (WhatsApp Cloud API).
 // caption: texto que el turista mandó junto con la foto (opcional).
 async function visionAnalyzeImage(imageUrl, caption = '', channel = 'whatsapp') {
-  const channelName = channel === 'telegram' ? 'Telegram' : 'WhatsApp';
+  const channelName = { telegram: 'Telegram', web: 'el chat del sitio web' }[channel] || 'WhatsApp';
   const promptText = `Analizá esta fotografía con mucho cuidado y determiná si muestra un edificio, plaza, monumento o lugar de San Miguel de Tucumán, Argentina.
 
 PROCESO DE ANÁLISIS:

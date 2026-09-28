@@ -11,17 +11,20 @@ const model = new ChatOpenAI({
   maxTokens: 2500,
 });
 
-const CHANNEL_NAMES = { whatsapp: 'WhatsApp', telegram: 'Telegram' };
+const CHANNEL_NAMES = { whatsapp: 'WhatsApp', telegram: 'Telegram', web: 'el chat del sitio web oficial del Bus Turístico' };
 
 async function mainAgentProcess(inputText, hasPhoto, faqsSummary, eventsSummary, busSummary, chatHistory, channel = 'whatsapp') {
   const siteUrl = process.env.PUBLIC_SITE_URL || 'https://smt.gob.ar';
   const channelName = CHANNEL_NAMES[channel] || 'WhatsApp';
-  // En Telegram el modelo tiende a mezclar HTML y Markdown; se le pide uno solo.
-  const formatHint = channel === 'telegram'
-    ? '\nFORMATO: para resaltar usá **doble asterisco** y para listas un guion al inicio de la línea. NUNCA escribas etiquetas HTML (<strong>, <b>, <br>, <a>, etc.).'
+  // En Telegram y en la web el modelo tiende a mezclar HTML y Markdown; se le pide uno solo.
+  const formatHint = channel === 'telegram' || channel === 'web'
+    ? '\nFORMATO: para resaltar usá **doble asterisco** y para listas un guion al inicio de la línea. Los links van como URL completa (https://...). NUNCA escribas etiquetas HTML (<strong>, <b>, <br>, <a>, etc.).'
+    : '';
+  const webHint = channel === 'web'
+    ? `\nTe llamás Migue y el turista te escribe desde el sitio ${siteUrl}, donde ya puede reservar el Bus Turístico.`
     : '';
   const systemPrompt = `Eres el Asistente Turístico Virtual oficial de la Dirección Municipal de Turismo (SMT) de San Miguel de Tucumán, Argentina.
-Tu canal de comunicación es ${channelName}.${formatHint}
+Tu canal de comunicación es ${channelName}.${webHint}${formatHint}
 Usa un tono cálido, amigable, entusiasta y resolutivo. Emojis moderados 🏛️🍽️🎭🌿
 
 🌐 IDIOMA

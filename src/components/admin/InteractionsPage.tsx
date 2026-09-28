@@ -20,6 +20,7 @@ const CANALES = [
     { value: '', label: 'Todos los canales' },
     { value: 'whatsapp', label: CHANNEL_LABELS.whatsapp.label },
     { value: 'telegram', label: CHANNEL_LABELS.telegram.label },
+    { value: 'web', label: CHANNEL_LABELS.web.label },
 ]
 
 function ChannelBadge({ chatId }: { chatId: string | null }) {

@@ -76,19 +76,24 @@ export const CATEGORIAS: Record<string, { label: string; emoji: string; color: s
   general:      { label: 'General',         emoji: '✨',  color: '#6366f1' },
 }
 
-// El canal se deduce del chat_id: el bot de Telegram guarda 'tg:<id>' y el de
-// WhatsApp el teléfono. Todo lo anterior a Telegram (incluso sin chat_id) es WhatsApp.
-export type Channel = 'whatsapp' | 'telegram'
+// El canal se deduce del chat_id: el bot de Telegram guarda 'tg:<id>', el chat
+// del sitio 'web:<uuid>' y el de WhatsApp el teléfono. Todo lo anterior a
+// Telegram (incluso sin chat_id) es WhatsApp.
+export type Channel = 'whatsapp' | 'telegram' | 'web'
 
 export const TELEGRAM_CHAT_PREFIX = 'tg:'
+export const WEB_CHAT_PREFIX = 'web:'
 
 export const CHANNEL_LABELS: Record<Channel, { label: string; color: string }> = {
   whatsapp: { label: 'WhatsApp', color: '#16a34a' },
   telegram: { label: 'Telegram', color: '#0284c7' },
+  web: { label: 'Web', color: '#7c3aed' },
 }
 
 export function getChannel(chatId: string | null): Channel {
-  return chatId?.startsWith(TELEGRAM_CHAT_PREFIX) ? 'telegram' : 'whatsapp'
+  if (chatId?.startsWith(TELEGRAM_CHAT_PREFIX)) return 'telegram'
+  if (chatId?.startsWith(WEB_CHAT_PREFIX)) return 'web'
+  return 'whatsapp'
 }
 
 export const INTENT_LABELS: Record<string, { label: string; emoji: string; color: string }> = {

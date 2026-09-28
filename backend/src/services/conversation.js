@@ -4,12 +4,12 @@ const { mainAgentProcess } = require('../ai/agent');
 const { visionAnalyzeImage } = require('../ai/vision');
 const { transcribeAudio } = require('../ai/audio');
 
-// Flujo comun a todos los canales (WhatsApp, Telegram). Cada canal solo
+// Flujo comun a todos los canales (WhatsApp, Telegram, web). Cada canal solo
 // traduce su formato de entrada y sabe enviar texto; el resto vive aca.
 //
 // input:
-//   channel   'whatsapp' | 'telegram'  (se usa en el prompt)
-//   chatId    identificador unico entre canales (ej: '+549...' o 'tg:123')
+//   channel   'whatsapp' | 'telegram' | 'web'  (se usa en el prompt)
+//   chatId    identificador unico entre canales (ej: '+549...', 'tg:123' o 'web:<uuid>')
 //   userName  nombre visible del usuario
 //   kind      'text' | 'audio' | 'image'
 //   text      texto del mensaje (kind 'text')

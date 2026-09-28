@@ -151,6 +151,8 @@ export function TouristExperience() {
   const changeLanguage = (nextLanguage: TouristLanguage) => {
     setLanguage(nextLanguage)
     window.localStorage.setItem(languageStorageKey, nextLanguage)
+    // El chat de Migue cambia de idioma junto con la página
+    window.dispatchEvent(new CustomEvent('tourist-language-change', { detail: nextLanguage }))
   }
 
   const loadDepartures = useCallback(async () => {
