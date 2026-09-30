@@ -398,6 +398,19 @@
   text-align: center;
 }
 
+/* Aviso de conversación cerrada por inactividad (arriba de la bienvenida) */
+.sessionNote {
+  align-self: center;
+  max-width: 94%;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #e8eef7;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
 /* ── Campo de escritura ── */
 
 .composer {

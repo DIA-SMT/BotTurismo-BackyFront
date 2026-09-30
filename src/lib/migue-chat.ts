@@ -18,6 +18,23 @@ export interface MigueMessage {
 export interface MigueStoredChat {
   sessionId: string
   messages: MigueMessage[]
+  // Último mensaje enviado o recibido (ms). Pasado MIGUE_IDLE_MS sin actividad
+  // la conversación se descarta.
+  lastActivityAt?: number
+}
+
+// Una conversación sin actividad por este tiempo se cierra: el chat vuelve a la
+// bienvenida con una sesión nueva, así Migue tampoco recuerda la anterior.
+export const MIGUE_IDLE_MINUTES = 30
+export const MIGUE_IDLE_MS = MIGUE_IDLE_MINUTES * 60 * 1000
+
+export function isConversationExpired(lastActivityAt: number | undefined, now = Date.now()): boolean {
+  // Guardadas antes de registrar la actividad: se consideran vencidas
+  if (typeof lastActivityAt !== 'number' || !Number.isFinite(lastActivityAt)) return true
+  // Una fecha en el futuro (reloj del equipo atrasado después de guardar)
+  // dejaría la conversación abierta para siempre
+  if (lastActivityAt - now > 5 * 60 * 1000) return true
+  return now - lastActivityAt > MIGUE_IDLE_MS
 }
 
 export const MIGUE_STORAGE_KEY = 'migue-chat-v1'
@@ -59,7 +76,8 @@ export function loadStoredChat(): MigueStoredChat | null {
           m => m && typeof m.id === 'string' && (m.role === 'user' || m.role === 'bot') && typeof m.text === 'string',
         )
       : []
-    return { sessionId: parsed.sessionId, messages }
+    const lastActivityAt = typeof parsed.lastActivityAt === 'number' ? parsed.lastActivityAt : undefined
+    return { sessionId: parsed.sessionId, messages, lastActivityAt }
   } catch {
     return null
   }
