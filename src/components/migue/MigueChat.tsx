@@ -8,6 +8,7 @@ import styles from './migue-chat.module.css'
 import {
   MAX_AUDIO_SECONDS,
   MAX_TEXT_CHARS,
+  MIGUE_IDLE_MINUTES,
   MIGUE_TEASER_KEY,
   MIN_AUDIO_SECONDS,
   TOURIST_LANGUAGE_EVENT,
@@ -15,6 +16,7 @@ import {
   canRecordAudio,
   createMessageId,
   createSessionId,
+  isConversationExpired,
   loadStoredChat,
   parseRichText,
   prepareImage,
@@ -60,6 +62,7 @@ const COPY = {
     close: 'Cerrar chat',
     newChat: 'Nueva conversación',
     newChatConfirm: '¿Empezar una conversación nueva? Se borra la actual.',
+    expiredNote: `Tu conversación anterior se cerró después de ${MIGUE_IDLE_MINUTES} minutos sin actividad.`,
     welcome: `¡Hola! 👋 Soy **Migue**, el asistente turístico oficial de la Dirección de Turismo de San Miguel de Tucumán.
 
 Preguntame qué visitar, dónde comer o dormir, la agenda cultural o cómo reservar el Bus Turístico (es gratis).
@@ -115,6 +118,7 @@ También podés mandarme una nota de voz 🎙️, o una foto de un edificio o lu
     close: 'Close chat',
     newChat: 'New conversation',
     newChatConfirm: 'Start a new conversation? The current one will be deleted.',
+    expiredNote: `Your previous conversation was closed after ${MIGUE_IDLE_MINUTES} minutes of inactivity.`,
     welcome: `Hi! 👋 I'm **Migue**, the official tourist assistant of the San Miguel de Tucumán Tourism Office.
 
 Ask me what to visit, where to eat or stay, what's on in the cultural agenda, or how to book the Tourist Bus (it's free).
@@ -294,6 +298,9 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   const [recordSeconds, setRecordSeconds] = useState(0)
   const [notice, setNotice] = useState('')
   const [showTeaser, setShowTeaser] = useState(false)
+  const [lastActivityAt, setLastActivityAt] = useState<number | undefined>(undefined)
+  // La conversación anterior se cerró por inactividad: se avisa arriba de la bienvenida
+  const [expiredNote, setExpiredNote] = useState(false)
 
   const copy: Copy = COPY[language]
   const pending = pendingKind !== null
@@ -317,27 +324,101 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   const micRequestRef = useRef(0)
   const returnFocusRef = useRef(false)
   const stopButtonRef = useRef<HTMLButtonElement>(null)
+  const activityRef = useRef<number | undefined>(undefined)
+  // Estado actual para los chequeos de inactividad que corren fuera del render
+  const liveRef = useRef({ hasMessages: false, busy: false, open: false })
+  liveRef.current = { hasMessages: messages.length > 0, busy: pending || recordingState !== 'idle', open }
 
   // 1. Restaurar la conversación y el idioma (solo en el navegador)
   useEffect(() => {
     const stored = loadStoredChat()
+    const restored = stored?.messages || []
+    setLanguage(detectLanguage())
+
+    // Sin actividad hace más de MIGUE_IDLE_MINUTES: se arranca de cero
+    if (stored && restored.length > 0 && isConversationExpired(stored.lastActivityAt)) {
+      const id = createSessionId()
+      sessionRef.current = id
+      setSessionId(id)
+      setExpiredNote(true)
+      setReady(true)
+      return
+    }
+
     const id = stored?.sessionId || createSessionId()
     sessionRef.current = id
     setSessionId(id)
+    activityRef.current = stored?.lastActivityAt
+    setLastActivityAt(stored?.lastActivityAt)
     // Si la página se recargó mientras Migue respondía, esa respuesta se perdió:
     // el último mensaje queda como no enviado para poder reintentarlo.
-    const restored = stored?.messages || []
     const last = restored[restored.length - 1]
     setMessages(
       last?.role === 'user' && !last.failed ? [...restored.slice(0, -1), { ...last, failed: true }] : restored,
     )
-    setLanguage(detectLanguage())
     setReady(true)
   }, [])
 
   useEffect(() => {
-    if (ready && sessionId) saveStoredChat({ sessionId, messages })
-  }, [ready, sessionId, messages])
+    if (ready && sessionId) saveStoredChat({ sessionId, messages, lastActivityAt })
+  }, [ready, sessionId, messages, lastActivityAt])
+
+  const markActivity = useCallback(() => {
+    const now = Date.now()
+    activityRef.current = now
+    setLastActivityAt(now)
+  }, [])
+
+  // Conversación nueva: sesión nueva en el backend, así Migue no arrastra la anterior.
+  // El texto y la foto que el turista esté preparando se conservan.
+  const resetConversation = useCallback(
+    (expired: boolean) => {
+      const id = createSessionId()
+      sessionRef.current = id
+      failedPayloads.current.clear()
+      setSessionId(id)
+      setMessages([])
+      setNotice('')
+      setExpiredNote(expired)
+      markActivity()
+    },
+    [markActivity],
+  )
+
+  // Cierra la conversación si venció. Nunca con una respuesta en camino ni grabando.
+  const expireIfIdle = useCallback(() => {
+    const live = liveRef.current
+    if (!live.hasMessages || live.busy || !isConversationExpired(activityRef.current)) return false
+    // Otra pestaña, o esta misma página antes de volver con "atrás", pudo seguir
+    // usando el chat: se mira lo guardado antes de borrarlo.
+    const stored = loadStoredChat()
+    if (stored && stored.messages.length > 0 && !isConversationExpired(stored.lastActivityAt)) {
+      if (stored.sessionId === sessionRef.current) activityRef.current = stored.lastActivityAt
+      return false
+    }
+    resetConversation(true)
+    return true
+  }, [resetConversation])
+
+  // Se revisa al volver a la pestaña y, con el chat cerrado o la pestaña oculta,
+  // cada minuto: la conversación no desaparece mientras el turista la está leyendo.
+  useEffect(() => {
+    if (!ready) return
+    const onReturn = () => {
+      if (document.visibilityState === 'visible') expireIfIdle()
+    }
+    const timer = window.setInterval(() => {
+      if (!liveRef.current.open || document.hidden) expireIfIdle()
+    }, 60_000)
+    document.addEventListener('visibilitychange', onReturn)
+    // pageshow: volver con "atrás" en el celular restaura la página sin recargarla
+    window.addEventListener('pageshow', onReturn)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onReturn)
+      window.removeEventListener('pageshow', onReturn)
+    }
+  }, [ready, expireIfIdle])
 
   // 2. Idioma sincronizado con el selector ES/EN de /turistico
   useEffect(() => {
@@ -381,6 +462,11 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   useEffect(() => {
     if (open) focusInside()
   }, [open, focusInside])
+
+  // Si el foco estaba en un mensaje de la conversación que se cerró, vuelve al chat
+  useEffect(() => {
+    if (open && messages.length === 0 && document.activeElement === document.body) focusInside()
+  }, [open, messages.length, focusInside])
 
   // Celular: con el teclado abierto el navegador solo achica el área visible
   // (visual viewport) y el panel quedaría con el encabezado tapado. Se ajusta
@@ -428,6 +514,13 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   useEffect(() => {
     const input = inputRef.current
     if (!input) return
+    // Vacío: vuelve al alto del CSS. Medirlo apenas se abre el panel puede dar
+    // de más (la primera vez todavía no terminó de acomodarse) y quedaba alto.
+    if (!input.value) {
+      input.style.height = ''
+      input.style.overflowY = 'hidden'
+      return
+    }
     // scrollHeight no incluye el borde: sin sumarlo, el campo queda 2 px corto
     // y aparece la barra de scroll aunque el texto entre.
     const border = input.offsetHeight - input.clientHeight
@@ -479,6 +572,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
 
       if (result.ok) {
         failedPayloads.current.delete(messageId)
+        markActivity()
         setMessages(prev => [
           ...prev.map(m => (m.id === messageId && m.failed ? { ...m, failed: false } : m)),
           { id: createMessageId(), role: 'bot', kind: 'text', text: result.reply },
@@ -491,18 +585,21 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
       setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, failed: true } : m)))
       setNotice(COPY[language].errors[code])
     },
-    [language],
+    [language, markActivity],
   )
 
   const sendMessage = useCallback(
     (message: Omit<MigueMessage, 'id' | 'role'>, payload: Payload) => {
       if (pending) return
+      // Si venció con el chat abierto, el mensaje nuevo arranca otra conversación
+      expireIfIdle()
       const id = createMessageId()
       setNotice('')
+      markActivity()
       setMessages(prev => [...prev, { ...message, id, role: 'user' }])
       void deliver(id, payload)
     },
-    [deliver, pending],
+    [deliver, expireIfIdle, markActivity, pending],
   )
 
   const retry = useCallback(
@@ -512,13 +609,20 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
         failedPayloads.current.get(message.id) ||
         (message.kind === 'text' ? ({ kind: 'text', text: message.text } as Payload) : null)
       if (!payload) return
+      // Conversación vencida: el mensaje se reenvía como el primero de una nueva
+      if (expireIfIdle()) {
+        sendMessage({ kind: message.kind, text: message.text, thumbnail: message.thumbnail }, payload)
+        focusInside()
+        return
+      }
       setNotice('')
+      markActivity()
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, failed: false } : m)))
       void deliver(message.id, payload)
       // El botón desaparece: el foco se queda dentro del chat
       focusInside()
     },
-    [deliver, focusInside, pending, recordingState],
+    [deliver, expireIfIdle, focusInside, markActivity, pending, recordingState, sendMessage],
   )
 
   // Las sugerencias no se pueden usar mientras se graba: la nota de voz se
@@ -566,6 +670,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    expireIfIdle()
     try {
       setStagedImage(await prepareImage(file))
       setNotice('')
@@ -602,6 +707,8 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
       setNotice(copy.micUnsupported)
       return
     }
+    // Antes de grabar: al terminar ya está "ocupado" y no se podría cerrar la vencida
+    expireIfIdle()
 
     startingMicRef.current = true
     const request = ++micRequestRef.current
@@ -673,6 +780,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   // ── Abrir / cerrar ──
 
   const openChat = () => {
+    expireIfIdle()
     setOpen(true)
     if (showTeaser) dismissTeaser()
     else writeStorage(MIGUE_TEASER_KEY, '1')
@@ -715,14 +823,9 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
   const startNewChat = () => {
     if (pending) return
     if (messages.length > 0 && !window.confirm(copy.newChatConfirm)) return
-    const id = createSessionId()
-    sessionRef.current = id
-    failedPayloads.current.clear()
-    setSessionId(id)
-    setMessages([])
+    resetConversation(false)
     setDraft('')
     setStagedImage(null)
-    setNotice('')
   }
 
   const hasUserMessages = messages.some(m => m.role === 'user')
@@ -776,6 +879,7 @@ function MigueChatWidget({ pathname }: { pathname: string }) {
           </header>
 
           <div className={styles.messages} role="log" aria-live="polite" aria-relevant="additions">
+            {expiredNote && <p className={styles.sessionNote}>{copy.expiredNote}</p>}
             <div className={`${styles.row} ${styles.rowBot}`}>
               <div className={`${styles.bubble} ${styles.bubbleBot}`}>
                 <RichText text={copy.welcome} />
