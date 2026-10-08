@@ -531,10 +531,13 @@ export const touristCircuitCatalog: TouristCircuit[] = [
 // Imágenes de los heros (público turista y landing). Para sumar una nueva:
 // guardarla optimizada en public/ y agregarla acá.
 export const touristHeroImages = [
+  '/hero-turistico-pasajeros-bus.webp',
   '/hero-turistico-plaza.jpg',
+  '/hero-turistico-tradicion-casa-historica.webp',
   '/hero-turistico-casa-historica.jpg',
-  '/hero-turistico-cadillal.jpg',
+  '/hero-turistico-peatonal-guia.webp',
   '/hero-turistico-folklore.jpg',
+  '/hero-turistico-mapa-centro.webp',
 ]
 
 export function getTouristCircuitBySlug(slug: string | null | undefined) {
