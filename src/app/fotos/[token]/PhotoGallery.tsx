@@ -9,7 +9,7 @@ interface GalleryData {
   tour_date: string
   description: string | null
   expires_at: string
-  photos: Array<{ id: string; name: string; view_url: string; download_url: string }>
+  photos: Array<{ id: string; name: string; thumb_url: string; view_url: string; download_url: string }>
 }
 
 export default function PhotoGallery({ token }: { token: string }) {
@@ -58,7 +58,7 @@ export default function PhotoGallery({ token }: { token: string }) {
             <div
               key={photo.id}
               className={`${styles.heroBackgroundSlide} ${index === backgroundIndex ? styles.heroBackgroundSlideActive : ''}`}
-              style={{ backgroundImage: `url("${photo.view_url}")` }}
+              style={{ backgroundImage: `url("${photo.thumb_url}")` }}
             />
           ))}
           <div className={styles.heroBackgroundShade} />
@@ -79,7 +79,7 @@ export default function PhotoGallery({ token }: { token: string }) {
           <article className={styles.photoCard} key={photo.id}>
             <button onClick={() => setSelected(photo)} aria-label={`Ampliar foto ${index + 1}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.view_url} alt={`Foto ${index + 1} del recorrido`} loading="lazy" />
+              <img src={photo.thumb_url} alt={`Foto ${index + 1} del recorrido`} loading="lazy" />
             </button>
             <a href={photo.download_url} className={styles.download}><Download size={17} /> Descargar</a>
           </article>

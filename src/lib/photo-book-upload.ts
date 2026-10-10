@@ -50,6 +50,9 @@ export interface SignedPhotoUpload {
   path: string
   signedUrl: string
   name: string
+  // Miniatura (2026-10-10): la grilla de la galería carga esta y no la grande.
+  thumbPath: string
+  thumbSignedUrl: string
 }
 
 export async function createSignedPhotoUploads({
@@ -74,13 +77,23 @@ export async function createSignedPhotoUploads({
   const signOne = async (photo: PhotoUploadDescriptor, index: number) => {
     const displayOrder = startSortOrder + index + 1
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const storagePath = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
-      const { data, error } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(storagePath)
-      if (!error && data?.signedUrl) {
-        uploads[index] = { path: storagePath, signedUrl: data.signedUrl, name: photo.name }
+      const base = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
+      const thumbBase = `${bookId}/thumb-${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
+      const [full, thumb] = await Promise.all([
+        supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(base),
+        supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(thumbBase),
+      ])
+      if (!full.error && full.data?.signedUrl && !thumb.error && thumb.data?.signedUrl) {
+        uploads[index] = {
+          path: base,
+          signedUrl: full.data.signedUrl,
+          name: photo.name,
+          thumbPath: thumbBase,
+          thumbSignedUrl: thumb.data.signedUrl,
+        }
         return
       }
-      failure = error || new Error('sin signedUrl')
+      failure = full.error || thumb.error || new Error('sin signedUrl')
     }
   }
 
@@ -103,15 +116,17 @@ export async function registerUploadedPhotos({
 }: {
   supabase: SupabaseClient
   bookId: string
-  photos: Array<PhotoUploadDescriptor & { path: string }>
+  photos: Array<PhotoUploadDescriptor & { path: string; thumbPath?: string }>
   startSortOrder: number
 }): Promise<{ data: unknown[]; error: unknown }> {
-  const outsideBook = photos.find((photo) => !photo.path.startsWith(`${bookId}/`))
+  const outsideBook = photos.find(
+    (photo) => !photo.path.startsWith(`${bookId}/`) || (photo.thumbPath && !photo.thumbPath.startsWith(`${bookId}/`)),
+  )
   if (outsideBook) return { data: [], error: new Error('path fuera del book') }
 
   const { data: objects, error: listError } = await supabase.storage
     .from(PHOTO_BOOK_BUCKET)
-    .list(bookId, { limit: 200 })
+    .list(bookId, { limit: 400 })
   if (listError) return { data: [], error: listError }
 
   const existing = new Set((objects || []).map((object) => `${bookId}/${object.name}`))
@@ -121,6 +136,9 @@ export async function registerUploadedPhotos({
   const rows = photos.map((photo, index) => ({
     book_id: bookId,
     storage_path: photo.path,
+    // Si la miniatura no llegó a subir, se queda en null y la galería cae a la
+    // imagen grande: mejor eso que perder la foto.
+    thumb_path: photo.thumbPath && existing.has(photo.thumbPath) ? photo.thumbPath : null,
     original_name: photo.name,
     mime_type: photo.type,
     size_bytes: photo.size,

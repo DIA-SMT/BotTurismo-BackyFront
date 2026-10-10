@@ -12,25 +12,31 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
     .gt('expires_at', new Date().toISOString())
     .maybeSingle()
 
-  if (error || !book) {
+  // Distinguir "no existe" de "la base no responde": durante la caída por
+  // cuota (2026-10-10) los turistas veían "no existe o venció" cuando sus
+  // fotos estaban perfectamente guardadas, y daban el link por perdido.
+  if (error) {
+    console.error('No se pudo leer el book:', error.message)
+    return NextResponse.json(
+      { error: 'No pudimos abrir tus fotos en este momento. Volvé a intentar en un rato: siguen guardadas.' },
+      { status: 503 },
+    )
+  }
+  if (!book) {
     return NextResponse.json({ error: 'Este book no existe o ya venció.' }, { status: 404 })
   }
 
+  // URLs propias y ESTABLES (no firmadas): así el CDN las cachea y cada foto
+  // sale una sola vez de Supabase, en vez de una vez por turista. La grilla usa
+  // thumb_url (miniatura liviana) y la grande solo se pide al ampliar.
   const photos = [...(book.photo_book_photos || [])].sort((a, b) => a.sort_order - b.sort_order)
-  const signedPhotos = await Promise.all(photos.map(async (photo) => {
-    const [{ data: viewData }, { data: downloadData }] = await Promise.all([
-      supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUrl(photo.storage_path, 60 * 60),
-      supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUrl(photo.storage_path, 60 * 60, {
-        download: photo.original_name,
-      }),
-    ])
-
-    return {
-      id: photo.id,
-      name: photo.original_name,
-      view_url: viewData?.signedUrl || '',
-      download_url: downloadData?.signedUrl || '',
-    }
+  const base = `/api/photo-books/${encodeURIComponent(token)}/photo`
+  const signedPhotos = photos.map((photo) => ({
+    id: photo.id,
+    name: photo.original_name,
+    thumb_url: `${base}/${photo.id}?size=thumb`,
+    view_url: `${base}/${photo.id}`,
+    download_url: `${base}/${photo.id}?download=1`,
   }))
 
   return NextResponse.json({
