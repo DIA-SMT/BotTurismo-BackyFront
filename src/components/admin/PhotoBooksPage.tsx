@@ -6,6 +6,7 @@ import QRCode from 'qrcode'
 import { MAX_PHOTOS_PER_BOOK } from '@/lib/photo-books'
 import type { PhotoBook, TourGuideLogEntry } from '@/lib/photo-books'
 import { DateInput } from '@/components/DateInput'
+import { compressPhoto, compressedFileName } from '@/lib/photo-compress'
 
 // Valor especial del selector de recorrido para escribir un nombre a mano
 // (eventos fuera del catálogo de circuitos).
@@ -14,7 +15,7 @@ const customTitleChoice = '__custom__'
 interface ApiResult {
   error?: string
   data?: unknown
-  uploads?: Array<{ path: string; signedUrl: string; name: string }>
+  uploads?: SignedUpload[]
   added_count?: number
 }
 
@@ -32,28 +33,58 @@ async function safeJson(response: Response): Promise<ApiResult | null> {
 // Sube las fotos DIRECTO a Supabase Storage con las URLs firmadas que dio el
 // server (los bodies por Vercel se cortan en ~4,5 MB, por eso no viajan por
 // la API). Concurrencia 3, con progreso.
+interface SignedUpload {
+  path: string
+  signedUrl: string
+  name: string
+  thumbPath: string
+  thumbSignedUrl: string
+}
+
+// De cada foto se sube una versión grande (1920 px) y una miniatura (600 px),
+// ambas comprimidas acá en el navegador. Antes se subía el archivo original
+// del celular (4 a 12 MB), que tardaba muchísimo con datos móviles y agotó la
+// cuota de egress de Supabase al servirlo a cada turista (2026-10-10).
 async function uploadFilesToSignedUrls(
-  uploads: Array<{ path: string; signedUrl: string; name: string }>,
+  uploads: SignedUpload[],
   files: File[],
   onProgress: (done: number) => void,
 ) {
-  const registered: Array<{ path: string; name: string; type: string; size: number }> = []
+  const registered: Array<{ path: string; thumbPath?: string; name: string; type: string; size: number }> = []
   const failedNames: string[] = []
   let done = 0
   const queue = uploads.map((upload, index) => ({ upload, file: files[index] }))
+
+  const put = (url: string, body: Blob) =>
+    fetch(url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body })
 
   const workers = Array.from({ length: 3 }, async () => {
     for (;;) {
       const item = queue.shift()
       if (!item) break
       try {
-        const response = await fetch(item.upload.signedUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': item.file.type },
-          body: item.file,
-        })
-        if (!response.ok) throw new Error(String(response.status))
-        registered.push({ path: item.upload.path, name: item.file.name, type: item.file.type, size: item.file.size })
+        const compressed = await compressPhoto(item.file)
+        if (compressed) {
+          const [fullRes, thumbRes] = await Promise.all([
+            put(item.upload.signedUrl, compressed.full),
+            put(item.upload.thumbSignedUrl, compressed.thumb),
+          ])
+          if (!fullRes.ok) throw new Error(String(fullRes.status))
+          registered.push({
+            path: item.upload.path,
+            // Si falló solo la miniatura, la foto se guarda igual y la galería
+            // cae a la imagen grande.
+            thumbPath: thumbRes.ok ? item.upload.thumbPath : undefined,
+            name: compressedFileName(item.file.name),
+            type: 'image/jpeg',
+            size: compressed.full.size,
+          })
+        } else {
+          // El navegador no pudo comprimir (formato raro): se sube el original.
+          const response = await put(item.upload.signedUrl, item.file)
+          if (!response.ok) throw new Error(String(response.status))
+          registered.push({ path: item.upload.path, name: item.file.name, type: item.file.type, size: item.file.size })
+        }
       } catch {
         failedNames.push(item.file.name)
       } finally {

@@ -27,6 +27,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const photos = descriptors.map((descriptor, index) => ({
     ...descriptor,
     path: String(rawItems[index]?.path ?? ''),
+    thumbPath: rawItems[index]?.thumbPath ? String(rawItems[index].thumbPath) : undefined,
   }))
 
   if (photos.length === 0 || photos.some((photo) => !photo.path)) {
