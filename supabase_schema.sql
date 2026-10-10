@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_tourist_interactions_chat_id    ON tourist_intera
 -- ============================================================
 
 -- Total de consultas por intent (para ver qué piden más los turistas)
-CREATE OR REPLACE VIEW kpi_consultas_por_intent AS
+CREATE OR REPLACE VIEW kpi_consultas_por_intent WITH (security_invoker = on) AS
 SELECT
   intent,
   COUNT(*) AS total,
@@ -52,7 +52,7 @@ GROUP BY intent
 ORDER BY total DESC;
 
 -- Distribución geográfica de turistas (para políticas públicas)
-CREATE OR REPLACE VIEW kpi_origen_turistas AS
+CREATE OR REPLACE VIEW kpi_origen_turistas WITH (security_invoker = on) AS
 SELECT
   COALESCE(origen_provincia, 'No especificado') AS origen,
   COUNT(*) AS total
@@ -62,7 +62,7 @@ GROUP BY origen
 ORDER BY total DESC;
 
 -- Actividad diaria del bot (últimos 30 días)
-CREATE OR REPLACE VIEW kpi_actividad_diaria AS
+CREATE OR REPLACE VIEW kpi_actividad_diaria WITH (security_invoker = on) AS
 SELECT
   DATE(created_at AT TIME ZONE 'America/Argentina/Tucuman') AS dia,
   COUNT(*) AS total_consultas,
@@ -73,7 +73,7 @@ GROUP BY dia
 ORDER BY dia DESC;
 
 -- Franja horaria de mayor actividad
-CREATE OR REPLACE VIEW kpi_franja_horaria AS
+CREATE OR REPLACE VIEW kpi_franja_horaria WITH (security_invoker = on) AS
 SELECT
   EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/Argentina/Tucuman')::INT AS hora,
   COUNT(*) AS total
@@ -82,7 +82,7 @@ GROUP BY hora
 ORDER BY hora;
 
 -- Turistas que usaron el servicio en inglés (internacionales)
-CREATE OR REPLACE VIEW kpi_turistas_internacionales AS
+CREATE OR REPLACE VIEW kpi_turistas_internacionales WITH (security_invoker = on) AS
 SELECT
   DATE_TRUNC('month', created_at) AS mes,
   COUNT(*) FILTER (WHERE language = 'en') AS internacionales,
@@ -164,7 +164,7 @@ CREATE POLICY "service_role_write_faqs" ON faqs
 -- ============================================================
 
 -- Distribución de medios de transporte usados para llegar
-CREATE OR REPLACE VIEW kpi_medio_transporte AS
+CREATE OR REPLACE VIEW kpi_medio_transporte WITH (security_invoker = on) AS
 SELECT
   COALESCE(medio_transporte, 'No especificado') AS medio,
   COUNT(*) AS total
