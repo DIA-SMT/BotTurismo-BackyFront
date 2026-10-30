@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import { getTodayDateStringInBuenosAires, parseBusinessDateParts } from '@/lib/educational-bus-requests'
-import { buildDeparturesWithAvailability, type TouristDeparture } from '@/lib/tourist-bus'
+import { buildDeparturesWithAvailability, type TouristBooking, type TouristDeparture } from '@/lib/tourist-bus'
 import { resolveCircuitForDeparture } from '@/lib/tourist-circuits-admin'
+
+type ReservedSeats = Pick<TouristBooking, 'departure_id' | 'people_count' | 'municipal_bikes'>
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -17,42 +19,44 @@ export async function GET(request: NextRequest) {
   const scope = searchParams.get('scope') || 'upcoming'
   const today = getTodayDateStringInBuenosAires()
 
-  const supabase = createServerSupabaseClient()
-  let query = supabase.from('tourist_departures').select('*')
+  const sql = getSql()
+  let filter = sql`where departure_date >= ${today}`
+  let dateOrder = sql`departure_date asc`
 
   if (scope === 'past') {
-    query = query.lt('departure_date', today).order('departure_date', { ascending: false })
+    filter = sql`where departure_date < ${today}`
+    dateOrder = sql`departure_date desc`
   } else if (scope === 'all') {
-    query = query.order('departure_date', { ascending: false })
-  } else {
-    query = query.gte('departure_date', today).order('departure_date', { ascending: true })
+    filter = sql``
+    dateOrder = sql`departure_date desc`
   }
 
-  query = query.order('departure_time', { ascending: true })
-
-  const { data: departures, error } = await query
-
-  if (error) {
+  let departureList: TouristDeparture[]
+  try {
+    departureList = await sql<TouristDeparture[]>`
+      select * from tourist_departures
+      ${filter}
+      order by ${dateOrder}, departure_time asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las salidas.' }, { status: 500 })
   }
-
-  const departureList = (departures || []) as TouristDeparture[]
 
   if (departureList.length === 0) {
     return NextResponse.json({ data: [] })
   }
 
-  const { data: bookings, error: bookingsError } = await supabase
-    .from('tourist_bookings')
-    .select('departure_id, people_count, municipal_bikes')
-    .in('departure_id', departureList.map((departure) => departure.id))
-    .eq('status', 'confirmed')
-
-  if (bookingsError) {
+  let bookings: ReservedSeats[]
+  try {
+    bookings = await sql<ReservedSeats[]>`
+      select departure_id, people_count, municipal_bikes from tourist_bookings
+      where departure_id in ${sql(departureList.map((departure) => departure.id))} and status = ${'confirmed'}
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las reservas.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: buildDeparturesWithAvailability(departureList, bookings || []) })
+  return NextResponse.json({ data: buildDeparturesWithAvailability(departureList, bookings) })
 }
 
 export async function POST(request: NextRequest) {
@@ -79,8 +83,7 @@ export async function POST(request: NextRequest) {
   const bikeStock =
     bikeStockRaw === undefined || bikeStockRaw === null || bikeStockRaw === '' ? null : Number(bikeStockRaw)
 
-  const supabase = createServerSupabaseClient()
-  const circuit = await resolveCircuitForDeparture(supabase, circuitSlug)
+  const circuit = await resolveCircuitForDeparture(circuitSlug)
   const title = circuit.title || customTitle
 
   const fieldErrors: Record<string, string> = {}
@@ -103,9 +106,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Revisá los campos de la salida.', fieldErrors }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('tourist_departures')
-    .insert({
+  const sql = getSql()
+  const [data] = await sql<TouristDeparture[]>`
+    insert into tourist_departures ${rowValues(sql, {
       circuit_slug: circuit.slug,
       title,
       departure_date: departureDate,
@@ -115,11 +118,11 @@ export async function POST(request: NextRequest) {
       meeting_point: meetingPoint || null,
       notes: notes || null,
       status: 'active',
-    })
-    .select('*')
-    .single()
+    })}
+    returning *
+  `.catch(() => [] as TouristDeparture[])
 
-  if (error) {
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo crear la salida.' }, { status: 500 })
   }
 
@@ -128,9 +131,9 @@ export async function POST(request: NextRequest) {
       data: {
         ...data,
         reserved: 0,
-        remaining: (data as TouristDeparture).capacity,
+        remaining: data.capacity,
         bikes_reserved: 0,
-        bikes_remaining: (data as TouristDeparture).bike_stock,
+        bikes_remaining: data.bike_stock,
       },
     },
     { status: 201 },

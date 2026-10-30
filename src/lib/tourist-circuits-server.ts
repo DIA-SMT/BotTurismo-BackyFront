@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
 import {
   buildTouristCircuitSeedRows,
   mapTouristCircuitRecord,
@@ -9,44 +9,38 @@ import {
 // Siembra el catálogo con los 10 circuitos originales la primera vez que se
 // consulta la tabla vacía. Idempotente: si otra request sembró antes, el
 // insert falla por slug único y se ignora.
-export async function ensureTouristCircuitsSeeded(supabase: SupabaseClient) {
-  const { count, error } = await supabase.from('tourist_circuits').select('*', { count: 'exact', head: true })
-  if (error) throw error
+export async function ensureTouristCircuitsSeeded() {
+  const sql = getSql()
+  const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from tourist_circuits`
   if ((count || 0) > 0) return
-  await supabase.from('tourist_circuits').insert(buildTouristCircuitSeedRows())
-}
-
-export async function fetchTouristCircuitRecords(
-  supabase: SupabaseClient,
-  options: { activeOnly?: boolean } = {},
-): Promise<TouristCircuitRecord[]> {
-  await ensureTouristCircuitsSeeded(supabase)
-
-  let query = supabase
-    .from('tourist_circuits')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('id', { ascending: true })
-
-  if (options.activeOnly) {
-    query = query.eq('active', true)
+  try {
+    await sql`insert into tourist_circuits ${rowValues(sql, buildTouristCircuitSeedRows())}`
+  } catch (error) {
+    if (pgErrorCode(error) !== UNIQUE_VIOLATION) {
+      console.error('No se pudo sembrar el catálogo de circuitos:', error)
+    }
   }
-
-  const { data, error } = await query
-  if (error) throw error
-  return (data || []) as TouristCircuitRecord[]
 }
 
-export async function getActiveTouristCircuits(supabase: SupabaseClient): Promise<TouristCircuit[]> {
-  const records = await fetchTouristCircuitRecords(supabase, { activeOnly: true })
+export async function fetchTouristCircuitRecords(options: { activeOnly?: boolean } = {}): Promise<TouristCircuitRecord[]> {
+  await ensureTouristCircuitsSeeded()
+
+  const sql = getSql()
+  const rows = await sql<TouristCircuitRecord[]>`
+    select * from tourist_circuits
+    ${options.activeOnly ? sql`where active = ${true}` : sql``}
+    order by sort_order asc, id asc
+  `
+  return rows
+}
+
+export async function getActiveTouristCircuits(): Promise<TouristCircuit[]> {
+  const records = await fetchTouristCircuitRecords({ activeOnly: true })
   return records.map(mapTouristCircuitRecord)
 }
 
-export async function getTouristCircuitRecordBySlug(
-  supabase: SupabaseClient,
-  slug: string,
-): Promise<TouristCircuitRecord | null> {
-  const { data, error } = await supabase.from('tourist_circuits').select('*').eq('slug', slug).maybeSingle()
-  if (error) throw error
-  return (data as TouristCircuitRecord) || null
+export async function getTouristCircuitRecordBySlug(slug: string): Promise<TouristCircuitRecord | null> {
+  const sql = getSql()
+  const [record] = await sql<TouristCircuitRecord[]>`select * from tourist_circuits where slug = ${slug}`
+  return record ?? null
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import type { BicitourParticipant } from '@/lib/bicitour'
-import { buildParticipantState, getSessionByCode, loadSessionGraph } from '@/lib/bicitour-server'
+import { buildParticipantState, getParticipantByToken, getSessionByCode, loadSessionGraph } from '@/lib/bicitour-server'
 
 export const runtime = 'nodejs'
 
@@ -10,8 +10,8 @@ export const runtime = 'nodejs'
 // arma el snapshot completo. ?pt=<token> identifica al participante.
 export async function GET(request: NextRequest, context: { params: Promise<{ code: string }> }) {
   const { code } = await context.params
-  const supabase = createServerSupabaseClient()
-  const session = await getSessionByCode(supabase, code)
+  const sql = getSql()
+  const session = await getSessionByCode(code)
   if (!session) {
     return NextResponse.json({ error: 'Sesión no encontrada.' }, { status: 404 })
   }
@@ -22,19 +22,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ cod
 
   let participant: BicitourParticipant | null = null
   if (/^[0-9a-f-]{36}$/i.test(token)) {
-    const { data } = await supabase
-      .from('bicitour_participants')
-      .select('*')
-      .eq('token', token)
-      .eq('session_id', session.id)
-      .maybeSingle()
-    participant = (data as BicitourParticipant) || null
+    participant = await getParticipantByToken(session.id, token)
     if (participant) {
       // Presencia: el guía ve "conectados" a quienes pollearon hace <15 s.
-      await supabase
-        .from('bicitour_participants')
-        .update({ last_seen_at: new Date().toISOString() })
-        .eq('id', participant.id)
+      await sql`
+        update bicitour_participants set last_seen_at = ${new Date().toISOString()} where id = ${participant.id}
+      `.catch((error) => {
+        console.error('Error actualizando la presencia del participante de bicitour:', error)
+      })
     }
   }
 
@@ -42,11 +37,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ cod
     return NextResponse.json({ version: session.version, unchanged: true })
   }
 
-  const graph = await loadSessionGraph(supabase, session)
+  const graph = await loadSessionGraph(session)
   if (!graph) {
     return NextResponse.json({ error: 'Sesión no disponible.' }, { status: 500 })
   }
 
-  const state = await buildParticipantState(supabase, graph, participant)
+  const state = await buildParticipantState(graph, participant)
   return NextResponse.json(state)
 }

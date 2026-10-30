@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
 import {
   institutionTypeOptions,
   isPastBusinessDate,
@@ -63,12 +63,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const supabase = createServerSupabaseClient()
-
   let circuitSlug = 'historico_cultural'
   if (circuit) {
     try {
-      const record = await getEducationalCircuitBySlug(supabase, circuit)
+      const record = await getEducationalCircuitBySlug(circuit)
       if (record) circuitSlug = record.slug
       else fieldErrors.circuit = 'Ese circuito no existe en el catálogo educativo.'
     } catch {
@@ -81,16 +79,17 @@ export async function POST(request: NextRequest) {
   }
 
   // El turno no debe pisar otro activo (misma regla que el formulario público).
-  const { data: conflicting, error: conflictError } = await supabase
-    .from('educational_bus_requests')
-    .select('id, institution_name, status')
-    .eq('requested_date', requestedDate)
-    .eq('preferred_shift', preferredShift)
-    .in('status', ['pending', 'approved'])
-    .limit(1)
-    .maybeSingle()
-
-  if (conflictError) {
+  const sql = getSql()
+  let conflicting: { id: number; institution_name: string; status: string } | undefined
+  try {
+    ;[conflicting] = await sql<{ id: number; institution_name: string; status: string }[]>`
+      select id, institution_name, status from educational_bus_requests
+      where requested_date = ${requestedDate}
+        and preferred_shift = ${preferredShift}
+        and status in ('pending', 'approved')
+      limit 1
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudo verificar la disponibilidad del turno.' }, { status: 500 })
   }
 
@@ -107,32 +106,32 @@ export async function POST(request: NextRequest) {
     ? institutionTypeRaw
     : 'provincial'
 
-  const { data, error } = await supabase
-    .from('educational_bus_requests')
-    .insert({
-      institution_name: institutionName,
-      school_address: schoolAddress || 'Sin dirección registrada',
-      contact_name: contactName || 'Contacto telefónico',
-      contact_role: 'Otro',
-      contact_phone: contactPhone || '0000000000',
-      contact_email: contactEmail.toLowerCase() || 'carga-manual@smt.gob.ar',
-      student_count: studentCount,
-      grade_year: 'carga_manual',
-      circuit: circuitSlug,
-      requested_date: requestedDate,
-      preferred_shift: preferredShift,
-      institution_type: institutionType,
-      additional_notes: notes || null,
-      internal_notes: `Cargado manualmente desde el panel (turno tomado por teléfono/presencial).`,
-      attachment_name: 'carga-manual.docx',
-      attachment_path: 'migracion/carga-manual.docx',
-      status,
-    })
-    .select('*')
-    .single()
-
-  if (error) {
-    if (error.code === '23505') {
+  let data: Record<string, unknown>
+  try {
+    ;[data] = await sql`
+      insert into educational_bus_requests ${rowValues(sql, {
+        institution_name: institutionName,
+        school_address: schoolAddress || 'Sin dirección registrada',
+        contact_name: contactName || 'Contacto telefónico',
+        contact_role: 'Otro',
+        contact_phone: contactPhone || '0000000000',
+        contact_email: contactEmail.toLowerCase() || 'carga-manual@smt.gob.ar',
+        student_count: studentCount,
+        grade_year: 'carga_manual',
+        circuit: circuitSlug,
+        requested_date: requestedDate,
+        preferred_shift: preferredShift,
+        institution_type: institutionType,
+        additional_notes: notes || null,
+        internal_notes: `Cargado manualmente desde el panel (turno tomado por teléfono/presencial).`,
+        attachment_name: 'carga-manual.docx',
+        attachment_path: 'migracion/carga-manual.docx',
+        status,
+      })}
+      returning *
+    `
+  } catch (error) {
+    if (pgErrorCode(error) === UNIQUE_VIOLATION) {
       return NextResponse.json({ error: 'Ese turno ya está ocupado.' }, { status: 409 })
     }
     return NextResponse.json({ error: 'No se pudo cargar el turno.' }, { status: 500 })

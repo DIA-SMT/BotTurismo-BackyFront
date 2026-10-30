@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   getTouristCircuitBySlug,
   isTouristCircuitIcon,
@@ -9,13 +8,14 @@ import { getTouristCircuitRecordBySlug } from '@/lib/tourist-circuits-server'
 import { translateTouristCircuitContent } from '@/lib/ai-translate'
 
 // Resuelve el circuito de una salida contra el catálogo de la base; si la
-// tabla todavía no existe cae al catálogo estático del código.
-export async function resolveCircuitForDeparture(supabase: SupabaseClient, circuitSlug: string | null) {
+// consulta falla (tabla inexistente u otro error) cae al catálogo estático
+// del código.
+export async function resolveCircuitForDeparture(circuitSlug: string | null) {
   if (!circuitSlug) {
     return { slug: null as string | null, title: null as string | null, inactive: false, defaultCapacity: null as number | null, defaultMeetingPoint: null as string | null }
   }
   try {
-    const record = await getTouristCircuitRecordBySlug(supabase, circuitSlug)
+    const record = await getTouristCircuitRecordBySlug(circuitSlug)
     if (record) {
       return {
         slug: record.slug,
@@ -26,7 +26,7 @@ export async function resolveCircuitForDeparture(supabase: SupabaseClient, circu
       }
     }
   } catch {
-    // tabla inexistente: probar catálogo estático
+    // error de la base: probar catálogo estático
   }
   const staticCircuit = getTouristCircuitBySlug(circuitSlug)
   if (staticCircuit) {

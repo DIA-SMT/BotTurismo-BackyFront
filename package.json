@@ -8,12 +8,13 @@
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.97.0",
+    "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "nodemailer": "^9.0.5",
+    "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",

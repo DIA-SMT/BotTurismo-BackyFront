@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { sanitizeStringArray } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import { sanitizeStringArray, type BicitourStop } from '@/lib/bicitour'
 
 export const runtime = 'nodejs'
 
@@ -59,9 +59,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No hay cambios para guardar.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase.from('bicitour_stops').update(payload).eq('id', stopId).select('*').single()
-  if (error || !data) return NextResponse.json({ error: 'No se pudo actualizar la parada.' }, { status: 500 })
+  const sql = getSql()
+  const [data] = await sql<BicitourStop[]>`
+    update bicitour_stops set ${rowValues(sql, payload)} where id = ${stopId} returning *
+  `.catch(() => [])
+  if (!data) return NextResponse.json({ error: 'No se pudo actualizar la parada.' }, { status: 500 })
   return NextResponse.json({ data })
 }
 
@@ -73,19 +75,21 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
   const stopId = Number(id)
   if (!Number.isInteger(stopId)) return NextResponse.json({ error: 'Parada inválida.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { count } = await supabase
-    .from('bicitour_session_stops')
-    .select('*', { count: 'exact', head: true })
-    .eq('stop_id', stopId)
-  if ((count || 0) > 0) {
+  const sql = getSql()
+  const [{ count }] = await sql<{ count: number }[]>`
+    select count(*)::int as count from bicitour_session_stops where stop_id = ${stopId}
+  `
+  if (count > 0) {
     return NextResponse.json(
       { error: 'La parada ya se usó en sesiones. No se puede eliminar (podés editarla).' },
       { status: 409 },
     )
   }
 
-  const { error } = await supabase.from('bicitour_stops').delete().eq('id', stopId)
-  if (error) return NextResponse.json({ error: 'No se pudo eliminar la parada.' }, { status: 500 })
+  try {
+    await sql`delete from bicitour_stops where id = ${stopId}`
+  } catch {
+    return NextResponse.json({ error: 'No se pudo eliminar la parada.' }, { status: 500 })
+  }
   return NextResponse.json({ data: { id: stopId } })
 }

@@ -1,37 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
+import { createSignedReadUrl } from '@/lib/archivos'
+import { getSql } from '@/lib/db'
 import { MAX_PHOTOS_PER_BOOK, PHOTO_BOOK_BUCKET } from '@/lib/photo-books'
 import { uploadPhotoFilesToBook, validatePhotoFiles } from '@/lib/photo-book-upload'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
 
-// Margen de sobra para firmar/registrar tandas grandes de fotos (el default
-// de la plataforma es 10 s y con 30 fotos se quedaba corto).
+// maxDuration era para Vercel (su default de 10 s no alcanzaba para firmar y
+// registrar 30 fotos). Con `next start` en nuestro servidor no tiene efecto:
+// el tope lo pone, si acaso, el timeout del proxy (nginx).
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+type PreviewRow = { id: string; original_name: string; storage_path: string; sort_order: number }
+type BookSlots = { id: string; expires_at: string; photo_book_photos: Array<{ id: string; sort_order: number }> }
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
 
   const { id } = await context.params
-  const supabase = createServerSupabaseClient()
-  const { data: photos, error } = await supabase
-    .from('photo_book_photos')
-    .select('id, original_name, storage_path, sort_order')
-    .eq('book_id', id)
-    .order('sort_order', { ascending: true })
+  const sql = getSql()
+  let photos: PreviewRow[]
+  try {
+    photos = await sql<PreviewRow[]>`
+      select id, original_name, storage_path, sort_order
+      from photo_book_photos
+      where book_id = ${id}
+      order by sort_order asc
+    `
+  } catch {
+    return NextResponse.json({ error: 'No se pudieron cargar las previsualizaciones.' }, { status: 500 })
+  }
 
-  if (error) return NextResponse.json({ error: 'No se pudieron cargar las previsualizaciones.' }, { status: 500 })
-
-  const previews = await Promise.all((photos || []).map(async (photo) => {
-    const { data } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUrl(photo.storage_path, 60 * 60)
+  const previews = photos.map((photo) => {
+    let previewUrl = ''
+    try {
+      previewUrl = createSignedReadUrl(PHOTO_BOOK_BUCKET, photo.storage_path, 60 * 60)
+    } catch {
+      // Sin URL la foto queda afuera de las previsualizaciones (filtro de abajo).
+    }
     return {
       id: photo.id,
       name: photo.original_name,
-      preview_url: data?.signedUrl || '',
+      preview_url: previewUrl,
       sort_order: photo.sort_order,
     }
-  }))
+  })
 
   return NextResponse.json({ data: previews.filter((photo) => photo.preview_url) })
 }
@@ -51,14 +65,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const validationError = validatePhotoFiles(photos)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { data: book, error: bookError } = await supabase
-    .from('photo_books')
-    .select('id, expires_at, photo_book_photos(id, sort_order)')
-    .eq('id', id)
-    .maybeSingle()
+  const sql = getSql()
+  let book: BookSlots | null
+  try {
+    const rows = await sql<BookSlots[]>`
+      select b.id, b.expires_at,
+        coalesce((
+          select json_agg(json_build_object('id', p.id, 'sort_order', p.sort_order) order by p.sort_order, p.created_at)
+          from photo_book_photos p
+          where p.book_id = b.id
+        ), '[]'::json) as photo_book_photos
+      from photo_books b
+      where b.id = ${id}
+    `
+    book = rows[0] ?? null
+  } catch {
+    return NextResponse.json({ error: 'No se pudo validar el book.' }, { status: 500 })
+  }
 
-  if (bookError) return NextResponse.json({ error: 'No se pudo validar el book.' }, { status: 500 })
   if (!book) return NextResponse.json({ error: 'Book no encontrado.' }, { status: 404 })
   if (new Date(book.expires_at).getTime() <= Date.now()) {
     return NextResponse.json({ error: 'No se pueden agregar fotos a un book vencido.' }, { status: 400 })
@@ -80,7 +104,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const highestSortOrder = currentPhotos.reduce((max, photo) => Math.max(max, photo.sort_order ?? -1), -1)
   const uploadResult = await uploadPhotoFilesToBook({
-    supabase,
     bookId: id,
     photos,
     startSortOrder: highestSortOrder + 1,
@@ -93,14 +116,31 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     )
   }
 
-  const { data: updatedBook, error: updatedError } = await supabase
-    .from('photo_books')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select('*, photo_book_photos(id, storage_path, original_name, mime_type, size_bytes, sort_order)')
-    .single()
+  let updatedBook: unknown
+  try {
+    const rows = await sql`
+      update photo_books b set updated_at = ${new Date().toISOString()}
+      where b.id = ${id}
+      returning b.*,
+        coalesce((
+          select json_agg(json_build_object(
+            'id', p.id,
+            'storage_path', p.storage_path,
+            'original_name', p.original_name,
+            'mime_type', p.mime_type,
+            'size_bytes', p.size_bytes,
+            'sort_order', p.sort_order
+          ) order by p.sort_order, p.created_at)
+          from photo_book_photos p
+          where p.book_id = b.id
+        ), '[]'::json) as photo_book_photos
+    `
+    updatedBook = rows[0]
+  } catch {
+    // Cae en el mismo 500 de abajo.
+  }
 
-  if (updatedError) {
+  if (!updatedBook) {
     return NextResponse.json({ error: 'Las fotos se subieron, pero no se pudo refrescar el book.' }, { status: 500 })
   }
 

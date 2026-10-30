@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { sanitizeQuestionOptions } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import { sanitizeQuestionOptions, type BicitourQuestion } from '@/lib/bicitour'
 
 export const runtime = 'nodejs'
 
@@ -40,14 +40,10 @@ export async function POST(request: NextRequest) {
     ? String(body.category)
     : undefined
 
-  const supabase = createServerSupabaseClient()
-  const { data: last } = await supabase
-    .from('bicitour_questions')
-    .select('position')
-    .eq('stop_id', stopId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const sql = getSql()
+  const [last] = await sql<{ position: number }[]>`
+    select position from bicitour_questions where stop_id = ${stopId} order by position desc limit 1
+  `
 
   const insertPayload: Record<string, unknown> = {
     stop_id: stopId,
@@ -62,8 +58,10 @@ export async function POST(request: NextRequest) {
   // Columna de la migración v2: solo se envía si el cliente la especifica.
   if (category) insertPayload.category = category
 
-  const { data, error } = await supabase.from('bicitour_questions').insert(insertPayload).select('*').single()
+  const [data] = await sql<BicitourQuestion[]>`
+    insert into bicitour_questions ${rowValues(sql, insertPayload)} returning *
+  `.catch(() => [])
 
-  if (error || !data) return NextResponse.json({ error: 'No se pudo crear la pregunta.' }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'No se pudo crear la pregunta.' }, { status: 500 })
   return NextResponse.json({ data }, { status: 201 })
 }

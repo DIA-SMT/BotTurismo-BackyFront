@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createSignedUploadUrl, listArchives, removeArchives, uploadArchive } from '@/lib/archivos'
+import { getSql, rowValues } from '@/lib/db'
 import {
   ALLOWED_PHOTO_MIME_TYPES,
   MAX_PHOTO_SIZE_BYTES,
@@ -16,10 +17,11 @@ export function validatePhotoFiles(photos: File[]) {
   return `La foto "${invalidPhoto.name}" no es válida o supera los 15 MB.`
 }
 
-// ── Subida directa a Storage con URLs firmadas ──
-// Vercel corta los request bodies en ~4,5 MB ("Request Entity Too Large"),
-// así que las fotos NO pueden viajar por la función: el server solo firma las
-// URLs de subida y registra las filas; los bytes van del navegador a Supabase.
+// ── Subida directa al almacenamiento con URLs firmadas ──
+// El server solo firma las URLs de subida y registra las filas; los bytes van
+// del navegador con un PUT a /api/archivos (que los guarda en el disco). Así
+// las fotos suben en paralelo, cada una por su lado, y los bodies grandes no
+// pasan por las rutas JSON de la API.
 
 export interface PhotoUploadDescriptor {
   name: string
@@ -56,65 +58,46 @@ export interface SignedPhotoUpload {
 }
 
 export async function createSignedPhotoUploads({
-  supabase,
   bookId,
   photos,
   startSortOrder,
 }: {
-  supabase: SupabaseClient
   bookId: string
   photos: PhotoUploadDescriptor[]
   startSortOrder: number
 }): Promise<{ uploads: SignedPhotoUpload[]; error: unknown }> {
-  // Firmar de a una tardaba ~8 s con 30 fotos (peligrosamente cerca del límite
-  // de la función) y una sola firma lenta tumbaba el book entero: reporte de
-  // guías 2026-09-21. Ahora se firman en tandas concurrentes y cada firma
-  // reintenta una vez antes de darse por perdida.
-  const CONCURRENCY = 6
-  const uploads: SignedPhotoUpload[] = new Array(photos.length)
-  let failure: unknown = null
-
-  const signOne = async (photo: PhotoUploadDescriptor, index: number) => {
-    const displayOrder = startSortOrder + index + 1
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+  // Con Supabase cada firma era un pedido por red: firmar de a una tardaba ~8 s
+  // con 30 fotos y una sola firma lenta tumbaba el book entero (reporte de
+  // guías 2026-09-21), por eso se firmaba en tandas y con reintento. Ahora la
+  // firma es un HMAC local e instantáneo: si falla (falta AUTH_SECRET, nombre
+  // inválido) falla igual para todas, así que no hay nada que reintentar.
+  try {
+    const uploads = photos.map((photo, index): SignedPhotoUpload => {
+      const displayOrder = startSortOrder + index + 1
       const base = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
       const thumbBase = `${bookId}/thumb-${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
-      const [full, thumb] = await Promise.all([
-        supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(base),
-        supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUploadUrl(thumbBase),
-      ])
-      if (!full.error && full.data?.signedUrl && !thumb.error && thumb.data?.signedUrl) {
-        uploads[index] = {
-          path: base,
-          signedUrl: full.data.signedUrl,
-          name: photo.name,
-          thumbPath: thumbBase,
-          thumbSignedUrl: thumb.data.signedUrl,
-        }
-        return
+      return {
+        path: base,
+        signedUrl: createSignedUploadUrl(PHOTO_BOOK_BUCKET, base),
+        name: photo.name,
+        thumbPath: thumbBase,
+        thumbSignedUrl: createSignedUploadUrl(PHOTO_BOOK_BUCKET, thumbBase),
       }
-      failure = full.error || thumb.error || new Error('sin signedUrl')
-    }
+    })
+    return { uploads, error: null }
+  } catch (error) {
+    return { uploads: [], error }
   }
-
-  for (let start = 0; start < photos.length; start += CONCURRENCY) {
-    const batch = photos.slice(start, start + CONCURRENCY)
-    await Promise.all(batch.map((photo, offset) => signOne(photo, start + offset)))
-  }
-
-  if (uploads.some((upload) => !upload)) return { uploads: [], error: failure || new Error('firmas incompletas') }
-  return { uploads, error: null }
 }
 
-// Registra en la base las fotos que el navegador ya subió a Storage. Verifica
-// contra el bucket que los archivos existan (no confía en el cliente).
+// Registra en la base las fotos que el navegador ya subió con las URLs
+// firmadas. Verifica contra el disco que los archivos existan (no confía en
+// el cliente).
 export async function registerUploadedPhotos({
-  supabase,
   bookId,
   photos,
   startSortOrder,
 }: {
-  supabase: SupabaseClient
   bookId: string
   photos: Array<PhotoUploadDescriptor & { path: string; thumbPath?: string }>
   startSortOrder: number
@@ -124,14 +107,16 @@ export async function registerUploadedPhotos({
   )
   if (outsideBook) return { data: [], error: new Error('path fuera del book') }
 
-  const { data: objects, error: listError } = await supabase.storage
-    .from(PHOTO_BOOK_BUCKET)
-    .list(bookId, { limit: 400 })
-  if (listError) return { data: [], error: listError }
+  let objects: string[]
+  try {
+    objects = await listArchives(PHOTO_BOOK_BUCKET, bookId)
+  } catch (listError) {
+    return { data: [], error: listError }
+  }
 
-  const existing = new Set((objects || []).map((object) => `${bookId}/${object.name}`))
+  const existing = new Set(objects.map((name) => `${bookId}/${name}`))
   const missing = photos.find((photo) => !existing.has(photo.path))
-  if (missing) return { data: [], error: new Error(`no está en Storage: ${missing.path}`) }
+  if (missing) return { data: [], error: new Error(`no está en el almacenamiento: ${missing.path}`) }
 
   const rows = photos.map((photo, index) => ({
     book_id: bookId,
@@ -145,17 +130,20 @@ export async function registerUploadedPhotos({
     sort_order: startSortOrder + index,
   }))
 
-  const { data, error } = await supabase.from('photo_book_photos').insert(rows).select('*')
-  return { data: data || [], error }
+  try {
+    const sql = getSql()
+    const data = await sql`insert into photo_book_photos ${rowValues(sql, rows)} returning *`
+    return { data: [...data], error: null }
+  } catch (error) {
+    return { data: [], error }
+  }
 }
 
 export async function uploadPhotoFilesToBook({
-  supabase,
   bookId,
   photos,
   startSortOrder,
 }: {
-  supabase: SupabaseClient
   bookId: string
   photos: File[]
   startSortOrder: number
@@ -168,11 +156,8 @@ export async function uploadPhotoFilesToBook({
       const displayOrder = startSortOrder + index + 1
       const storagePath = `${bookId}/${String(displayOrder).padStart(3, '0')}-${randomUUID()}-${sanitizeFileName(photo.name)}`
       const bytes = Buffer.from(await photo.arrayBuffer())
-      const { error: uploadError } = await supabase.storage
-        .from(PHOTO_BOOK_BUCKET)
-        .upload(storagePath, bytes, { contentType: photo.type, upsert: false })
+      await uploadArchive(PHOTO_BOOK_BUCKET, storagePath, bytes, { upsert: false })
 
-      if (uploadError) throw uploadError
       uploadedPaths.push(storagePath)
       photoRows.push({
         book_id: bookId,
@@ -184,12 +169,16 @@ export async function uploadPhotoFilesToBook({
       })
     }
 
-    const { data, error } = await supabase.from('photo_book_photos').insert(photoRows).select('*')
-    if (error) throw error
+    const sql = getSql()
+    const data = await sql`insert into photo_book_photos ${rowValues(sql, photoRows)} returning *`
 
-    return { data: data || [], error: null }
+    return { data: [...data], error: null }
   } catch (error) {
-    if (uploadedPaths.length) await supabase.storage.from(PHOTO_BOOK_BUCKET).remove(uploadedPaths)
+    if (uploadedPaths.length) {
+      await removeArchives(PHOTO_BOOK_BUCKET, uploadedPaths).catch((removeError) =>
+        console.error('No se pudieron borrar las fotos de una subida fallida:', removeError),
+      )
+    }
     return { data: [], error }
   }
 }

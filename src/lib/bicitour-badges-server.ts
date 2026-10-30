@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSql, rowValues } from '@/lib/db'
 import type { BicitourSession } from '@/lib/bicitour'
 import {
   buildBadgeProgress,
@@ -19,53 +19,52 @@ interface SessionBadgeData {
   earnedByParticipant: Map<number, { badge_key: string; reason: string; awarded_at: string }[]>
 }
 
-export async function loadSessionBadgeData(
-  supabase: SupabaseClient,
-  session: BicitourSession,
-): Promise<SessionBadgeData> {
-  const [{ data: sessionStops }, { data: participants }, { data: answers }, { data: stamps }, { data: badges }] =
-    await Promise.all([
-      supabase
-        .from('bicitour_session_stops')
-        .select('id,stop_id,status,active_question_id')
-        .eq('session_id', session.id),
-      supabase.from('bicitour_participants').select('id').eq('session_id', session.id),
-      supabase.from('bicitour_answers').select('participant_id,question_id,is_correct').eq('session_id', session.id),
-      supabase.from('bicitour_stamps').select('participant_id,stop_id').eq('session_id', session.id),
-      supabase
-        .from('bicitour_participant_badges')
-        .select('participant_id,badge_key,reason,awarded_at')
-        .eq('session_id', session.id),
-    ])
+export async function loadSessionBadgeData(session: BicitourSession): Promise<SessionBadgeData> {
+  const sql = getSql()
+  const [sessionStops, participants, answers, stamps, badges] = await Promise.all([
+    sql<{ id: number; stop_id: number; status: string; active_question_id: number | null }[]>`
+      select id, stop_id, status, active_question_id from bicitour_session_stops where session_id = ${session.id}
+    `,
+    sql<{ id: number }[]>`select id from bicitour_participants where session_id = ${session.id}`,
+    sql<{ participant_id: number; question_id: number; is_correct: boolean }[]>`
+      select participant_id, question_id, is_correct from bicitour_answers where session_id = ${session.id}
+    `,
+    sql<{ participant_id: number; stop_id: number | null }[]>`
+      select participant_id, stop_id from bicitour_stamps where session_id = ${session.id}
+    `,
+    sql<{ participant_id: number; badge_key: string; reason: string; awarded_at: string }[]>`
+      select participant_id, badge_key, reason, awarded_at from bicitour_participant_badges where session_id = ${session.id}
+    `,
+  ])
 
   // Categorías de las preguntas efectivamente lanzadas en la sesión.
   const askedQuestionIds = [
     ...new Set(
-      ((sessionStops || []) as { active_question_id: number | null }[])
+      sessionStops
         .map((stop) => stop.active_question_id)
         .filter((id): id is number => id !== null),
     ),
   ]
   // También cuentan las preguntas ya respondidas (cubre preguntas lanzadas
   // en paradas cuya pregunta activa cambió después).
-  for (const answer of (answers || []) as { question_id: number }[]) {
+  for (const answer of answers) {
     if (!askedQuestionIds.includes(answer.question_id)) askedQuestionIds.push(answer.question_id)
   }
 
-  const { data: questionRows } = askedQuestionIds.length
-    ? await supabase.from('bicitour_questions').select('id,category').in('id', askedQuestionIds)
-    : { data: [] }
+  const questionRows: { id: number; category: string }[] = askedQuestionIds.length
+    ? await sql<{ id: number; category: string }[]>`
+        select id, category from bicitour_questions where id in ${sql(askedQuestionIds)}
+      `
+    : []
   const categoryByQuestion = new Map<number, string>()
-  for (const question of (questionRows || []) as { id: number; category: string }[]) {
+  for (const question of questionRows) {
     categoryByQuestion.set(question.id, question.category || 'historica')
   }
   const observationQuestionIds = askedQuestionIds.filter(
     (id) => categoryByQuestion.get(id) === 'observacion',
   )
 
-  const publishedStops = ((sessionStops || []) as { status: string }[]).filter(
-    (stop) => stop.status !== 'skipped',
-  ).length
+  const publishedStops = sessionStops.filter((stop) => stop.status !== 'skipped').length
 
   const sessionInput = {
     publishedStops,
@@ -74,13 +73,9 @@ export async function loadSessionBadgeData(
   }
 
   const perParticipant = new Map<number, { input: BadgeParticipantInput; observationCorrectIds: number[] }>()
-  for (const participant of (participants || []) as { id: number }[]) {
-    const myAnswers = ((answers || []) as { participant_id: number; question_id: number; is_correct: boolean }[]).filter(
-      (answer) => answer.participant_id === participant.id,
-    )
-    const myStamps = ((stamps || []) as { participant_id: number; stop_id: number | null }[]).filter(
-      (stamp) => stamp.participant_id === participant.id && stamp.stop_id !== null,
-    )
+  for (const participant of participants) {
+    const myAnswers = answers.filter((answer) => answer.participant_id === participant.id)
+    const myStamps = stamps.filter((stamp) => stamp.participant_id === participant.id && stamp.stop_id !== null)
     perParticipant.set(participant.id, {
       input: {
         answers: myAnswers.map((answer) => ({
@@ -96,7 +91,7 @@ export async function loadSessionBadgeData(
   }
 
   const earnedByParticipant = new Map<number, { badge_key: string; reason: string; awarded_at: string }[]>()
-  for (const badge of (badges || []) as { participant_id: number; badge_key: string; reason: string; awarded_at: string }[]) {
+  for (const badge of badges) {
     const list = earnedByParticipant.get(badge.participant_id) || []
     list.push(badge)
     earnedByParticipant.set(badge.participant_id, list)
@@ -108,8 +103,9 @@ export async function loadSessionBadgeData(
 // Recalcula y otorga las insignias de TODOS los participantes de la sesión.
 // Se llama al cerrar preguntas, completar paradas y finalizar la sesión.
 // Devuelve cuántas insignias nuevas se entregaron (para bumpear la versión).
-export async function awardSessionBadges(supabase: SupabaseClient, session: BicitourSession): Promise<number> {
-  const data = await loadSessionBadgeData(supabase, session)
+export async function awardSessionBadges(session: BicitourSession): Promise<number> {
+  const sql = getSql()
+  const data = await loadSessionBadgeData(session)
   const rows: { session_id: number; participant_id: number; badge_key: string; reason: string }[] = []
 
   for (const [participantId, participantData] of data.perParticipant) {
@@ -126,10 +122,14 @@ export async function awardSessionBadges(supabase: SupabaseClient, session: Bici
   }
 
   if (rows.length > 0) {
-    // ignoreDuplicates: dos recalculos simultáneos no duplican (UNIQUE).
-    await supabase
-      .from('bicitour_participant_badges')
-      .upsert(rows, { onConflict: 'participant_id,badge_key', ignoreDuplicates: true })
+    // on conflict do nothing: dos recalculos simultáneos no duplican (UNIQUE).
+    // Si la escritura falla se registra sin cortar la acción del guía.
+    await sql`
+      insert into bicitour_participant_badges ${rowValues(sql, rows)}
+      on conflict (participant_id, badge_key) do nothing
+    `.catch((error) => {
+      console.error('Error otorgando insignias de bicitour:', error)
+    })
   }
   return rows.length
 }

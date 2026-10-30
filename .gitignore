@@ -23,6 +23,8 @@ tunnel_url.txt
 *.tsbuildinfo
 
 # Project specific
+# Fotos y adjuntos en desarrollo (en la VPS viven en /srv/turismo/compartido/archivos)
+/archivos/
 manychat_node.json
 *.pub
 id_rsa*

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { isPastBusinessDate, requestStatusOptions } from '@/lib/educational-bus-requests'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
+import { isPastBusinessDate, requestStatusOptions, type EducationalBusRequest } from '@/lib/educational-bus-requests'
 
 function isValidStatus(status: string) {
   return requestStatusOptions.some((option) => option.value === status)
@@ -11,11 +11,6 @@ function blocksAvailability(status: string) {
   return status === 'pending' || status === 'approved'
 }
 
-function isMissingGuidesColumnError(error: { code?: string; message?: string } | null) {
-  if (!error) return false
-  return error.code === 'PGRST204' || error.code === '42703' || error.message?.toLowerCase().includes('guides') === true
-}
-
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await getAuthenticatedAdminFromCookies()
   if (!admin) {
@@ -23,10 +18,12 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   }
 
   const { id } = await context.params
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase.from('educational_bus_requests').select('*').eq('id', Number(id)).single()
+  const sql = getSql()
+  const [data] = await sql<EducationalBusRequest[]>`
+    select * from educational_bus_requests where id = ${Number(id)}
+  `.catch(() => [])
 
-  if (error || !data) {
+  if (!data) {
     return NextResponse.json({ error: 'Solicitud no encontrada.' }, { status: 404 })
   }
 
@@ -58,14 +55,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No hay cambios para guardar.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: currentRequest, error: currentError } = await supabase
-    .from('educational_bus_requests')
-    .select('id, requested_date, preferred_shift, status')
-    .eq('id', Number(id))
-    .single()
+  const sql = getSql()
+  const [currentRequest] = await sql<Pick<EducationalBusRequest, 'id' | 'requested_date' | 'preferred_shift' | 'status'>[]>`
+    select id, requested_date, preferred_shift, status from educational_bus_requests where id = ${Number(id)}
+  `.catch(() => [])
 
-  if (currentError || !currentRequest) {
+  if (!currentRequest) {
     return NextResponse.json({ error: 'Solicitud no encontrada.' }, { status: 404 })
   }
 
@@ -79,17 +74,17 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       )
     }
 
-    const { data: conflictingRequest, error: conflictError } = await supabase
-      .from('educational_bus_requests')
-      .select('id')
-      .eq('requested_date', currentRequest.requested_date)
-      .eq('preferred_shift', currentRequest.preferred_shift)
-      .in('status', ['pending', 'approved'])
-      .neq('id', Number(id))
-      .limit(1)
-      .maybeSingle()
-
-    if (conflictError) {
+    let conflictingRequest: { id: number } | undefined
+    try {
+      ;[conflictingRequest] = await sql<{ id: number }[]>`
+        select id from educational_bus_requests
+        where requested_date = ${currentRequest.requested_date}
+          and preferred_shift = ${currentRequest.preferred_shift}
+          and status in ('pending', 'approved')
+          and id <> ${Number(id)}
+        limit 1
+      `
+    } catch {
       return NextResponse.json({ error: 'No se pudo validar la disponibilidad del turno.' }, { status: 500 })
     }
 
@@ -101,32 +96,24 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     }
   }
 
-  let { data, error } = await supabase
-    .from('educational_bus_requests')
-    .update(updatePayload)
-    .eq('id', Number(id))
-    .select('*')
-    .single()
-
-  if (error && Object.prototype.hasOwnProperty.call(updatePayload, 'guides') && isMissingGuidesColumnError(error)) {
-    const fallbackPayload = { ...updatePayload }
-    delete fallbackPayload.guides
-
-    ;({ data, error } = await supabase
-      .from('educational_bus_requests')
-      .update(fallbackPayload)
-      .eq('id', Number(id))
-      .select('*')
-      .single())
-  }
-
-  if (error || !data) {
-    if (error?.code === '23505') {
+  let data: EducationalBusRequest | undefined
+  try {
+    ;[data] = await sql<EducationalBusRequest[]>`
+      update educational_bus_requests set ${rowValues(sql, updatePayload)}
+      where id = ${Number(id)}
+      returning *
+    `
+  } catch (error) {
+    if (pgErrorCode(error) === UNIQUE_VIOLATION) {
       return NextResponse.json(
         { error: 'Ese turno ya está ocupado por otra solicitud activa.' },
         { status: 409 },
       )
     }
+    return NextResponse.json({ error: 'No se pudo actualizar la solicitud.' }, { status: 500 })
+  }
+
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo actualizar la solicitud.' }, { status: 500 })
   }
 

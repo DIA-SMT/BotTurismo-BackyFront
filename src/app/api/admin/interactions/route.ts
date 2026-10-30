@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import { TELEGRAM_CHAT_PREFIX, WEB_CHAT_PREFIX } from '@/lib/supabase'
 
 const PAGE_SIZE = 50
@@ -20,33 +20,42 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || ''
   const channel = searchParams.get('channel') || ''
 
-  const supabase = createServerSupabaseClient()
-  let query = supabase
-    .from('tourist_interactions')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+  const sql = getSql()
+  // Los mismos filtros para la página y para el total.
+  const filters = () => sql`
+    where true
+      ${intent ? sql`and intent = ${intent}` : sql``}
+      ${language ? sql`and language = ${language}` : sql``}
+      ${dateFrom ? sql`and created_at >= ${dateFrom}` : sql``}
+      ${dateTo ? sql`and created_at <= ${`${dateTo}T23:59:59`}` : sql``}
+      ${search ? sql`and query_text ilike ${`%${search}%`}` : sql``}
+      ${channel === 'telegram' ? sql`and chat_id like ${`${TELEGRAM_CHAT_PREFIX}%`}` : sql``}
+      ${channel === 'web' ? sql`and chat_id like ${`${WEB_CHAT_PREFIX}%`}` : sql``}
+      ${
+        channel === 'whatsapp'
+          ? sql`and (chat_id is null or (chat_id not like ${`${TELEGRAM_CHAT_PREFIX}%`} and chat_id not like ${`${WEB_CHAT_PREFIX}%`}))`
+          : sql``
+      }
+  `
 
-  if (intent) query = query.eq('intent', intent)
-  if (language) query = query.eq('language', language)
-  if (dateFrom) query = query.gte('created_at', dateFrom)
-  if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`)
-  if (search) query = query.ilike('query_text', `%${search}%`)
-  if (channel === 'telegram') query = query.like('chat_id', `${TELEGRAM_CHAT_PREFIX}%`)
-  if (channel === 'web') query = query.like('chat_id', `${WEB_CHAT_PREFIX}%`)
-  if (channel === 'whatsapp') {
-    query = query.or(`chat_id.is.null,and(chat_id.not.like.${TELEGRAM_CHAT_PREFIX}*,chat_id.not.like.${WEB_CHAT_PREFIX}*)`)
-  }
+  try {
+    const [data, [{ count }]] = await Promise.all([
+      sql`
+        select * from tourist_interactions
+        ${filters()}
+        order by created_at desc
+        limit ${PAGE_SIZE} offset ${page * PAGE_SIZE}
+      `,
+      sql<{ count: number }[]>`select count(*)::int as count from tourist_interactions ${filters()}`,
+    ])
 
-  const { data, count, error } = await query
-  if (error) {
+    return NextResponse.json({
+      data,
+      total: count || 0,
+      page,
+      pageSize: PAGE_SIZE,
+    })
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las interacciones.' }, { status: 500 })
   }
-
-  return NextResponse.json({
-    data: data || [],
-    total: count || 0,
-    page,
-    pageSize: PAGE_SIZE,
-  })
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import { decimateTrack, type BicitourSession } from '@/lib/bicitour'
 import { loadSessionGraph } from '@/lib/bicitour-server'
 
@@ -17,9 +17,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   const sessionId = Number(id)
   if (!Number.isInteger(sessionId)) return NextResponse.json({ error: 'Sesión inválida.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { data: sessionRow } = await supabase.from('bicitour_sessions').select('*').eq('id', sessionId).maybeSingle()
-  const session = sessionRow as BicitourSession | null
+  const sql = getSql()
+  const [session] = await sql<BicitourSession[]>`select * from bicitour_sessions where id = ${sessionId}`
   if (!session) return NextResponse.json({ error: 'Sesión no encontrada.' }, { status: 404 })
 
   const { searchParams } = new URL(request.url)
@@ -28,25 +27,27 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     return NextResponse.json({ version: session.version, unchanged: true })
   }
 
-  const graph = await loadSessionGraph(supabase, session)
+  const graph = await loadSessionGraph(session)
   if (!graph) return NextResponse.json({ error: 'Sesión no disponible.' }, { status: 500 })
 
-  const [{ data: answers }, { data: trackRows }, { data: badgeRows }] = await Promise.all([
-    supabase.from('bicitour_answers').select('question_id').eq('session_id', session.id),
-    supabase.from('bicitour_track_points').select('lat,lng').eq('session_id', session.id).order('id').limit(5000),
-    supabase.from('bicitour_participant_badges').select('participant_id').eq('session_id', session.id),
+  const [answers, trackRows, badgeRows] = await Promise.all([
+    sql<{ question_id: number }[]>`select question_id from bicitour_answers where session_id = ${session.id}`,
+    sql<{ lat: number; lng: number }[]>`
+      select lat, lng from bicitour_track_points where session_id = ${session.id} order by id limit 5000
+    `,
+    sql<{ participant_id: number }[]>`
+      select participant_id from bicitour_participant_badges where session_id = ${session.id}
+    `,
   ])
   const badgeCounts = new Map<number, number>()
-  for (const badge of (badgeRows || []) as { participant_id: number }[]) {
+  for (const badge of badgeRows) {
     badgeCounts.set(badge.participant_id, (badgeCounts.get(badge.participant_id) || 0) + 1)
   }
   const answerCounts = new Map<number, number>()
-  for (const answer of (answers || []) as { question_id: number }[]) {
+  for (const answer of answers) {
     answerCounts.set(answer.question_id, (answerCounts.get(answer.question_id) || 0) + 1)
   }
-  const track = ((trackRows || []) as { lat: number; lng: number }[]).map(
-    (point) => [point.lat, point.lng] as [number, number],
-  )
+  const track = trackRows.map((point) => [point.lat, point.lng] as [number, number])
 
   const now = Date.now()
   const participants = graph.participants
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }),
     participants,
     connectedCount: participants.filter((participant) => participant.connected).length,
-    badgesAwarded: (badgeRows || []).length,
+    badgesAwarded: badgeRows.length,
     track: decimateTrack(track),
     trackCount: track.length,
     teamRanking: [...teamTotals.entries()].map(([team, score]) => ({ team, score })).sort((a, b) => b.score - a.score),

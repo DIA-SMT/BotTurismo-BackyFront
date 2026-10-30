@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import type { BicitourParticipant, BicitourQuestion, BicitourSessionStop } from '@/lib/bicitour'
-import { bumpSessionVersion, getSessionByCode } from '@/lib/bicitour-server'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
+import type { BicitourQuestion, BicitourSessionStop } from '@/lib/bicitour'
+import { bumpSessionVersion, getParticipantByToken, getSessionByCode } from '@/lib/bicitour-server'
 
 export const runtime = 'nodejs'
 
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const session = await getSessionByCode(supabase, String(body.code || ''))
+  const sql = getSql()
+  const session = await getSessionByCode(String(body.code || ''))
   if (!session) return NextResponse.json({ error: 'Sesión no encontrada.' }, { status: 404 })
   if (session.status !== 'active') {
     return NextResponse.json({ error: 'La sesión no está activa en este momento.' }, { status: 409 })
@@ -27,13 +27,7 @@ export async function POST(request: NextRequest) {
   if (!/^[0-9a-f-]{36}$/i.test(token)) {
     return NextResponse.json({ error: 'Identidad inválida. Volvé a ingresar con el código.' }, { status: 401 })
   }
-  const { data: participantRow } = await supabase
-    .from('bicitour_participants')
-    .select('*')
-    .eq('token', token)
-    .eq('session_id', session.id)
-    .maybeSingle()
-  const participant = participantRow as BicitourParticipant | null
+  const participant = await getParticipantByToken(session.id, token)
   if (!participant) {
     return NextResponse.json({ error: 'No estás registrado en esta sesión.' }, { status: 401 })
   }
@@ -45,24 +39,15 @@ export async function POST(request: NextRequest) {
   }
 
   // La pregunta debe estar activa en una parada de ESTA sesión.
-  const { data: sessionStopRow } = await supabase
-    .from('bicitour_session_stops')
-    .select('*')
-    .eq('session_id', session.id)
-    .eq('active_question_id', questionId)
-    .eq('status', 'question_active')
-    .maybeSingle()
-  const sessionStop = sessionStopRow as BicitourSessionStop | null
+  const [sessionStop] = await sql<BicitourSessionStop[]>`
+    select * from bicitour_session_stops
+    where session_id = ${session.id} and active_question_id = ${questionId} and status = ${'question_active'}
+  `
   if (!sessionStop) {
     return NextResponse.json({ error: 'La pregunta ya no está abierta.' }, { status: 409 })
   }
 
-  const { data: questionRow } = await supabase
-    .from('bicitour_questions')
-    .select('*')
-    .eq('id', questionId)
-    .single()
-  const question = questionRow as BicitourQuestion | null
+  const [question] = await sql<BicitourQuestion[]>`select * from bicitour_questions where id = ${questionId}`
   if (!question || !question.options.some((option) => option.key === answerKey)) {
     return NextResponse.json({ error: 'Opción inválida.' }, { status: 400 })
   }
@@ -70,29 +55,32 @@ export async function POST(request: NextRequest) {
   const isCorrect = answerKey === question.correct_key
   const pointsAwarded = isCorrect ? question.points : 0
 
-  const { error: insertError } = await supabase.from('bicitour_answers').insert({
-    session_id: session.id,
-    participant_id: participant.id,
-    question_id: questionId,
-    answer_key: answerKey,
-    is_correct: isCorrect,
-    points_awarded: pointsAwarded,
-  })
-
-  if (insertError) {
-    if (insertError.code === '23505') {
+  try {
+    await sql`
+      insert into bicitour_answers ${rowValues(sql, {
+        session_id: session.id,
+        participant_id: participant.id,
+        question_id: questionId,
+        answer_key: answerKey,
+        is_correct: isCorrect,
+        points_awarded: pointsAwarded,
+      })}
+    `
+  } catch (error) {
+    if (pgErrorCode(error) === UNIQUE_VIOLATION) {
       return NextResponse.json({ error: 'Ya respondiste esta pregunta.' }, { status: 409 })
     }
     return NextResponse.json({ error: 'No se pudo registrar tu respuesta.' }, { status: 500 })
   }
 
   if (pointsAwarded > 0) {
-    await supabase
-      .from('bicitour_participants')
-      .update({ score: participant.score + pointsAwarded })
-      .eq('id', participant.id)
+    await sql`
+      update bicitour_participants set score = ${participant.score + pointsAwarded} where id = ${participant.id}
+    `.catch((error) => {
+      console.error('Error sumando el puntaje del participante de bicitour:', error)
+    })
   }
-  await bumpSessionVersion(supabase, session.id)
+  await bumpSessionVersion(session.id)
 
   // No se revela si fue correcta: eso llega para todos cuando el guía cierra
   // la pregunta (la gracia es escuchar la explicación en grupo).

@@ -39,6 +39,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`🤖 Bot Turismo SMT Backend running on port ${PORT}`);
+// Sólo en loopback: desde afuera se entra por nginx (location /turismo/).
+const HOST = process.env.HOST || '127.0.0.1';
+
+app.listen(PORT, HOST, () => {
+  console.log(`🤖 Bot Turismo SMT Backend running on ${HOST}:${PORT}`);
 });

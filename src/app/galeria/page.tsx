@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { Camera, CalendarDays, ChevronLeft, Images } from 'lucide-react'
 import GalleryBackground from './GalleryBackground'
 import { DateInput } from '@/components/DateInput'
+import { createSignedReadUrl } from '@/lib/archivos'
+import { getSql } from '@/lib/db'
 import { PHOTO_BOOK_BUCKET } from '@/lib/photo-books'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
 import styles from './gallery-index.module.css'
 
 interface PublicBook {
@@ -21,29 +22,39 @@ export const dynamic = 'force-dynamic'
 export default async function GalleryPage({ searchParams }: { searchParams: Promise<{ fecha?: string }> }) {
   const { fecha = '' } = await searchParams
   const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : ''
-  const supabase = createServerSupabaseClient()
+  const sql = getSql()
 
-  let query = supabase
-    .from('photo_books')
-    .select('id, title, tour_date, description, access_token, expires_at, photo_book_photos(id, storage_path, sort_order)')
-    .gt('expires_at', new Date().toISOString())
-    .order('tour_date', { ascending: false })
-    .order('created_at', { ascending: false })
-
-  if (selectedDate) query = query.eq('tour_date', selectedDate)
-
-  const { data, error } = await query
-  const books = (data || []) as PublicBook[]
+  let books: PublicBook[] = []
+  let error: unknown = null
+  try {
+    books = await sql<PublicBook[]>`
+      select b.id, b.title, b.tour_date, b.description, b.access_token, b.expires_at,
+        coalesce((
+          select json_agg(json_build_object('id', p.id, 'storage_path', p.storage_path, 'sort_order', p.sort_order) order by p.sort_order, p.created_at)
+          from photo_book_photos p
+          where p.book_id = b.id
+        ), '[]'::json) as photo_book_photos
+      from photo_books b
+      where b.expires_at > ${new Date().toISOString()}
+        ${selectedDate ? sql`and b.tour_date = ${selectedDate}` : sql``}
+      order by b.tour_date desc, b.created_at desc
+    `
+  } catch (queryError) {
+    error = queryError
+  }
   const backgroundPaths = books
     .flatMap((book) => [...book.photo_book_photos].sort((a, b) => a.sort_order - b.sort_order))
     .slice(0, 6)
     .map((photo) => photo.storage_path)
 
   const backgroundImages = backgroundPaths.length
-    ? (await Promise.all(backgroundPaths.map(async (path) => {
-        const { data: signed } = await supabase.storage.from(PHOTO_BOOK_BUCKET).createSignedUrl(path, 60 * 60)
-        return signed?.signedUrl || ''
-      }))).filter(Boolean)
+    ? backgroundPaths.map((path) => {
+        try {
+          return createSignedReadUrl(PHOTO_BOOK_BUCKET, path, 60 * 60)
+        } catch {
+          return ''
+        }
+      }).filter(Boolean)
     : ['/bus2.jpg']
 
   return (

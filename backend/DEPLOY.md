@@ -4,6 +4,10 @@
 > Desplegado en el VPS nuevo el 25/08/2026. El VPS es COMPARTIDO con otros
 > proyectos del equipo (panel en :3001): el Nginx del bot es un
 > `location /turismo/` dentro de `/etc/nginx/sites-available/panel`.
+>
+> Desde el 30/10/2026 el bot corre junto con el sitio bajo el usuario `turismo`
+> (`/srv/turismo`) y se despliega con el mismo script. La carpeta vieja
+> `/var/www/bots/bot-turismo` queda sólo como respaldo.
 
 ## Datos del Servidor
 
@@ -11,9 +15,10 @@
 |-------|-------|
 | **IP** | `195.35.42.168` (Hostinger) |
 | **Dominio** | `srv1915283.hstgr.cloud` (hostname del VPS, con SSL de Let's Encrypt) |
-| **Ruta en VPS** | `/var/www/bots/bot-turismo/backend/` |
+| **Ruta en VPS** | `/srv/turismo/actual/backend/` (usuario `turismo`) |
+| **`.env`** | `/srv/turismo/compartido/backend.env` (fuera de las versiones) |
 | **Puerto** | `3000` (loopback, detrás de Nginx) |
-| **Proceso PM2** | `bot-turismo-smt` |
+| **Procesos PM2** | `turismo-bot` (WhatsApp + chat web) y `turismo-telegram`, en el pm2 del usuario `turismo` |
 | **Webhook URL** | `https://srv1915283.hstgr.cloud/turismo/api/webhook/whatsapp` |
 | **Número del bot** | `+54 9 381 389-8033` ("Migue Turista") |
 | **Acceso SSH** | solo por clave (`id_ed25519_botturismo_vps`) |
@@ -33,25 +38,20 @@
 
 ## 2. Desplegar en el VPS
 
+El sitio y el bot salen del mismo repo y se despliegan juntos. Cada despliegue
+es una carpeta nueva en `/srv/turismo/versiones/`, y `/srv/turismo/actual`
+apunta a la que está viva:
+
 ```bash
-# En el VPS:
-apt update && apt install -y nodejs npm nginx certbot python3-certbot-nginx
-npm install -g pm2
-
-mkdir -p /var/www/bots
-cd /var/www/bots
-git clone <URL_REPO> bot-turismo
-cd bot-turismo/backend
-npm install
-
-# Crear el .env con TODAS las variables (ver .env.example)
-nano .env
-
-pm2 start ecosystem.config.js --name bot-turismo-smt
-pm2 save && pm2 startup
+# En el VPS, como root (por defecto, rama main):
+/srv/turismo/desplegar.sh
 ```
 
-Nginx: bloque `location /turismo/` que haga proxy a `http://localhost:3000/`,
+El script clona, instala, compila, mueve `actual` y hace `pm2 reload` de los
+tres procesos de `/srv/turismo/ecosystem.config.js`. Para volver atrás, apuntá
+`actual` a la versión anterior y hacé `sudo -u turismo -H pm2 reload all`.
+
+Nginx: bloque `location /turismo/` que haga proxy a `http://127.0.0.1:3000/`,
 y `certbot --nginx -d DOMINIO` para el SSL (Meta exige HTTPS).
 
 ## 3. Conectar el webhook en Meta
@@ -69,7 +69,7 @@ En *WhatsApp → Configuración → Webhook*:
 curl https://DOMINIO/turismo/health
 
 # Y desde un WhatsApp real: mandar "hola" al número del bot.
-pm2 logs bot-turismo-smt   # ver el flujo en vivo
+sudo -u turismo -H pm2 logs turismo-bot   # ver el flujo en vivo
 ```
 
 Prueba local sin Meta (pipeline de IA):
@@ -80,33 +80,28 @@ node test_curl.js "¿qué salidas hay este sábado?"
 
 ---
 
-## Requisitos en Supabase
+## Base de datos
 
-- Correr `supabase_bot_migration.sql` (memoria conversacional persistente).
-- Las tablas del bus (`tourist_circuits`, `tourist_departures`, `tourist_bookings`),
-  `faqs` y `tourist_interactions` ya existen: el bot las lee/escribe directo.
+El bot usa la misma base PostgreSQL que el sitio (`DATABASE_URL` en
+`backend.env`; ver `db/README.md`). Lee `faqs` y las tablas del bus
+(`tourist_circuits`, `tourist_departures`, `tourist_bookings`), guarda la
+memoria conversacional en `bot_chat_messages` y las analíticas en
+`tourist_interactions`.
 
-## Actualizar el bot (deploy rápido)
+## Actualizar el bot
 
-```bash
-ssh usuario@VPS
-cd /var/www/bots/bot-turismo/backend
-git pull origin main
-npm install          # solo si cambiaron dependencias
-pm2 restart bot-turismo-smt
-```
+Con el mismo despliegue del sitio: `/srv/turismo/desplegar.sh`. Para
+reiniciar sólo el bot, sin desplegar: `sudo -u turismo -H pm2 restart turismo-bot`.
 
 ## Chat web de Migue (widget del sitio)
 
 El sitio del Bus Turístico muestra a Migue en un chat flotante. Usa el mismo
-proceso `bot-turismo-smt` (no es un proceso nuevo) por el endpoint
+proceso `turismo-bot` (no es un proceso nuevo) por el endpoint
 `POST https://DOMINIO/turismo/api/chat/web`. En el panel, esas conversaciones
 aparecen como canal **Web** (`chat_id` `web:<uuid>`).
 
-1. **Backend (VPS)**: copiar `src/routes/webChat.js`,
-   `src/controllers/webChatController.js` y los cambios de `src/index.js`,
-   `src/ai/agent.js`, `src/ai/vision.js`, `src/services/conversation.js`.
-2. **`.env` del VPS**: `PUBLIC_SITE_URL=https://busturistico.smt.gob.ar` (de ahí
+1. **Backend (VPS)**: ya viene en cada despliegue.
+2. **`backend.env` del VPS**: `PUBLIC_SITE_URL=https://busturistico.smt.gob.ar` (de ahí
    sale el origen permitido). Si el sitio se abre desde otros dominios, listarlos en
    `WEB_CHAT_ALLOWED_ORIGINS` separados por coma. Los topes anti-abuso
    (`WEB_CHAT_MAX_*`) tienen valores por defecto; ver `.env.example`.
@@ -121,14 +116,14 @@ aparecen como canal **Web** (`chat_id` `web:<uuid>`).
 
    Verificar con `nginx -T 2>/dev/null | grep -A20 'location /turismo/'` y
    después `nginx -t && systemctl reload nginx`.
-4. `pm2 restart bot-turismo-smt` y probar:
+4. `sudo -u turismo -H pm2 restart turismo-bot` y probar:
    ```bash
    curl -X POST https://DOMINIO/turismo/api/chat/web \
      -H 'Content-Type: application/json' -H 'Origin: https://busturistico.smt.gob.ar' \
      -d '{"sessionId":"11111111-2222-4333-8444-555555555555","kind":"text","text":"hola"}'
    ```
-5. **Sitio (Vercel)**: variable `NEXT_PUBLIC_MIGUE_CHAT_URL=https://DOMINIO/turismo/api/chat/web`
-   y redeploy (se lee al compilar). Sin esa variable el widget no aparece, así que
+5. **Sitio**: variable `NEXT_PUBLIC_MIGUE_CHAT_URL=https://DOMINIO/turismo/api/chat/web`
+   en `/srv/turismo/compartido/.env` y desplegar de nuevo (se lee al compilar). Sin esa variable el widget no aparece, así que
    conviene publicarla recién con el backend actualizado.
 
 ## Notas

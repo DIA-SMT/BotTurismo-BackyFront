@@ -2,12 +2,16 @@
 
 ## Puesta en marcha
 
-1. Ejecutar `supabase_photo_books_migration.sql` en el SQL Editor del proyecto de Supabase.
-2. Configurar en el despliegue las variables existentes de Supabase:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-3. Crear una variable `CRON_SECRET` con un valor aleatorio largo.
-4. Desplegar nuevamente la aplicación.
+Las tablas (`photo_books`, `photo_book_photos`) ya están en la base. Las fotos
+se guardan en disco, en `ARCHIVOS_DIR/tour-photo-books/<id del book>/`. En la
+VPS esa ruta es `/srv/turismo/compartido/archivos`. Hacen falta en el `.env`:
+
+- `DATABASE_URL`, `AUTH_SECRET` y `ARCHIVOS_DIR`.
+- `CRON_SECRET`, con un valor aleatorio largo.
+
+El navegador sube cada foto y su miniatura con un `PUT` a una URL firmada
+(`/api/archivos/...`). Por eso nginx tiene que aceptar cuerpos de hasta 15 MB
+(`client_max_body_size 20M`).
 
 El panel administrativo queda disponible en `/admin/fotos`. Cada book genera un
 enlace y un QR con acceso a `/fotos/[token]`.
@@ -22,13 +26,13 @@ abrir cualquiera de los books vigentes publicados para ese día.
 
 ## Caducidad
 
-Los books vencen 7 días después de su creación. `vercel.json` programa una
-limpieza diaria que llama a `/api/cron/photo-books-cleanup`. La ruta exige:
+Los books vencen 7 días después de su creación. Todos los días, el crontab del
+usuario `turismo` en la VPS llama a `/api/cron/photo-books-cleanup` (la línea
+exacta está en `db/README.md`). La ruta exige:
 
 ```text
 Authorization: Bearer <CRON_SECRET>
 ```
 
-La limpieza elimina primero los objetos del bucket privado `tour-photo-books` y
-después los registros asociados. Si la aplicación se despliega fuera de Vercel,
-hay que programar una llamada diaria equivalente desde el proveedor utilizado.
+La limpieza borra primero las fotos del disco y después los registros
+asociados.

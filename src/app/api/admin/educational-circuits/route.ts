@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import { fetchEducationalCircuitRecords } from '@/lib/educational-circuits-server'
 import { parseEducationalCircuitInput, slugifyEducationalCircuitName } from '@/lib/educational-circuits-admin'
 import type { EducationalCircuitRecord } from '@/lib/educational-circuits'
@@ -11,9 +11,8 @@ export async function GET() {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
   }
 
-  const supabase = createServerSupabaseClient()
   try {
-    const records = await fetchEducationalCircuitRecords(supabase)
+    const records = await fetchEducationalCircuitRecords()
     return NextResponse.json({ data: records })
   } catch {
     return NextResponse.json(
@@ -41,33 +40,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Revisá los campos del circuito.', fieldErrors: errors }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
+  const sql = getSql()
 
   const baseSlug = slugifyEducationalCircuitName(input.name)
   let slug = baseSlug
   for (let attempt = 2; attempt <= 20; attempt += 1) {
-    const { data: existing } = await supabase.from('educational_circuits').select('id').eq('slug', slug).maybeSingle()
+    const [existing] = await sql`select id from educational_circuits where slug = ${slug}`.catch((error) => {
+      console.error('No se pudo verificar el slug del circuito educativo', error)
+      return []
+    })
     if (!existing) break
     slug = `${baseSlug}_${attempt}`
   }
 
-  const { data, error } = await supabase
-    .from('educational_circuits')
-    .insert({
-      slug,
-      name: input.name,
-      summary: input.summary || null,
-      paragraphs: input.paragraphs,
-      availability: input.availability,
-      active: input.active,
-      sort_order: input.sortOrder ?? 1000,
-    })
-    .select('*')
-    .single()
-
-  if (error) {
+  let data: EducationalCircuitRecord
+  try {
+    ;[data] = await sql<EducationalCircuitRecord[]>`
+      insert into educational_circuits ${rowValues(sql, {
+        slug,
+        name: input.name,
+        summary: input.summary || null,
+        paragraphs: input.paragraphs,
+        availability: input.availability,
+        active: input.active,
+        sort_order: input.sortOrder ?? 1000,
+      })}
+      returning *
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudo crear el circuito.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: data as EducationalCircuitRecord }, { status: 201 })
+  return NextResponse.json({ data }, { status: 201 })
 }

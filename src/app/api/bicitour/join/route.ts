@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
 import { normalizeNickname, type BicitourParticipant } from '@/lib/bicitour'
-import { bumpSessionVersion, getSessionByCode, logSessionEvent } from '@/lib/bicitour-server'
+import { bumpSessionVersion, getParticipantByToken, getSessionByCode, logSessionEvent } from '@/lib/bicitour-server'
 
 export const runtime = 'nodejs'
 
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const session = await getSessionByCode(supabase, String(body.code || ''))
+  const sql = getSql()
+  const session = await getSessionByCode(String(body.code || ''))
   if (!session) {
     return NextResponse.json({ error: 'No encontramos esa sesión. Revisá el código.' }, { status: 404 })
   }
@@ -28,18 +28,13 @@ export async function POST(request: NextRequest) {
   // Reconexión: si ya tiene token de esta sesión, se le devuelve su identidad.
   const existingToken = typeof body.token === 'string' ? body.token : null
   if (existingToken && /^[0-9a-f-]{36}$/i.test(existingToken)) {
-    const { data: existing } = await supabase
-      .from('bicitour_participants')
-      .select('*')
-      .eq('token', existingToken)
-      .eq('session_id', session.id)
-      .maybeSingle()
-    if (existing) {
-      const participant = existing as BicitourParticipant
-      await supabase
-        .from('bicitour_participants')
-        .update({ last_seen_at: new Date().toISOString() })
-        .eq('id', participant.id)
+    const participant = await getParticipantByToken(session.id, existingToken)
+    if (participant) {
+      await sql`
+        update bicitour_participants set last_seen_at = ${new Date().toISOString()} where id = ${participant.id}
+      `.catch((error) => {
+        console.error('Error actualizando la presencia del participante de bicitour:', error)
+      })
       return NextResponse.json({
         data: { token: participant.token, nickname: participant.nickname, team: participant.team },
       })
@@ -61,24 +56,24 @@ export async function POST(request: NextRequest) {
     team = teams.includes(requestedTeam) ? requestedTeam : null
   }
 
-  const { data: created, error } = await supabase
-    .from('bicitour_participants')
-    .insert({ session_id: session.id, nickname, team })
-    .select('*')
-    .single()
-
-  if (error) {
+  let participant: BicitourParticipant
+  try {
+    const [created] = await sql<BicitourParticipant[]>`
+      insert into bicitour_participants ${rowValues(sql, { session_id: session.id, nickname, team })}
+      returning *
+    `
+    participant = created
+  } catch (error) {
     // Violación del índice único (session_id, lower(nickname)).
-    if (error.code === '23505') {
+    if (pgErrorCode(error) === UNIQUE_VIOLATION) {
       return NextResponse.json({ error: 'Ese apodo ya está en uso en esta sesión. Probá con otro.' }, { status: 409 })
     }
     return NextResponse.json({ error: 'No pudimos sumarte a la sesión. Probá de nuevo.' }, { status: 500 })
   }
 
-  const participant = created as BicitourParticipant
   await Promise.all([
-    logSessionEvent(supabase, session.id, 'participant_joined', { nickname }),
-    bumpSessionVersion(supabase, session.id),
+    logSessionEvent(session.id, 'participant_joined', { nickname }),
+    bumpSessionVersion(session.id),
   ])
 
   return NextResponse.json(

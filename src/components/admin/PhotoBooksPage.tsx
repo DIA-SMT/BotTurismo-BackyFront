@@ -19,9 +19,9 @@ interface ApiResult {
   added_count?: number
 }
 
-// Vercel responde con TEXTO plano (no JSON) en errores de infraestructura
-// (ej. 413 "Request Entity Too Large"): parsear a mano para no mostrar
-// "Unexpected token ..." al usuario.
+// El proxy (nginx) responde con HTML o texto plano (no JSON) en errores de
+// infraestructura (ej. 413 "Request Entity Too Large", 502/504): parsear a
+// mano para no mostrar "Unexpected token ..." al usuario.
 async function safeJson(response: Response): Promise<ApiResult | null> {
   try {
     return (await response.json()) as ApiResult
@@ -30,9 +30,10 @@ async function safeJson(response: Response): Promise<ApiResult | null> {
   }
 }
 
-// Sube las fotos DIRECTO a Supabase Storage con las URLs firmadas que dio el
-// server (los bodies por Vercel se cortan en ~4,5 MB, por eso no viajan por
-// la API). Concurrencia 3, con progreso.
+// Sube las fotos con un PUT directo a las URLs firmadas que dio el server (las
+// atiende /api/archivos, que las guarda en el disco). Así suben en paralelo y
+// los bodies grandes no pasan por las rutas JSON de la API. Concurrencia 3,
+// con progreso.
 interface SignedUpload {
   path: string
   signedUrl: string
@@ -358,7 +359,7 @@ export default function PhotoBooksPage() {
       const result = await safeJson(response)
       if (!response.ok || !result) throw new Error(result?.error || 'No se pudo crear el book.')
 
-      // 2. Subir las fotos directo a Storage.
+      // 2. Subir las fotos directo al almacenamiento (PUT a las URLs firmadas).
       setUploadProgress({ done: 0, total: photos.length })
       const uploads = result.uploads || []
       const bookData = result.data as { id: string; title: string; access_url: string }

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
 import {
   buildEducationalCircuitSeedRows,
   mapEducationalCircuitRecord,
@@ -8,52 +8,44 @@ import {
 
 // Siembra el catálogo educativo la primera vez que se consulta la tabla vacía.
 // Idempotente: ante una carrera el insert choca con el slug único y se ignora.
-export async function ensureEducationalCircuitsSeeded(supabase: SupabaseClient) {
-  const { count, error } = await supabase.from('educational_circuits').select('*', { count: 'exact', head: true })
-  if (error) throw error
+export async function ensureEducationalCircuitsSeeded() {
+  const sql = getSql()
+  const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from educational_circuits`
   if ((count || 0) > 0) return
-  await supabase.from('educational_circuits').insert(buildEducationalCircuitSeedRows())
+  await sql`insert into educational_circuits ${rowValues(sql, buildEducationalCircuitSeedRows())}`.catch((error) => {
+    if (pgErrorCode(error) !== UNIQUE_VIOLATION) console.error('No se pudo sembrar el catálogo educativo', error)
+  })
 }
 
 export async function fetchEducationalCircuitRecords(
-  supabase: SupabaseClient,
   options: { activeOnly?: boolean } = {},
 ): Promise<EducationalCircuitRecord[]> {
-  await ensureEducationalCircuitsSeeded(supabase)
+  await ensureEducationalCircuitsSeeded()
 
-  let query = supabase
-    .from('educational_circuits')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('id', { ascending: true })
-
-  if (options.activeOnly) {
-    query = query.eq('active', true)
-  }
-
-  const { data, error } = await query
-  if (error) throw error
-  return (data || []) as EducationalCircuitRecord[]
+  const sql = getSql()
+  const rows = await sql<EducationalCircuitRecord[]>`
+    select * from educational_circuits
+    ${options.activeOnly ? sql`where active = ${true}` : sql``}
+    order by sort_order asc, id asc
+  `
+  return rows
 }
 
-export async function getActiveEducationalCircuits(supabase: SupabaseClient): Promise<EducationalCircuitPublic[]> {
-  const records = await fetchEducationalCircuitRecords(supabase, { activeOnly: true })
+export async function getActiveEducationalCircuits(): Promise<EducationalCircuitPublic[]> {
+  const records = await fetchEducationalCircuitRecords({ activeOnly: true })
   return records.map(mapEducationalCircuitRecord)
 }
 
-export async function getEducationalCircuitBySlug(
-  supabase: SupabaseClient,
-  slug: string,
-): Promise<EducationalCircuitRecord | null> {
-  const { data, error } = await supabase.from('educational_circuits').select('*').eq('slug', slug).maybeSingle()
-  if (error) throw error
-  return (data as EducationalCircuitRecord) || null
+export async function getEducationalCircuitBySlug(slug: string): Promise<EducationalCircuitRecord | null> {
+  const sql = getSql()
+  const [record] = await sql<EducationalCircuitRecord[]>`select * from educational_circuits where slug = ${slug}`
+  return record ?? null
 }
 
 // Mapa slug -> nombre para mostrar etiquetas en tablas y exportaciones.
-export async function getEducationalCircuitLabels(supabase: SupabaseClient): Promise<Record<string, string>> {
+export async function getEducationalCircuitLabels(): Promise<Record<string, string>> {
   try {
-    const records = await fetchEducationalCircuitRecords(supabase)
+    const records = await fetchEducationalCircuitRecords()
     return records.reduce<Record<string, string>>((acc, record) => {
       acc[record.slug] = record.name
       return acc

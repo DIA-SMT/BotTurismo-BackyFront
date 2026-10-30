@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import { distanceMeters } from '@/lib/bicitour'
 import { bumpSessionVersion } from '@/lib/bicitour-server'
 
@@ -36,25 +36,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     .filter((point): point is { lat: number; lng: number } => point !== null)
   if (points.length === 0) return NextResponse.json({ data: { inserted: 0 } })
 
-  const supabase = createServerSupabaseClient()
-  const { data: session } = await supabase
-    .from('bicitour_sessions')
-    .select('id,gps_enabled,status')
-    .eq('id', sessionId)
-    .maybeSingle()
+  const sql = getSql()
+  const [session] = await sql<{ id: number; gps_enabled: boolean; status: string }[]>`
+    select id, gps_enabled, status from bicitour_sessions where id = ${sessionId}
+  `
   if (!session) return NextResponse.json({ error: 'Sesión no encontrada.' }, { status: 404 })
   if (!session.gps_enabled || session.status === 'finished') {
     return NextResponse.json({ data: { inserted: 0, gpsDisabled: true } })
   }
 
-  const { data: lastRows } = await supabase
-    .from('bicitour_track_points')
-    .select('lat,lng')
-    .eq('session_id', sessionId)
-    .order('id', { ascending: false })
-    .limit(25)
-
-  const recent = (lastRows || []) as { lat: number; lng: number }[]
+  const recent = await sql<{ lat: number; lng: number }[]>`
+    select lat, lng from bicitour_track_points where session_id = ${sessionId} order by id desc limit 25
+  `
 
   const MIN_DISTANCE_M = 12
   const DUPLICATE_TOLERANCE_M = 1
@@ -74,9 +67,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   if (toInsert.length > 0) {
-    const { error } = await supabase.from('bicitour_track_points').insert(toInsert)
-    if (error) return NextResponse.json({ error: 'No se pudieron guardar los puntos.' }, { status: 500 })
-    await bumpSessionVersion(supabase, sessionId)
+    try {
+      await sql`insert into bicitour_track_points ${rowValues(sql, toInsert)}`
+    } catch {
+      return NextResponse.json({ error: 'No se pudieron guardar los puntos.' }, { status: 500 })
+    }
+    await bumpSessionVersion(sessionId)
   }
 
   return NextResponse.json({ data: { inserted: toInsert.length } })

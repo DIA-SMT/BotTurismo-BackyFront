@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import type { BicitourStop } from '@/lib/bicitour'
 import { isBicitourAiConfigured, suggestStopHint } from '@/lib/bicitour-ai'
 
@@ -24,9 +24,8 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
   const stopId = Number(id)
   if (!Number.isInteger(stopId)) return NextResponse.json({ error: 'Parada inválida.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { data: stopRow } = await supabase.from('bicitour_stops').select('*').eq('id', stopId).maybeSingle()
-  const stop = stopRow as BicitourStop | null
+  const sql = getSql()
+  const [stop] = await sql<BicitourStop[]>`select * from bicitour_stops where id = ${stopId}`
   if (!stop) return NextResponse.json({ error: 'Parada no encontrada.' }, { status: 404 })
 
   const hint = await suggestStopHint(stop)

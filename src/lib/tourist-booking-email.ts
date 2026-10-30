@@ -229,7 +229,7 @@ function buildBookingEmailContent({ booking, departure }: BookingEmailInput) {
   }
 }
 
-function createBookingEmailTransporter() {
+export function createBookingEmailTransporter() {
   const port = Number(process.env.SMTP_PORT)
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,

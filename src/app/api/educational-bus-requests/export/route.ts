@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import {
   formatDateTimeToDisplay,
   formatDateToDisplay,
@@ -20,11 +20,6 @@ export const runtime = 'nodejs'
 
 type EducationalBusExportRequest = Omit<EducationalBusRequest, 'guides'> & {
   guides: string | null
-}
-
-function isMissingGuidesColumnError(error: { code?: string; message?: string } | null) {
-  if (!error) return false
-  return error.code === 'PGRST204' || error.code === '42703' || error.message?.toLowerCase().includes('guides') === true
 }
 
 function buildExportFileName(from: string, to: string) {
@@ -101,53 +96,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'La fecha desde no puede ser mayor que la fecha hasta.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  let data: EducationalBusExportRequest[] | null = null
-  let error: { code?: string; message?: string } | null = null
-
-  const primaryQuery = await supabase
-    .from('educational_bus_requests')
-    .select(
-      'id, created_at, updated_at, status, circuit, requested_date, preferred_shift, institution_type, institution_name, school_address, student_count, grade_year, contact_name, contact_role, contact_phone, contact_email, additional_notes, internal_notes, guides',
-    )
-    .eq('status', 'approved')
-    .gte('requested_date', from)
-    .lte('requested_date', to)
-    .order('requested_date', { ascending: true })
-    .order('preferred_shift', { ascending: true })
-
-  data = (primaryQuery.data || []) as EducationalBusExportRequest[]
-  error = primaryQuery.error
-
-  if (error && isMissingGuidesColumnError(error)) {
-    const fallbackQuery = await supabase
-      .from('educational_bus_requests')
-      .select(
-        'id, created_at, updated_at, status, circuit, requested_date, preferred_shift, institution_type, institution_name, school_address, student_count, grade_year, contact_name, contact_role, contact_phone, contact_email, additional_notes, internal_notes',
-      )
-      .eq('status', 'approved')
-      .gte('requested_date', from)
-      .lte('requested_date', to)
-      .order('requested_date', { ascending: true })
-      .order('preferred_shift', { ascending: true })
-
-    data = ((fallbackQuery.data || []) as Array<Omit<EducationalBusExportRequest, 'guides'>>).map((request) => ({
-      ...request,
-      guides: null,
-    }))
-    error = fallbackQuery.error
-  }
-
-  if (error) {
+  const sql = getSql()
+  let data: EducationalBusExportRequest[]
+  try {
+    data = await sql<EducationalBusExportRequest[]>`
+      select id, created_at, updated_at, status, circuit, requested_date, preferred_shift, institution_type,
+        institution_name, school_address, student_count, grade_year, contact_name, contact_role, contact_phone,
+        contact_email, additional_notes, internal_notes, guides
+      from educational_bus_requests
+      where status = 'approved'
+        and requested_date >= ${from}
+        and requested_date <= ${to}
+      order by requested_date asc, preferred_shift asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las solicitudes aprobadas.' }, { status: 500 })
   }
 
-  const circuitLabels = await getEducationalCircuitLabels(supabase)
+  const circuitLabels = await getEducationalCircuitLabels()
 
   const workbookBuffer = buildSimpleXlsxBuffer([
     {
       name: 'Solicitudes aprobadas',
-      rows: buildExportRows(data || [], circuitLabels),
+      rows: buildExportRows(data, circuitLabels),
     },
   ])
 

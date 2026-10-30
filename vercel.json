@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/photo-books-cleanup",
-      "schedule": "15 3 * * *"
-    }
-  ]
-}
