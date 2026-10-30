@@ -6,7 +6,7 @@ Asistente virtual de San Miguel de Tucumán migrado de n8n a Node.js nativo. Int
 
 ### Requisitos
 - Node.js v18+
-- Un proyecto en Supabase
+- PostgreSQL (en desarrollo, la base `turismo_dev` de la VPS por un túnel SSH; ver `db/README.md`)
 - API Key de OpenRouter
 - API Key de ManyChat
 
@@ -25,9 +25,8 @@ Para probar localmente con ManyChat:
 
 - `backend/`: Servidor Express, lógica de IA y servicios de integración.
 - `dashboard/`: (Opcional) Interfaz de administración de FAQs e interacciones.
-- `supabase_schema.sql`: Estructura de tablas y vistas para Supabase.
-- `supabase_tourist_bus_migration.sql`: Salidas y reservas del Bus Turístico (ejecutar una vez en el SQL Editor de Supabase).
-- `supabase_admin_selfservice_migration.sql`: Catálogo de circuitos editable y configuración del educativo (ejecutar una vez en el SQL Editor de Supabase).
+- `db/`: base de datos en la VPS. Migración desde Supabase, alta de admins y descarga de archivos (ver `db/README.md`).
+- `supabase_*.sql`: historia del esquema de cuando la base estaba en Supabase. Siguen sirviendo para armar una base de desarrollo desde cero (en orden, más `db/001_fuera_de_supabase.sql`).
 
 ## 🚌 Sitio público (Next.js)
 
@@ -39,7 +38,7 @@ Para probar localmente con ManyChat:
 
 ### 💬 Chat de Migue en el sitio
 
-En las páginas públicas aparece Migue, el mismo asistente de WhatsApp y Telegram (texto, notas de voz y fotos de lugares). El widget habla con el backend del bot (`POST /api/chat/web`); se activa con la URL de ese endpoint en el `.env.local` (y en Vercel). Deploy completo en `backend/DEPLOY.md`.
+En las páginas públicas aparece Migue, el mismo asistente de WhatsApp y Telegram (texto, notas de voz y fotos de lugares). El widget habla con el backend del bot (`POST /api/chat/web`); se activa con la URL de ese endpoint en el `.env.local` (y en el `.env` de la VPS; se lee al compilar). Deploy completo en `backend/DEPLOY.md`.
 
 ```
 # backend/.env (local): PORT=3005, porque Next.js usa el 3000, que es el origen permitido por defecto
@@ -50,7 +49,7 @@ Si Next.js corre en otro puerto, agregá ese origen en `WEB_CHAT_ALLOWED_ORIGINS
 
 ### 🌐 Traducción automática de circuitos (opcional)
 
-Al crear o editar un circuito turístico desde el panel, el contenido se traduce al inglés con IA (OpenRouter, mismo proveedor que el bot). Requiere `OPENROUTER_API_KEY` en el `.env` (y en Vercel). Sin la clave, los circuitos nuevos se muestran en español también en la versión en inglés.
+Al crear o editar un circuito turístico desde el panel, el contenido se traduce al inglés con IA (OpenRouter, mismo proveedor que el bot). Requiere `OPENROUTER_API_KEY` en el `.env`. Sin la clave, los circuitos nuevos se muestran en español también en la versión en inglés.
 
 ```
 OPENROUTER_API_KEY=sk-or-...
@@ -59,7 +58,7 @@ OPENROUTER_TRANSLATE_MODEL=google/gemini-2.5-flash   # opcional
 
 ### 📧 Mail de confirmación de reservas (opcional)
 
-Al confirmarse una reserva del bus turístico se envía un correo al turista (en su idioma, ES o EN). Requiere configurar SMTP en el `.env` (o en las variables de Vercel); si falta, la reserva funciona igual y solo se omite el correo.
+Al confirmarse una reserva del bus turístico se envía un correo al turista (en su idioma, ES o EN). Requiere configurar SMTP en el `.env`; si falta, la reserva funciona igual y solo se omite el correo.
 
 ```
 SMTP_HOST=smtp.ejemplo.com
@@ -74,5 +73,5 @@ SMTP_REPLY_TO=turismo@smt.gob.ar                      # opcional
 ## 🛠️ Tecnologías
 - **Backend:** Node.js, Express.
 - **IA:** LangChain, OpenRouter (Gemini Flash & Pro).
-- **Base de Datos:** Supabase (PostgreSQL).
+- **Base de Datos:** PostgreSQL 16 en la VPS (antes Supabase), con postgres.js. Fotos y adjuntos en disco.
 - **Integración:** ManyChat API (WhatsApp).

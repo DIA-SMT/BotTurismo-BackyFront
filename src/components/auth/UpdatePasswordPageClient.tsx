@@ -5,14 +5,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './auth.module.css'
 
-function getRecoveryTokens() {
+// El link del mail de recuperación trae el token en el fragmento (#token=...).
+function getRecoveryToken() {
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const accessToken = params.get('access_token')
-  const refreshToken = params.get('refresh_token')
-  const type = params.get('type')
-  if (!accessToken || !refreshToken || type !== 'recovery') return null
-  return { accessToken, refreshToken }
+  return params.get('token')
 }
 
 export default function UpdatePasswordPageClient() {
@@ -22,10 +19,10 @@ export default function UpdatePasswordPageClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [recoveryTokens, setRecoveryTokens] = useState<{ accessToken: string; refreshToken: string } | null>(null)
+  const [recoveryToken, setRecoveryToken] = useState<string | null>(null)
 
   useEffect(() => {
-    setRecoveryTokens(getRecoveryTokens())
+    setRecoveryToken(getRecoveryToken())
   }, [])
 
   const handlePasswordUpdate = async () => {
@@ -47,8 +44,7 @@ export default function UpdatePasswordPageClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           password,
-          accessToken: recoveryTokens?.accessToken,
-          refreshToken: recoveryTokens?.refreshToken,
+          token: recoveryToken || undefined,
         }),
       })
       const result = await response.json()
@@ -78,8 +74,8 @@ export default function UpdatePasswordPageClient() {
         <img src="/Logo%20SMT%20blanco%402x.png" alt="Ciudad SMT" className={styles.logo} />
         <h1 className={styles.title}>Actualizar contraseña</h1>
         <p className={styles.text}>
-          {recoveryTokens
-            ? 'Definí una nueva contraseña para recuperar el acceso.'
+          {recoveryToken
+            ?'Definí una nueva contraseña para recuperar el acceso.'
             : 'Por seguridad, debés cambiar la contraseña temporal antes de usar el panel.'}
         </p>
 

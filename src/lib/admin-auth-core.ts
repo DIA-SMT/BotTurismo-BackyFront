@@ -1,23 +1,14 @@
-import { createClient, type AuthError, type Session, type User } from '@supabase/supabase-js'
+// Sesión del panel /admin: una cookie firmada (HMAC-SHA256) con el id de la
+// sesión y su vencimiento. Este módulo no toca la base porque también lo usa
+// middleware.ts, que corre en Edge: ahí sólo se valida la firma. Que la
+// sesión siga existiendo (logout, cambio de clave) lo confirma admin-auth.ts
+// contra la tabla admin_sessions.
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const authKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
+export const ADMIN_SESSION_COOKIE = 'smt_admin_session'
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
-export const ADMIN_ACCESS_COOKIE = 'smt_admin_access_token'
-export const ADMIN_REFRESH_COOKIE = 'smt_admin_refresh_token'
-
-function createAuthSupabaseClient() {
-  return createClient(supabaseUrl, authKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-}
+// Cookies de cuando el login era de Supabase: se borran al entrar y al salir.
+export const LEGACY_ADMIN_COOKIES = ['smt_admin_access_token', 'smt_admin_refresh_token']
 
 export function getCookieOptions(maxAge?: number) {
   return {
@@ -29,51 +20,61 @@ export function getCookieOptions(maxAge?: number) {
   }
 }
 
-export async function verifyAccessToken(accessToken: string) {
-  const supabase = createAuthSupabaseClient()
-  const { data, error } = await supabase.auth.getUser(accessToken)
-  if (error || !data.user) return null
-  return data.user
+const encoder = new TextEncoder()
+
+function getAuthSecret() {
+  const secret = process.env.AUTH_SECRET
+  if (!secret || secret.length < 32) throw new Error('Missing AUTH_SECRET (mínimo 32 caracteres)')
+  return secret
 }
 
-export async function refreshAdminSession(refreshToken: string) {
-  const supabase = createAuthSupabaseClient()
-  const { data, error } = await supabase.auth.refreshSession({
-    refresh_token: refreshToken,
-  })
-  if (error || !data.session) return null
-  return data.session
+async function getSigningKey() {
+  return crypto.subtle.importKey('raw', encoder.encode(getAuthSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+    'verify',
+  ])
 }
 
-export async function signInAdmin(email: string, password: string) {
-  const supabase = createAuthSupabaseClient()
-  return supabase.auth.signInWithPassword({ email, password })
+function toBase64Url(bytes: ArrayBuffer) {
+  let binary = ''
+  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-export async function sendRecoveryEmail(email: string, redirectTo: string) {
-  const supabase = createAuthSupabaseClient()
-  return supabase.auth.resetPasswordForEmail(email, { redirectTo })
+function fromBase64Url(value: string) {
+  const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/'))
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return bytes
 }
 
-export async function updatePasswordWithRecoveryTokens(accessToken: string, refreshToken: string, password: string) {
-  const supabase = createAuthSupabaseClient()
-  const { error: sessionError } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  })
-  if (sessionError) {
-    return { user: null, error: sessionError } satisfies { user: User | null; error: AuthError | null }
+const signedPayload = (sessionId: string, expiresAtUnix: number) => `admin-session:${sessionId}.${expiresAtUnix}`
+
+export async function signSessionToken(sessionId: string, expiresAt: Date) {
+  const expiresAtUnix = Math.floor(expiresAt.getTime() / 1000)
+  const signature = await crypto.subtle.sign('HMAC', await getSigningKey(), encoder.encode(signedPayload(sessionId, expiresAtUnix)))
+  return `${sessionId}.${expiresAtUnix}.${toBase64Url(signature)}`
+}
+
+// Devuelve la sesión si la firma es válida y no venció; null en cualquier otro caso.
+export async function readSessionToken(token: string | undefined | null) {
+  if (!token) return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const [sessionId, expiresAtRaw, signature] = parts
+  const expiresAtUnix = Number(expiresAtRaw)
+  if (!/^[0-9a-f-]{36}$/.test(sessionId) || !Number.isInteger(expiresAtUnix)) return null
+  if (expiresAtUnix * 1000 <= Date.now()) return null
+
+  try {
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      await getSigningKey(),
+      fromBase64Url(signature),
+      encoder.encode(signedPayload(sessionId, expiresAtUnix)),
+    )
+    return valid ? { sessionId, expiresAt: new Date(expiresAtUnix * 1000) } : null
+  } catch {
+    return null
   }
-
-  const { data, error } = await supabase.auth.updateUser({ password })
-  return {
-    user: data.user ?? null,
-    error,
-  } satisfies { user: User | null; error: AuthError | null }
-}
-
-export function getSessionMaxAge(session: Session) {
-  if (!session.expires_at) return 60 * 60
-  const expiresIn = session.expires_at - Math.floor(Date.now() / 1000)
-  return Math.max(expiresIn, 60)
 }

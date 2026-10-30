@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import type { BicitourQuestion, BicitourRoute, BicitourStop } from '@/lib/bicitour'
 
 export const runtime = 'nodejs'
@@ -15,36 +15,35 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
   const routeId = Number(id)
   if (!Number.isInteger(routeId)) return NextResponse.json({ error: 'Recorrido inválido.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const [{ data: routeRow }, { data: stops }] = await Promise.all([
-    supabase.from('bicitour_routes').select('*').eq('id', routeId).maybeSingle(),
-    supabase.from('bicitour_stops').select('*').eq('route_id', routeId).order('position'),
+  const sql = getSql()
+  const [[route], stops] = await Promise.all([
+    sql<BicitourRoute[]>`select * from bicitour_routes where id = ${routeId}`,
+    sql<BicitourStop[]>`select * from bicitour_stops where route_id = ${routeId} order by position`,
   ])
-  const route = routeRow as BicitourRoute | null
   if (!route) return NextResponse.json({ error: 'Recorrido no encontrado.' }, { status: 404 })
 
-  const { data: newRouteRow, error: routeError } = await supabase
-    .from('bicitour_routes')
-    .insert({
+  const [newRouteRow] = await sql<BicitourRoute[]>`
+    insert into bicitour_routes ${rowValues(sql, {
       title: `${route.title} (copia)`.slice(0, 120),
       description: route.description,
       status: 'draft',
       mode: route.mode,
       path: route.path,
-    })
-    .select('*')
-    .single()
-  if (routeError || !newRouteRow) return NextResponse.json({ error: 'No se pudo duplicar el recorrido.' }, { status: 500 })
+    })}
+    returning *
+  `.catch(() => [])
+  if (!newRouteRow) return NextResponse.json({ error: 'No se pudo duplicar el recorrido.' }, { status: 500 })
 
-  const stopIds = ((stops || []) as BicitourStop[]).map((stop) => stop.id)
-  const { data: questions } = stopIds.length
-    ? await supabase.from('bicitour_questions').select('*').in('stop_id', stopIds)
-    : { data: [] }
+  const stopIds = stops.map((stop) => stop.id)
+  const questions: BicitourQuestion[] = stopIds.length
+    ? await sql<BicitourQuestion[]>`select * from bicitour_questions where stop_id in ${sql(stopIds)}`
+    : []
 
-  for (const stop of (stops || []) as BicitourStop[]) {
-    const { data: newStop } = await supabase
-      .from('bicitour_stops')
-      .insert({
+  // Una parada (o sus preguntas) que no se puede copiar no corta la
+  // duplicación: se registra el error y se sigue con la próxima.
+  for (const stop of stops) {
+    const [newStop] = await sql<{ id: number }[]>`
+      insert into bicitour_stops ${rowValues(sql, {
         route_id: newRouteRow.id,
         position: stop.position,
         title: stop.title,
@@ -57,25 +56,33 @@ export async function POST(_: NextRequest, context: { params: Promise<{ id: stri
         lng: stop.lng,
         radius_m: stop.radius_m,
         is_draft: stop.is_draft,
-      })
-      .select('id')
-      .single()
+      })}
+      returning id
+    `.catch((error) => {
+      console.error('Error duplicando una parada de bicitour:', error)
+      return []
+    })
 
     if (newStop) {
-      const stopQuestions = ((questions || []) as BicitourQuestion[]).filter((question) => question.stop_id === stop.id)
+      const stopQuestions = questions.filter((question) => question.stop_id === stop.id)
       if (stopQuestions.length) {
-        await supabase.from('bicitour_questions').insert(
-          stopQuestions.map((question) => ({
-            stop_id: newStop.id,
-            position: question.position,
-            type: question.type,
-            prompt: question.prompt,
-            options: question.options,
-            correct_key: question.correct_key,
-            explanation: question.explanation,
-            points: question.points,
-          })),
-        )
+        await sql`
+          insert into bicitour_questions ${rowValues(
+            sql,
+            stopQuestions.map((question) => ({
+              stop_id: newStop.id,
+              position: question.position,
+              type: question.type,
+              prompt: question.prompt,
+              options: question.options,
+              correct_key: question.correct_key,
+              explanation: question.explanation,
+              points: question.points,
+            })),
+          )}
+        `.catch((error) => {
+          console.error('Error duplicando las preguntas de una parada de bicitour:', error)
+        })
       }
     }
   }

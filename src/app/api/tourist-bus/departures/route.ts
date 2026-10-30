@@ -1,39 +1,38 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import { getTodayDateStringInBuenosAires } from '@/lib/educational-bus-requests'
-import { buildDeparturesWithAvailability, type TouristDeparture } from '@/lib/tourist-bus'
+import { buildDeparturesWithAvailability, type TouristBooking, type TouristDeparture } from '@/lib/tourist-bus'
+
+type ReservedSeats = Pick<TouristBooking, 'departure_id' | 'people_count' | 'municipal_bikes'>
 
 export async function GET() {
-  const supabase = createServerSupabaseClient()
+  const sql = getSql()
   const today = getTodayDateStringInBuenosAires()
 
-  const { data: departures, error } = await supabase
-    .from('tourist_departures')
-    .select('*')
-    .eq('status', 'active')
-    .gte('departure_date', today)
-    .order('departure_date', { ascending: true })
-    .order('departure_time', { ascending: true })
-
-  if (error) {
+  let departureList: TouristDeparture[]
+  try {
+    departureList = await sql<TouristDeparture[]>`
+      select * from tourist_departures
+      where status = ${'active'} and departure_date >= ${today}
+      order by departure_date asc, departure_time asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las salidas.' }, { status: 500 })
   }
-
-  const departureList = (departures || []) as TouristDeparture[]
 
   if (departureList.length === 0) {
     return NextResponse.json({ data: [] })
   }
 
-  const { data: bookings, error: bookingsError } = await supabase
-    .from('tourist_bookings')
-    .select('departure_id, people_count, municipal_bikes')
-    .in('departure_id', departureList.map((departure) => departure.id))
-    .eq('status', 'confirmed')
-
-  if (bookingsError) {
+  let bookings: ReservedSeats[]
+  try {
+    bookings = await sql<ReservedSeats[]>`
+      select departure_id, people_count, municipal_bikes from tourist_bookings
+      where departure_id in ${sql(departureList.map((departure) => departure.id))} and status = ${'confirmed'}
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las salidas.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: buildDeparturesWithAvailability(departureList, bookings || []) })
+  return NextResponse.json({ data: buildDeparturesWithAvailability(departureList, bookings) })
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { sanitizeQuestionOptions } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import { sanitizeQuestionOptions, type BicitourQuestion, type BicitourQuestionProposal } from '@/lib/bicitour'
 
 export const runtime = 'nodejs'
 
@@ -25,25 +25,23 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
   const action = String(body.action || '')
 
-  const supabase = createServerSupabaseClient()
-  const { data: proposal } = await supabase
-    .from('bicitour_question_proposals')
-    .select('*')
-    .eq('id', proposalId)
-    .maybeSingle()
+  const sql = getSql()
+  const [proposal] = await sql<BicitourQuestionProposal[]>`
+    select * from bicitour_question_proposals where id = ${proposalId}
+  `
   if (!proposal) return NextResponse.json({ error: 'Propuesta no encontrada.' }, { status: 404 })
   if (proposal.status !== 'pending') {
     return NextResponse.json({ error: 'La propuesta ya fue decidida.' }, { status: 409 })
   }
 
   if (action === 'reject') {
-    const { data, error } = await supabase
-      .from('bicitour_question_proposals')
-      .update({ status: 'rejected', decided_at: new Date().toISOString() })
-      .eq('id', proposalId)
-      .select('*')
-      .single()
-    if (error) return NextResponse.json({ error: 'No se pudo rechazar la propuesta.' }, { status: 500 })
+    const [data] = await sql<BicitourQuestionProposal[]>`
+      update bicitour_question_proposals
+      set status = ${'rejected'}, decided_at = ${new Date().toISOString()}
+      where id = ${proposalId}
+      returning *
+    `.catch(() => [])
+    if (!data) return NextResponse.json({ error: 'No se pudo rechazar la propuesta.' }, { status: 500 })
     return NextResponse.json({ data })
   }
 
@@ -69,17 +67,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'La respuesta correcta no coincide con las opciones.' }, { status: 400 })
   }
 
-  const { data: last } = await supabase
-    .from('bicitour_questions')
-    .select('position')
-    .eq('stop_id', proposal.stop_id)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const [last] = await sql<{ position: number }[]>`
+    select position from bicitour_questions where stop_id = ${proposal.stop_id} order by position desc limit 1
+  `
 
-  const { data: question, error: questionError } = await supabase
-    .from('bicitour_questions')
-    .insert({
+  const [question] = await sql<BicitourQuestion[]>`
+    insert into bicitour_questions ${rowValues(sql, {
       stop_id: proposal.stop_id,
       position: Number(last?.position || 0) + 1,
       type: proposal.type,
@@ -91,17 +84,20 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       origin: 'ai',
       category: proposal.category,
       source_excerpt: proposal.source_excerpt,
-    })
-    .select('*')
-    .single()
-  if (questionError || !question) {
+    })}
+    returning *
+  `.catch(() => [])
+  if (!question) {
     return NextResponse.json({ error: 'No se pudo publicar la pregunta aprobada.' }, { status: 500 })
   }
 
-  await supabase
-    .from('bicitour_question_proposals')
-    .update({ status: 'approved', decided_at: new Date().toISOString() })
-    .eq('id', proposalId)
+  await sql`
+    update bicitour_question_proposals
+    set status = ${'approved'}, decided_at = ${new Date().toISOString()}
+    where id = ${proposalId}
+  `.catch((error) => {
+    console.error('Error marcando como aprobada la propuesta de bicitour:', error)
+  })
 
   return NextResponse.json({ data: { question } })
 }

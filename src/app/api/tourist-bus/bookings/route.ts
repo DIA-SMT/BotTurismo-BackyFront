@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import {
   toTouristBookingRpcParams,
   validateTouristBookingForm,
@@ -55,10 +55,24 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase.rpc('create_tourist_booking', toTouristBookingRpcParams(formData, language))
-
-  if (error) {
+  const sql = getSql()
+  const params = toTouristBookingRpcParams(formData, language)
+  let data: unknown
+  try {
+    const [row] = await sql<{ result: unknown }[]>`
+      select create_tourist_booking(
+        p_departure_id => ${params.p_departure_id},
+        p_full_name => ${params.p_full_name},
+        p_email => ${params.p_email},
+        p_phone => ${params.p_phone},
+        p_origin_city => ${params.p_origin_city},
+        p_people_count => ${params.p_people_count},
+        p_language => ${params.p_language},
+        p_municipal_bikes => ${params.p_municipal_bikes}
+      ) as result
+    `
+    data = row?.result ?? null
+  } catch {
     return NextResponse.json({ code: 'SERVER', error: 'No se pudo registrar la reserva.' }, { status: 500 })
   }
 
@@ -82,16 +96,17 @@ export async function POST(request: NextRequest) {
   let emailSent = false
   let whatsappSent = false
   if ((isBookingEmailConfigured() || isBookingWhatsAppConfigured()) && result.booking) {
-    const { data: departure } = await supabase
-      .from('tourist_departures')
-      .select('*')
-      .eq('id', Number(formData.departureId))
-      .single()
+    const [departure] = await sql<TouristDeparture[]>`
+      select * from tourist_departures where id = ${Number(formData.departureId)}
+    `.catch((error) => {
+      console.error('No se pudo leer la salida para los avisos de confirmación:', error)
+      return [] as TouristDeparture[]
+    })
 
     if (departure) {
       const input = {
         booking: result.booking as TouristBooking,
-        departure: departure as TouristDeparture,
+        departure,
       }
       ;[emailSent, whatsappSent] = await Promise.all([
         sendTouristBookingConfirmationEmail(input),

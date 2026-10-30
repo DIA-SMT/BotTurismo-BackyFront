@@ -9,7 +9,6 @@ import { educationalBusTemplateLabel, educationalBusTemplatePublicPath } from '@
 import { buildEducationalCircuitSeedRows } from '@/lib/educational-circuits'
 import { getActiveEducationalCircuits } from '@/lib/educational-circuits-server'
 import { getEducationalSettings } from '@/lib/educational-settings-server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export const metadata: Metadata = {
   title: 'Bus Educativo | San Miguel de Tucumán',
@@ -30,7 +29,7 @@ interface AccordionItem {
 
 async function loadCircuitAccordionItems(): Promise<AccordionItem[]> {
   try {
-    const circuits = await getActiveEducationalCircuits(createServerSupabaseClient())
+    const circuits = await getActiveEducationalCircuits()
     if (circuits.length > 0) {
       return circuits.map((circuit) => ({
         id: circuit.slug,
@@ -58,7 +57,7 @@ async function loadCircuitAccordionItems(): Promise<AccordionItem[]> {
 export default async function EducationalBusPage() {
   const [circuitItems, settings] = await Promise.all([
     loadCircuitAccordionItems(),
-    getEducationalSettings(createServerSupabaseClient()),
+    getEducationalSettings(),
   ])
   const requestsOpen = settings.publicRequestsEnabled
   return (

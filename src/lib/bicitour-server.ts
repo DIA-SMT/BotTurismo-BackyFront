@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSql, pgErrorCode, rowValues } from '@/lib/db'
 import { awardSessionBadges, buildParticipantBadgeView, loadSessionBadgeData } from '@/lib/bicitour-badges-server'
 import {
   BICITOUR_GROUP_BONUS_POINTS,
@@ -18,33 +18,50 @@ import {
 // Toda la lógica de puntaje/sellos vive del lado del servidor: el navegador
 // solo manda intenciones (responder "b", abrir parada) y el backend decide.
 
-export async function bumpSessionVersion(supabase: SupabaseClient, sessionId: number) {
-  await supabase.rpc('bicitour_bump_version', { p_session_id: sessionId }).then(async (result) => {
-    // Si la función RPC no existe (migración vieja), fallback con update simple.
-    if (result.error) {
-      const { data } = await supabase.from('bicitour_sessions').select('version').eq('id', sessionId).single()
-      await supabase
-        .from('bicitour_sessions')
-        .update({ version: Number(data?.version || 0) + 1 })
-        .eq('id', sessionId)
-    }
+// Texto que Postgres no puede convertir al tipo de la columna (ej. un token
+// con forma de UUID que no es un UUID válido).
+const INVALID_TEXT_REPRESENTATION = '22P02'
+
+// Un fallo al incrementar la versión no corta la acción que lo llamó.
+export async function bumpSessionVersion(sessionId: number) {
+  const sql = getSql()
+  await sql`select bicitour_bump_version(p_session_id => ${sessionId})`.catch((error) => {
+    console.error('Error incrementando la versión de la sesión de bicitour:', error)
   })
 }
 
-export async function logSessionEvent(
-  supabase: SupabaseClient,
-  sessionId: number,
-  type: string,
-  payload: Record<string, unknown> = {},
-) {
-  await supabase.from('bicitour_session_events').insert({ session_id: sessionId, type, payload })
+// La bitácora es informativa: si no se puede escribir, la acción sigue.
+export async function logSessionEvent(sessionId: number, type: string, payload: Record<string, unknown> = {}) {
+  const sql = getSql()
+  await sql`insert into bicitour_session_events ${rowValues(sql, { session_id: sessionId, type, payload })}`.catch(
+    (error) => {
+      console.error('Error registrando un evento de la sesión de bicitour:', error)
+    },
+  )
 }
 
-export async function getSessionByCode(supabase: SupabaseClient, code: string) {
+export async function getSessionByCode(code: string) {
   const normalized = String(code || '').trim().toUpperCase()
   if (!/^[A-Z0-9]{4,10}$/.test(normalized)) return null
-  const { data } = await supabase.from('bicitour_sessions').select('*').eq('code', normalized).maybeSingle()
-  return (data as BicitourSession) || null
+  const sql = getSql()
+  const [session] = await sql<BicitourSession[]>`select * from bicitour_sessions where code = ${normalized}`
+  return session ?? null
+}
+
+// Participante de la sesión identificado por su token. Un token que pasa el
+// filtro de forma de las rutas pero Postgres no acepta como uuid cuenta como
+// "no registrado" (no como error del servidor).
+export async function getParticipantByToken(sessionId: number, token: string) {
+  const sql = getSql()
+  try {
+    const [participant] = await sql<BicitourParticipant[]>`
+      select * from bicitour_participants where token = ${token} and session_id = ${sessionId}
+    `
+    return participant ?? null
+  } catch (error) {
+    if (pgErrorCode(error) === INVALID_TEXT_REPRESENTATION) return null
+    throw error
+  }
 }
 
 interface SessionGraph {
@@ -56,26 +73,27 @@ interface SessionGraph {
   participants: BicitourParticipant[]
 }
 
-export async function loadSessionGraph(supabase: SupabaseClient, session: BicitourSession): Promise<SessionGraph | null> {
-  const [{ data: route }, { data: sessionStops }, { data: participants }] = await Promise.all([
-    supabase.from('bicitour_routes').select('*').eq('id', session.route_id).single(),
-    supabase.from('bicitour_session_stops').select('*').eq('session_id', session.id).order('position'),
-    supabase.from('bicitour_participants').select('*').eq('session_id', session.id),
+export async function loadSessionGraph(session: BicitourSession): Promise<SessionGraph | null> {
+  const sql = getSql()
+  const [[route], sessionStops, participants] = await Promise.all([
+    sql<BicitourRoute[]>`select * from bicitour_routes where id = ${session.route_id}`,
+    sql<BicitourSessionStop[]>`select * from bicitour_session_stops where session_id = ${session.id} order by position`,
+    sql<BicitourParticipant[]>`select * from bicitour_participants where session_id = ${session.id}`,
   ])
   if (!route) return null
 
-  const stopIds = (sessionStops || []).map((row) => row.stop_id)
-  const { data: stops } = stopIds.length
-    ? await supabase.from('bicitour_stops').select('*').in('id', stopIds)
-    : { data: [] }
-  const { data: questions } = stopIds.length
-    ? await supabase.from('bicitour_questions').select('*').in('stop_id', stopIds).order('position')
-    : { data: [] }
+  const stopIds = sessionStops.map((row) => row.stop_id)
+  const stops: BicitourStop[] = stopIds.length
+    ? await sql<BicitourStop[]>`select * from bicitour_stops where id in ${sql(stopIds)}`
+    : []
+  const questions: BicitourQuestion[] = stopIds.length
+    ? await sql<BicitourQuestion[]>`select * from bicitour_questions where stop_id in ${sql(stopIds)} order by position`
+    : []
 
   const stopsById = new Map<number, BicitourStop>()
-  for (const stop of (stops || []) as BicitourStop[]) stopsById.set(stop.id, stop)
+  for (const stop of stops) stopsById.set(stop.id, stop)
   const questionsByStop = new Map<number, BicitourQuestion[]>()
-  for (const question of (questions || []) as BicitourQuestion[]) {
+  for (const question of questions) {
     const list = questionsByStop.get(question.stop_id) || []
     list.push(question)
     questionsByStop.set(question.stop_id, list)
@@ -83,22 +101,20 @@ export async function loadSessionGraph(supabase: SupabaseClient, session: Bicito
 
   return {
     session,
-    route: route as BicitourRoute,
-    sessionStops: (sessionStops || []) as BicitourSessionStop[],
+    route,
+    sessionStops,
     stopsById,
     questionsByStop,
-    participants: (participants || []) as BicitourParticipant[],
+    participants,
   }
 }
 
-async function loadTrack(supabase: SupabaseClient, sessionId: number): Promise<[number, number][]> {
-  const { data } = await supabase
-    .from('bicitour_track_points')
-    .select('lat,lng')
-    .eq('session_id', sessionId)
-    .order('id')
-    .limit(5000)
-  return ((data || []) as { lat: number; lng: number }[]).map((point) => [point.lat, point.lng])
+async function loadTrack(sessionId: number): Promise<[number, number][]> {
+  const sql = getSql()
+  const rows = await sql<{ lat: number; lng: number }[]>`
+    select lat, lng from bicitour_track_points where session_id = ${sessionId} order by id limit 5000
+  `
+  return rows.map((point) => [point.lat, point.lng])
 }
 
 function buildRanking(participants: BicitourParticipant[], meId: number | null): ParticipantRankingRow[] {
@@ -135,27 +151,29 @@ function buildTeamRanking(participants: BicitourParticipant[]) {
 // (alguien mirando el lobby sin haberse unido todavía no existe: join es
 // obligatorio, así que siempre hay participante).
 export async function buildParticipantState(
-  supabase: SupabaseClient,
   graph: SessionGraph,
   participant: BicitourParticipant | null,
 ): Promise<ParticipantStateResponse> {
   const { session, route, sessionStops, stopsById, questionsByStop, participants } = graph
+  const sql = getSql()
 
-  const [track, answersResult, stampsResult, answerCountsResult] = await Promise.all([
-    loadTrack(supabase, session.id),
+  const [track, myAnswers, myStamps, answerCountRows] = await Promise.all([
+    loadTrack(session.id),
     participant
-      ? supabase.from('bicitour_answers').select('question_id,answer_key,is_correct').eq('participant_id', participant.id)
-      : Promise.resolve({ data: [] }),
+      ? sql<{ question_id: number; answer_key: string; is_correct: boolean }[]>`
+          select question_id, answer_key, is_correct from bicitour_answers where participant_id = ${participant.id}
+        `
+      : Promise.resolve([]),
     participant
-      ? supabase.from('bicitour_stamps').select('stop_id,label').eq('participant_id', participant.id)
-      : Promise.resolve({ data: [] }),
-    supabase.from('bicitour_answers').select('question_id').eq('session_id', session.id),
+      ? sql<{ stop_id: number | null; label: string }[]>`
+          select stop_id, label from bicitour_stamps where participant_id = ${participant.id}
+        `
+      : Promise.resolve([]),
+    sql<{ question_id: number }[]>`select question_id from bicitour_answers where session_id = ${session.id}`,
   ])
 
-  const myAnswers = (answersResult.data || []) as { question_id: number; answer_key: string; is_correct: boolean }[]
-  const myStamps = (stampsResult.data || []) as { stop_id: number | null; label: string }[]
   const answerCounts = new Map<number, number>()
-  for (const row of (answerCountsResult.data || []) as { question_id: number }[]) {
+  for (const row of answerCountRows) {
     answerCounts.set(row.question_id, (answerCounts.get(row.question_id) || 0) + 1)
   }
 
@@ -240,7 +258,7 @@ export async function buildParticipantState(
   const decimated = decimateTrack(track)
 
   // Insignias del participante (otorgadas + progreso hacia las pendientes).
-  const badgeData = participant ? await loadSessionBadgeData(supabase, session) : null
+  const badgeData = participant ? await loadSessionBadgeData(session) : null
   const badgeView = badgeData && participant ? buildParticipantBadgeView(badgeData, participant.id) : null
 
   // Posición en el ranking general (1 = primero).
@@ -296,75 +314,81 @@ export async function buildParticipantState(
 // Marca una parada como completada y reparte sellos a todos los participantes
 // de la sesión (el sello es por participar de la parada; los puntos vienen de
 // las respuestas). Idempotente gracias al UNIQUE (participant_id, stop_id).
-export async function completeSessionStop(
-  supabase: SupabaseClient,
-  session: BicitourSession,
-  sessionStop: BicitourSessionStop,
-) {
-  const { data: stop } = await supabase.from('bicitour_stops').select('id,title').eq('id', sessionStop.stop_id).single()
-  const { data: participants } = await supabase
-    .from('bicitour_participants')
-    .select('id')
-    .eq('session_id', session.id)
+// Las escrituras que fallan se registran sin cortar la acción del guía.
+export async function completeSessionStop(session: BicitourSession, sessionStop: BicitourSessionStop) {
+  const sql = getSql()
+  const [stop] = await sql<{ id: number; title: string }[]>`
+    select id, title from bicitour_stops where id = ${sessionStop.stop_id}
+  `
+  const participants = await sql<{ id: number }[]>`select id from bicitour_participants where session_id = ${session.id}`
 
-  await supabase
-    .from('bicitour_session_stops')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
-    .eq('id', sessionStop.id)
+  await sql`
+    update bicitour_session_stops
+    set status = ${'completed'}, completed_at = ${new Date().toISOString()}
+    where id = ${sessionStop.id}
+  `.catch((error) => {
+    console.error('Error completando la parada de la sesión de bicitour:', error)
+  })
 
-  if (stop && participants?.length) {
-    await supabase.from('bicitour_stamps').upsert(
-      participants.map((participant) => ({
-        session_id: session.id,
-        participant_id: participant.id,
-        stop_id: stop.id,
-        label: stop.title,
-      })),
-      { onConflict: 'participant_id,stop_id', ignoreDuplicates: true },
-    )
+  if (stop && participants.length) {
+    const stamps = participants.map((participant) => ({
+      session_id: session.id,
+      participant_id: participant.id,
+      stop_id: stop.id,
+      label: stop.title,
+    }))
+    await sql`
+      insert into bicitour_stamps ${rowValues(sql, stamps)}
+      on conflict (participant_id, stop_id) do nothing
+    `.catch((error) => {
+      console.error('Error repartiendo los sellos de la parada de bicitour:', error)
+    })
   }
 
-  await logSessionEvent(supabase, session.id, 'stop_completed', { sessionStopId: sessionStop.id })
+  await logSessionEvent(session.id, 'stop_completed', { sessionStopId: sessionStop.id })
 }
 
 // Cierre de sesión: bonificación grupal si el grupo completó todas las
 // paradas (no omitidas) + recálculo final de insignias (la insignia
 // "Recorrido completo" la otorga el módulo central de insignias).
-export async function finishSession(supabase: SupabaseClient, session: BicitourSession) {
-  const { data: sessionStops } = await supabase
-    .from('bicitour_session_stops')
-    .select('id,status')
-    .eq('session_id', session.id)
-  const stops = (sessionStops || []) as { id: number; status: string }[]
+// Las escrituras que fallan se registran sin cortar el cierre.
+export async function finishSession(session: BicitourSession) {
+  const sql = getSql()
+  const stops = await sql<{ id: number; status: string }[]>`
+    select id, status from bicitour_session_stops where session_id = ${session.id}
+  `
   const relevant = stops.filter((stop) => stop.status !== 'skipped')
   const allCompleted = relevant.length > 0 && relevant.every((stop) => stop.status === 'completed')
 
-  const { data: participants } = await supabase
-    .from('bicitour_participants')
-    .select('id,score')
-    .eq('session_id', session.id)
+  const participants = await sql<{ id: number; score: number }[]>`
+    select id, score from bicitour_participants where session_id = ${session.id}
+  `
 
-  if (allCompleted && participants?.length && !session.group_bonus_awarded) {
+  if (allCompleted && participants.length && !session.group_bonus_awarded) {
     for (const participant of participants) {
-      await supabase
-        .from('bicitour_participants')
-        .update({ score: participant.score + BICITOUR_GROUP_BONUS_POINTS })
-        .eq('id', participant.id)
+      await sql`
+        update bicitour_participants
+        set score = ${participant.score + BICITOUR_GROUP_BONUS_POINTS}
+        where id = ${participant.id}
+      `.catch((error) => {
+        console.error('Error sumando la bonificación grupal de bicitour:', error)
+      })
     }
   }
 
-  await supabase
-    .from('bicitour_sessions')
-    .update({
-      status: 'finished',
-      finished_at: new Date().toISOString(),
-      gps_enabled: false,
-      group_bonus_awarded: session.group_bonus_awarded || allCompleted,
-    })
-    .eq('id', session.id)
+  await sql`
+    update bicitour_sessions
+    set status = ${'finished'},
+      finished_at = ${new Date().toISOString()},
+      gps_enabled = ${false},
+      group_bonus_awarded = ${session.group_bonus_awarded || allCompleted}
+    where id = ${session.id}
+  `.catch((error) => {
+    console.error('Error finalizando la sesión de bicitour:', error)
+  })
 
   // Recalcular insignias con la sesión ya finalizada (idempotente).
-  await awardSessionBadges(supabase, { ...session, status: 'finished' })
+  await awardSessionBadges({ ...session, status: 'finished' })
 
-  await logSessionEvent(supabase, session.id, 'session_finished', { allCompleted })
+  await logSessionEvent(session.id, 'session_finished', { allCompleted })
 }

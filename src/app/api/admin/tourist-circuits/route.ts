@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import { fetchTouristCircuitRecords } from '@/lib/tourist-circuits-server'
 import type { TouristCircuitRecord } from '@/lib/tourist-circuits'
 import {
@@ -20,9 +20,8 @@ export async function GET() {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
   }
 
-  const supabase = createServerSupabaseClient()
   try {
-    const records = await fetchTouristCircuitRecords(supabase)
+    const records = await fetchTouristCircuitRecords()
     return NextResponse.json({ data: records, aiConfigured: isAiTranslationConfigured() })
   } catch {
     return NextResponse.json(
@@ -50,35 +49,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Revisá los campos del circuito.', fieldErrors: errors }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
+  const sql = getSql()
 
   const baseSlug = slugifyCircuitName(input.name)
   let slug = baseSlug
   for (let attempt = 2; attempt <= 20; attempt += 1) {
-    const { data: existing } = await supabase.from('tourist_circuits').select('id').eq('slug', slug).maybeSingle()
+    // Si la consulta falla se usa el slug actual (el insert decide).
+    const [existing] = await sql<{ id: number }[]>`
+      select id from tourist_circuits where slug = ${slug}
+    `.catch(() => [] as { id: number }[])
     if (!existing) break
     slug = `${baseSlug}-${attempt}`
   }
 
   const { translated, fields: englishFields } = await buildEnglishFields(input)
 
-  const { data, error } = await supabase
-    .from('tourist_circuits')
-    .insert({
+  const [data] = await sql<TouristCircuitRecord[]>`
+    insert into tourist_circuits ${rowValues(sql, {
       slug,
       sort_order: input.sortOrder ?? 1000,
       ...circuitInputToSpanishFields(input),
       ...englishFields,
-    })
-    .select('*')
-    .single()
+    })}
+    returning *
+  `.catch(() => [] as TouristCircuitRecord[])
 
-  if (error) {
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo crear el circuito.' }, { status: 500 })
   }
 
   return NextResponse.json(
-    { data: data as TouristCircuitRecord, translated, aiConfigured: isAiTranslationConfigured() },
+    { data, translated, aiConfigured: isAiTranslationConfigured() },
     { status: 201 },
   )
 }

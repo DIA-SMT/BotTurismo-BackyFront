@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import type { BicitourSession, BicitourSessionStop } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import type { BicitourSession, BicitourSessionStop, BicitourStop } from '@/lib/bicitour'
 import { awardSessionBadges } from '@/lib/bicitour-badges-server'
 import { bumpSessionVersion, completeSessionStop, finishSession, logSessionEvent } from '@/lib/bicitour-server'
 
@@ -26,79 +26,85 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
   const action = String(body.action || '')
 
-  const supabase = createServerSupabaseClient()
-  const { data: sessionRow } = await supabase.from('bicitour_sessions').select('*').eq('id', sessionId).maybeSingle()
-  const session = sessionRow as BicitourSession | null
+  const sql = getSql()
+  const [session] = await sql<BicitourSession[]>`select * from bicitour_sessions where id = ${sessionId}`
   if (!session) return NextResponse.json({ error: 'Sesión no encontrada.' }, { status: 404 })
 
   const fail = (message: string, status = 409) => NextResponse.json({ error: message }, { status })
 
+  // Las escrituras de cada acción no cortan la respuesta si fallan: se
+  // registran y la acción sigue hasta el incremento de versión.
+  const logWriteError = (error: unknown) => {
+    console.error(`Error en la acción "${action}" de la sesión de bicitour:`, error)
+  }
+
   const loadSessionStop = async (sessionStopId: number) => {
-    const { data } = await supabase
-      .from('bicitour_session_stops')
-      .select('*')
-      .eq('id', sessionStopId)
-      .eq('session_id', sessionId)
-      .maybeSingle()
-    return data as BicitourSessionStop | null
+    // Un id ausente, no entero o fuera de rango no puede existir: misma
+    // respuesta que "no encontrada" (sin mandarlo a la base, que lo rechaza).
+    if (!Number.isSafeInteger(sessionStopId)) return null
+    const [sessionStop] = await sql<BicitourSessionStop[]>`
+      select * from bicitour_session_stops where id = ${sessionStopId} and session_id = ${sessionId}
+    `
+    return sessionStop ?? null
   }
 
   switch (action) {
     case 'start': {
       if (session.status !== 'lobby') return fail('La sesión ya fue iniciada.')
-      await supabase
-        .from('bicitour_sessions')
-        .update({ status: 'active', started_at: new Date().toISOString() })
-        .eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, 'session_started')
+      await sql`
+        update bicitour_sessions set status = ${'active'}, started_at = ${new Date().toISOString()}
+        where id = ${sessionId}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'session_started')
       break
     }
 
     case 'pause': {
       if (session.status !== 'active') return fail('La sesión no está activa.')
-      await supabase.from('bicitour_sessions').update({ status: 'paused' }).eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, 'session_paused')
+      await sql`update bicitour_sessions set status = ${'paused'} where id = ${sessionId}`.catch(logWriteError)
+      await logSessionEvent(sessionId, 'session_paused')
       break
     }
 
     case 'resume': {
       if (session.status !== 'paused') return fail('La sesión no está pausada.')
-      await supabase.from('bicitour_sessions').update({ status: 'active' }).eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, 'session_resumed')
+      await sql`update bicitour_sessions set status = ${'active'} where id = ${sessionId}`.catch(logWriteError)
+      await logSessionEvent(sessionId, 'session_resumed')
       break
     }
 
     case 'finish': {
       if (session.status === 'finished') return fail('La sesión ya finalizó.')
-      await finishSession(supabase, session)
+      await finishSession(session)
       break
     }
 
     // Red de seguridad si el guía finaliza por accidente.
     case 'reopen': {
       if (session.status !== 'finished') return fail('La sesión no está finalizada.')
-      await supabase
-        .from('bicitour_sessions')
-        .update({ status: 'active', finished_at: null })
-        .eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, 'session_reopened')
+      await sql`
+        update bicitour_sessions set status = ${'active'}, finished_at = null where id = ${sessionId}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'session_reopened')
       break
     }
 
     case 'gps': {
-      await supabase.from('bicitour_sessions').update({ gps_enabled: body.enabled === true }).eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, body.enabled === true ? 'gps_on' : 'gps_off')
+      await sql`
+        update bicitour_sessions set gps_enabled = ${body.enabled === true} where id = ${sessionId}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, body.enabled === true ? 'gps_on' : 'gps_off')
       break
     }
 
     case 'announce': {
       const text = String(body.text || '').trim().slice(0, 200)
       if (!text) return fail('Escribí el aviso.', 400)
-      await supabase
-        .from('bicitour_sessions')
-        .update({ announcement: text, announcement_at: new Date().toISOString() })
-        .eq('id', sessionId)
-      await logSessionEvent(supabase, sessionId, 'announcement', { text })
+      await sql`
+        update bicitour_sessions set announcement = ${text}, announcement_at = ${new Date().toISOString()}
+        where id = ${sessionId}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'announcement', { text })
       break
     }
 
@@ -110,28 +116,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
       // Solo una parada abierta a la vez. Si la anterior quedó con la
       // pregunta cerrada, se completa sola (reparte sellos) antes de avanzar.
-      const { data: openRows } = await supabase
-        .from('bicitour_session_stops')
-        .select('*')
-        .eq('session_id', sessionId)
-        .in('status', ['open', 'question_active', 'question_closed'])
+      const openRows = await sql<BicitourSessionStop[]>`
+        select * from bicitour_session_stops
+        where session_id = ${sessionId} and status in ('open', 'question_active', 'question_closed')
+      `
       let autoCompleted = false
-      for (const row of (openRows || []) as BicitourSessionStop[]) {
+      for (const row of openRows) {
         if (row.id === target.id) continue
         if (row.status === 'question_closed') {
-          await completeSessionStop(supabase, session, row)
+          await completeSessionStop(session, row)
           autoCompleted = true
         } else {
           return fail('Cerrá la parada actual antes de abrir otra.')
         }
       }
-      if (autoCompleted) await awardSessionBadges(supabase, session)
+      if (autoCompleted) await awardSessionBadges(session)
 
-      await supabase
-        .from('bicitour_session_stops')
-        .update({ status: 'open', opened_at: target.opened_at || new Date().toISOString(), active_question_id: null })
-        .eq('id', target.id)
-      await logSessionEvent(supabase, sessionId, 'stop_opened', { sessionStopId: target.id })
+      await sql`
+        update bicitour_session_stops
+        set status = ${'open'}, opened_at = ${target.opened_at || new Date().toISOString()}, active_question_id = null
+        where id = ${target.id}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'stop_opened', { sessionStopId: target.id })
       break
     }
 
@@ -140,18 +146,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (!target) return fail('Parada no encontrada.', 404)
       if (!['open', 'question_closed'].includes(target.status)) return fail('Abrí la parada antes de lanzar la pregunta.')
       const questionId = Number(body.questionId)
-      const { data: question } = await supabase
-        .from('bicitour_questions')
-        .select('id,stop_id')
-        .eq('id', questionId)
-        .maybeSingle()
+      const [question] = Number.isSafeInteger(questionId)
+        ? await sql<{ id: number; stop_id: number }[]>`select id, stop_id from bicitour_questions where id = ${questionId}`
+        : []
       if (!question || question.stop_id !== target.stop_id) return fail('La pregunta no pertenece a esta parada.', 400)
 
-      await supabase
-        .from('bicitour_session_stops')
-        .update({ status: 'question_active', active_question_id: questionId })
-        .eq('id', target.id)
-      await logSessionEvent(supabase, sessionId, 'question_activated', { questionId })
+      await sql`
+        update bicitour_session_stops set status = ${'question_active'}, active_question_id = ${questionId}
+        where id = ${target.id}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'question_activated', { questionId })
       break
     }
 
@@ -159,9 +163,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const target = await loadSessionStop(Number(body.sessionStopId))
       if (!target) return fail('Parada no encontrada.', 404)
       if (target.status !== 'question_active') return fail('No hay una pregunta activa en esa parada.')
-      await supabase.from('bicitour_session_stops').update({ status: 'question_closed' }).eq('id', target.id)
-      await logSessionEvent(supabase, sessionId, 'question_closed', { questionId: target.active_question_id })
-      await awardSessionBadges(supabase, session)
+      await sql`
+        update bicitour_session_stops set status = ${'question_closed'} where id = ${target.id}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'question_closed', { questionId: target.active_question_id })
+      await awardSessionBadges(session)
       break
     }
 
@@ -171,8 +177,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (!['open', 'question_active', 'question_closed'].includes(target.status)) {
         return fail('La parada no está abierta.')
       }
-      await completeSessionStop(supabase, session, target)
-      await awardSessionBadges(supabase, session)
+      await completeSessionStop(session, target)
+      await awardSessionBadges(session)
       break
     }
 
@@ -180,8 +186,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const target = await loadSessionStop(Number(body.sessionStopId))
       if (!target) return fail('Parada no encontrada.', 404)
       if (target.status !== 'locked') return fail('Solo se pueden omitir paradas que no se abrieron.')
-      await supabase.from('bicitour_session_stops').update({ status: 'skipped' }).eq('id', target.id)
-      await logSessionEvent(supabase, sessionId, 'stop_skipped', { sessionStopId: target.id })
+      await sql`update bicitour_session_stops set status = ${'skipped'} where id = ${target.id}`.catch(logWriteError)
+      await logSessionEvent(sessionId, 'stop_skipped', { sessionStopId: target.id })
       break
     }
 
@@ -194,41 +200,40 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (title.length < 2) return fail('Poné un nombre a la parada.', 400)
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return fail('No hay ubicación GPS para la parada.', 400)
 
-      const { data: lastStop } = await supabase
-        .from('bicitour_stops')
-        .select('position')
-        .eq('route_id', session.route_id)
-        .order('position', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const { data: newStop, error: stopError } = await supabase
-        .from('bicitour_stops')
-        .insert({
-          route_id: session.route_id,
-          position: Number(lastStop?.position || 0) + 1,
-          title,
-          description: String(body.description || '').trim() || null,
-          lat,
-          lng,
-          is_draft: true,
-        })
-        .select('*')
-        .single()
-      if (stopError || !newStop) return fail('No se pudo crear la parada.', 500)
+      const [lastStop] = await sql<{ position: number }[]>`
+        select position from bicitour_stops where route_id = ${session.route_id} order by position desc limit 1
+      `
+      let newStop: BicitourStop | undefined
+      try {
+        const [created] = await sql<BicitourStop[]>`
+          insert into bicitour_stops ${rowValues(sql, {
+            route_id: session.route_id,
+            position: Number(lastStop?.position || 0) + 1,
+            title,
+            description: String(body.description || '').trim() || null,
+            lat,
+            lng,
+            is_draft: true,
+          })}
+          returning *
+        `
+        newStop = created
+      } catch {
+        return fail('No se pudo crear la parada.', 500)
+      }
+      if (!newStop) return fail('No se pudo crear la parada.', 500)
 
-      const { data: lastSessionStop } = await supabase
-        .from('bicitour_session_stops')
-        .select('position')
-        .eq('session_id', sessionId)
-        .order('position', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      await supabase.from('bicitour_session_stops').insert({
-        session_id: sessionId,
-        stop_id: newStop.id,
-        position: Number(lastSessionStop?.position || 0) + 1,
-      })
-      await logSessionEvent(supabase, sessionId, 'spontaneous_stop', { stopId: newStop.id, title })
+      const [lastSessionStop] = await sql<{ position: number }[]>`
+        select position from bicitour_session_stops where session_id = ${sessionId} order by position desc limit 1
+      `
+      await sql`
+        insert into bicitour_session_stops ${rowValues(sql, {
+          session_id: sessionId,
+          stop_id: newStop.id,
+          position: Number(lastSessionStop?.position || 0) + 1,
+        })}
+      `.catch(logWriteError)
+      await logSessionEvent(sessionId, 'spontaneous_stop', { stopId: newStop.id, title })
       break
     }
 
@@ -236,6 +241,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       return fail('Acción desconocida.', 400)
   }
 
-  await bumpSessionVersion(supabase, sessionId)
+  await bumpSessionVersion(sessionId)
   return NextResponse.json({ data: { ok: true } })
 }

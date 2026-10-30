@@ -1,4 +1,4 @@
-const { fetchActiveFAQs, getChatHistory, saveChatMessage, logInteraction, fetchTouristBusSummary } = require('./supabase');
+const { fetchActiveFAQs, getChatHistory, saveChatMessage, logInteraction, fetchTouristBusSummary } = require('./db');
 const { fetchCulturalEvents } = require('./api');
 const { mainAgentProcess } = require('../ai/agent');
 const { visionAnalyzeImage } = require('../ai/vision');

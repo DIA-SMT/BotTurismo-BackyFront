@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -27,49 +27,46 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'Estado inválido.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: booking, error: bookingError } = await supabase
-    .from('tourist_bookings')
-    .select('*')
-    .eq('id', bookingId)
-    .single()
+  const sql = getSql()
+  const [currentBooking] = await sql<TouristBooking[]>`
+    select * from tourist_bookings where id = ${bookingId}
+  `.catch(() => [] as TouristBooking[])
 
-  if (bookingError || !booking) {
+  if (!currentBooking) {
     return NextResponse.json({ error: 'Reserva no encontrada.' }, { status: 404 })
   }
 
-  const currentBooking = booking as TouristBooking
-
   // Al reconfirmar una reserva cancelada hay que verificar que siga habiendo cupo.
   if (status === 'confirmed' && currentBooking.status !== 'confirmed') {
-    const [{ data: departure, error: departureError }, { data: confirmedBookings, error: confirmedError }] =
-      await Promise.all([
-        supabase.from('tourist_departures').select('*').eq('id', currentBooking.departure_id).single(),
-        supabase
-          .from('tourist_bookings')
-          .select('people_count')
-          .eq('departure_id', currentBooking.departure_id)
-          .eq('status', 'confirmed'),
+    let departure: TouristDeparture | undefined
+    let confirmedBookings: Pick<TouristBooking, 'people_count'>[]
+    try {
+      ;[[departure], confirmedBookings] = await Promise.all([
+        sql<TouristDeparture[]>`select * from tourist_departures where id = ${currentBooking.departure_id}`,
+        sql<Pick<TouristBooking, 'people_count'>[]>`
+          select people_count from tourist_bookings
+          where departure_id = ${currentBooking.departure_id} and status = ${'confirmed'}
+        `,
       ])
-
-    if (departureError || !departure || confirmedError) {
+    } catch {
       return NextResponse.json({ error: 'No se pudo verificar el cupo de la salida.' }, { status: 500 })
     }
 
-    const reserved = (confirmedBookings || []).reduce((total, row) => total + Number(row.people_count || 0), 0)
-    if (reserved + currentBooking.people_count > (departure as TouristDeparture).capacity) {
+    if (!departure) {
+      return NextResponse.json({ error: 'No se pudo verificar el cupo de la salida.' }, { status: 500 })
+    }
+
+    const reserved = confirmedBookings.reduce((total, row) => total + Number(row.people_count || 0), 0)
+    if (reserved + currentBooking.people_count > departure.capacity) {
       return NextResponse.json({ error: 'No hay cupo suficiente para reconfirmar esta reserva.' }, { status: 409 })
     }
   }
 
-  const { data, error } = await supabase
-    .from('tourist_bookings')
-    .update({ status })
-    .eq('id', bookingId)
-    .select('*')
-    .single()
+  const [data] = await sql<TouristBooking[]>`
+    update tourist_bookings set status = ${status} where id = ${bookingId} returning *
+  `.catch(() => [] as TouristBooking[])
 
-  if (error || !data) {
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo actualizar la reserva.' }, { status: 500 })
   }
 

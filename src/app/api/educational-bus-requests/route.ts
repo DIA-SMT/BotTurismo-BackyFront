@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { removeArchives, uploadArchive } from '@/lib/archivos'
+import { getSql, pgErrorCode, rowValues, UNIQUE_VIOLATION } from '@/lib/db'
 import {
   educationalBusAttachmentBucket,
   type EducationalBusRequest,
@@ -57,22 +58,24 @@ export async function GET(request: NextRequest) {
   const institutionType = searchParams.get('institutionType')?.trim()
   const requestedDate = searchParams.get('requestedDate')?.trim()
 
-  const supabase = createServerSupabaseClient()
-  let query = supabase.from('educational_bus_requests').select('*').order('created_at', { ascending: false })
-
-  if (search) query = query.or(`institution_name.ilike.%${search}%,contact_name.ilike.%${search}%`)
-  if (status) query = query.eq('status', status)
-  if (preferredShift) query = query.eq('preferred_shift', preferredShift)
-  if (institutionType) query = query.eq('institution_type', institutionType)
-  if (requestedDate) query = query.eq('requested_date', requestedDate)
-
-  const { data, error } = await query
-
-  if (error) {
+  const sql = getSql()
+  let data: EducationalBusRequest[]
+  try {
+    data = await sql<EducationalBusRequest[]>`
+      select * from educational_bus_requests
+      where true
+        ${search ? sql`and (institution_name ilike ${`%${search}%`} or contact_name ilike ${`%${search}%`})` : sql``}
+        ${status ? sql`and status = ${status}` : sql``}
+        ${preferredShift ? sql`and preferred_shift = ${preferredShift}` : sql``}
+        ${institutionType ? sql`and institution_type = ${institutionType}` : sql``}
+        ${requestedDate ? sql`and requested_date = ${requestedDate}` : sql``}
+      order by created_at desc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las solicitudes.' }, { status: 500 })
   }
 
-  return NextResponse.json({ data: (data || []) as EducationalBusRequest[] })
+  return NextResponse.json({ data })
 }
 
 export async function POST(request: NextRequest) {
@@ -80,8 +83,7 @@ export async function POST(request: NextRequest) {
   const payload = mapPayloadToFormData(formData)
   const attachment = formData.get('attachment')
   const attachmentFile = attachment instanceof File ? attachment : null
-  const settingsSupabase = createServerSupabaseClient()
-  const globalSettings = await getEducationalSettings(settingsSupabase)
+  const globalSettings = await getEducationalSettings()
 
   if (!globalSettings.publicRequestsEnabled) {
     return NextResponse.json(
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
   let circuitAvailability = null
   if (payload.circuit) {
     try {
-      const record = await getEducationalCircuitBySlug(settingsSupabase, payload.circuit)
+      const record = await getEducationalCircuitBySlug(payload.circuit)
       if (record && record.active) {
         circuitAvailability = mapEducationalCircuitRecord(record).availability
       }
@@ -138,17 +140,17 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: conflictingRequest, error: conflictError } = await supabase
-    .from('educational_bus_requests')
-    .select('id')
-    .eq('requested_date', payload.requestedDate)
-    .eq('preferred_shift', payload.preferredShift)
-    .in('status', ['pending', 'approved'])
-    .limit(1)
-    .maybeSingle()
-
-  if (conflictError) {
+  const sql = getSql()
+  let conflictingRequest: { id: number } | undefined
+  try {
+    ;[conflictingRequest] = await sql<{ id: number }[]>`
+      select id from educational_bus_requests
+      where requested_date = ${payload.requestedDate}
+        and preferred_shift = ${payload.preferredShift}
+        and status in ('pending', 'approved')
+      limit 1
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudo validar la disponibilidad del turno.' }, { status: 500 })
   }
 
@@ -167,33 +169,32 @@ export async function POST(request: NextRequest) {
 
   const attachmentPath = buildAttachmentPath(attachmentFile!.name)
   const uploadArrayBuffer = await attachmentFile!.arrayBuffer()
-  const { error: uploadError } = await supabase.storage
-    .from(educationalBusAttachmentBucket)
-    .upload(attachmentPath, uploadArrayBuffer, {
-      contentType: attachmentFile!.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  try {
+    await uploadArchive(educationalBusAttachmentBucket, attachmentPath, new Uint8Array(uploadArrayBuffer), {
       upsert: false,
     })
-
-  if (uploadError) {
+  } catch {
     return NextResponse.json({ error: 'No se pudo subir el archivo adjunto.' }, { status: 500 })
   }
 
-  const { data, error } = await supabase
-    .from('educational_bus_requests')
-    .insert({
-      ...toEducationalBusRequestPayload(payload, {
-        attachmentName: attachmentFile!.name,
-        attachmentPath,
-      }),
-      status: 'pending',
-    })
-    .select('*')
-    .single()
+  let data: EducationalBusRequest
+  try {
+    ;[data] = await sql<EducationalBusRequest[]>`
+      insert into educational_bus_requests ${rowValues(sql, {
+        ...toEducationalBusRequestPayload(payload, {
+          attachmentName: attachmentFile!.name,
+          attachmentPath,
+        }),
+        status: 'pending',
+      })}
+      returning *
+    `
+  } catch (error) {
+    await removeArchives(educationalBusAttachmentBucket, [attachmentPath]).catch((removeError) =>
+      console.error('No se pudo borrar el adjunto de la solicitud rechazada', removeError),
+    )
 
-  if (error) {
-    await supabase.storage.from(educationalBusAttachmentBucket).remove([attachmentPath])
-
-    if (error.code === '23505') {
+    if (pgErrorCode(error) === UNIQUE_VIOLATION) {
       return NextResponse.json(
         {
           error: 'Ese turno ya no está disponible. Elegí otra fecha o franja horaria.',

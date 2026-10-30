@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import { formatDateToDisplay } from '@/lib/educational-bus-requests'
 import { formatDepartureTime, type TouristBooking, type TouristDeparture } from '@/lib/tourist-bus'
 import { buildSimpleXlsxBuffer, type XlsxCell } from '@/lib/simple-xlsx'
@@ -21,30 +21,25 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: 'Salida inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: departure, error: departureError } = await supabase
-    .from('tourist_departures')
-    .select('*')
-    .eq('id', departureId)
-    .maybeSingle()
+  const sql = getSql()
+  const [departureRecord] = await sql<TouristDeparture[]>`
+    select * from tourist_departures where id = ${departureId}
+  `.catch(() => [] as TouristDeparture[])
 
-  if (departureError || !departure) {
+  if (!departureRecord) {
     return NextResponse.json({ error: 'Salida no encontrada.' }, { status: 404 })
   }
 
-  const { data: bookings, error: bookingsError } = await supabase
-    .from('tourist_bookings')
-    .select('*')
-    .eq('departure_id', departureId)
-    .eq('status', 'confirmed')
-    .order('full_name', { ascending: true })
-
-  if (bookingsError) {
+  let bookingList: TouristBooking[]
+  try {
+    bookingList = await sql<TouristBooking[]>`
+      select * from tourist_bookings
+      where departure_id = ${departureId} and status = ${'confirmed'}
+      order by full_name asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las reservas.' }, { status: 500 })
   }
-
-  const departureRecord = departure as TouristDeparture
-  const bookingList = (bookings || []) as TouristBooking[]
   const totalPeople = bookingList.reduce((total, booking) => total + booking.people_count, 0)
 
   const hasBikes = departureRecord.bike_stock !== null && departureRecord.bike_stock !== undefined

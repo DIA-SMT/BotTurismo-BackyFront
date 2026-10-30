@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 import { sendTouristBookingCancelledEmail } from '@/lib/tourist-booking-email'
 import { sendTouristBookingCancelledWhatsApp } from '@/lib/tourist-whatsapp'
@@ -9,22 +9,21 @@ export const runtime = 'nodejs'
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function findBookingByToken(token: string) {
-  const supabase = createServerSupabaseClient()
-  const { data: booking, error } = await supabase
-    .from('tourist_bookings')
-    .select('*')
-    .eq('cancel_token', token)
-    .maybeSingle()
+  const sql = getSql()
+  const [booking] = await sql<TouristBooking[]>`
+    select * from tourist_bookings where cancel_token = ${token}
+  `.catch(() => [] as TouristBooking[])
 
-  if (error || !booking) return { supabase, booking: null, departure: null }
+  if (!booking) return { booking: null, departure: null }
 
-  const { data: departure } = await supabase
-    .from('tourist_departures')
-    .select('*')
-    .eq('id', booking.departure_id)
-    .maybeSingle()
+  const [departure] = await sql<TouristDeparture[]>`
+    select * from tourist_departures where id = ${booking.departure_id}
+  `.catch((error) => {
+    console.error('No se pudo leer la salida de la reserva:', error)
+    return [] as TouristDeparture[]
+  })
 
-  return { supabase, booking: booking as TouristBooking, departure: (departure as TouristDeparture) || null }
+  return { booking, departure: departure ?? null }
 }
 
 // La baja autogestionada se acepta hasta 24 horas antes de la salida, para que
@@ -82,7 +81,7 @@ export async function POST(_: NextRequest, context: { params: Promise<{ token: s
     return NextResponse.json({ error: 'Reserva no encontrada.' }, { status: 404 })
   }
 
-  const { supabase, booking, departure } = await findBookingByToken(token)
+  const { booking, departure } = await findBookingByToken(token)
   if (!booking || !departure) {
     return NextResponse.json({ error: 'Reserva no encontrada.' }, { status: 404 })
   }
@@ -94,19 +93,19 @@ export async function POST(_: NextRequest, context: { params: Promise<{ token: s
     )
   }
 
-  const { data: updated, error } = await supabase
-    .from('tourist_bookings')
-    .update({ status: 'cancelled' })
-    .eq('id', booking.id)
-    .eq('status', 'confirmed')
-    .select('*')
-    .single()
+  const sql = getSql()
+  // Sin fila (ya no estaba confirmada) o error de la base: mismo 500.
+  const [updated] = await sql<TouristBooking[]>`
+    update tourist_bookings set status = ${'cancelled'}
+    where id = ${booking.id} and status = ${'confirmed'}
+    returning *
+  `.catch(() => [] as TouristBooking[])
 
-  if (error || !updated) {
+  if (!updated) {
     return NextResponse.json({ error: 'No se pudo cancelar la reserva. Intentá de nuevo.' }, { status: 500 })
   }
 
-  const input = { booking: updated as TouristBooking, departure }
+  const input = { booking: updated, departure }
   const [emailSent, whatsappSent] = await Promise.all([
     sendTouristBookingCancelledEmail(input),
     sendTouristBookingCancelledWhatsApp(input),

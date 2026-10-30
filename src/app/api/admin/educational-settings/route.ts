@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
 import { getEducationalSettings, saveEducationalSettings } from '@/lib/educational-settings-server'
 
 export async function GET() {
@@ -9,8 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const settings = await getEducationalSettings(supabase)
+  const settings = await getEducationalSettings()
   return NextResponse.json({ data: settings })
 }
 
@@ -27,8 +25,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const saved = await saveEducationalSettings(supabase, body)
+  const saved = await saveEducationalSettings(body)
 
   if (!saved) {
     return NextResponse.json(

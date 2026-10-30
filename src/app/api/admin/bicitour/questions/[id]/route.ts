@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { sanitizeQuestionOptions } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import { sanitizeQuestionOptions, type BicitourQuestion } from '@/lib/bicitour'
 
 export const runtime = 'nodejs'
 
@@ -51,14 +51,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No hay cambios para guardar.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('bicitour_questions')
-    .update(payload)
-    .eq('id', questionId)
-    .select('*')
-    .single()
-  if (error || !data) return NextResponse.json({ error: 'No se pudo actualizar la pregunta.' }, { status: 500 })
+  const sql = getSql()
+  const [data] = await sql<BicitourQuestion[]>`
+    update bicitour_questions set ${rowValues(sql, payload)} where id = ${questionId} returning *
+  `.catch(() => [])
+  if (!data) return NextResponse.json({ error: 'No se pudo actualizar la pregunta.' }, { status: 500 })
 
   // Consistencia: la clave correcta debe existir entre las opciones finales.
   const options = data.options as { key: string }[]
@@ -79,16 +76,18 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
   const questionId = Number(id)
   if (!Number.isInteger(questionId)) return NextResponse.json({ error: 'Pregunta inválida.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { count } = await supabase
-    .from('bicitour_answers')
-    .select('*', { count: 'exact', head: true })
-    .eq('question_id', questionId)
-  if ((count || 0) > 0) {
+  const sql = getSql()
+  const [{ count }] = await sql<{ count: number }[]>`
+    select count(*)::int as count from bicitour_answers where question_id = ${questionId}
+  `
+  if (count > 0) {
     return NextResponse.json({ error: 'La pregunta ya tiene respuestas registradas. No se puede eliminar.' }, { status: 409 })
   }
 
-  const { error } = await supabase.from('bicitour_questions').delete().eq('id', questionId)
-  if (error) return NextResponse.json({ error: 'No se pudo eliminar la pregunta.' }, { status: 500 })
+  try {
+    await sql`delete from bicitour_questions where id = ${questionId}`
+  } catch {
+    return NextResponse.json({ error: 'No se pudo eliminar la pregunta.' }, { status: 500 })
+  }
   return NextResponse.json({ data: { id: questionId } })
 }

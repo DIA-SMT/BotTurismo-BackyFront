@@ -1,25 +1,27 @@
-const { createClient } = require('@supabase/supabase-js');
+const postgres = require('postgres');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("Missing SUPABASE credentials in .env");
+// Misma base que el sitio (PostgreSQL de la VPS). Los tipos se leen como los
+// devolvía Supabase: date como 'YYYY-MM-DD' y bigint como number.
+if (!process.env.DATABASE_URL) {
+  console.error("Missing DATABASE_URL in .env");
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
+const sql = postgres(process.env.DATABASE_URL, {
+  max: 5,
+  idle_timeout: 30,
+  connect_timeout: 10,
+  onnotice: () => {},
+  connection: { TimeZone: 'UTC' },
+  types: {
+    bigint: { to: 20, from: [20], serialize: value => String(value), parse: value => Number(value) },
+    date: { to: 1082, from: [1082], serialize: value => value, parse: value => value }
+  }
 });
 
 async function fetchActiveFAQs() {
   try {
-    const { data, error } = await supabase
-      .from('faqs')
-      .select('*')
-      .eq('activo', true);
+    const data = await sql`select * from faqs where activo = true`;
 
-    if (error) throw error;
-    
     // Agrupar por categoría
     const catLabels = {
       excursiones:'EXCURSIONES', transporte:'TRANSPORTE', gastronomia:'GASTRONOMÍA',
@@ -48,9 +50,8 @@ async function fetchActiveFAQs() {
 
 async function logInteraction(logData) {
   try {
-    const { error } = await supabase
-      .from('tourist_interactions')
-      .insert([{
+    await sql`
+      insert into tourist_interactions ${sql({
         chat_id: logData.chat_id || null,
         user_name: logData.user_name || null,
         intent: logData.intent || 'consulta_general',
@@ -62,8 +63,8 @@ async function logInteraction(logData) {
         has_photo: logData.has_photo || false,
         budget: logData.budget || null,
         live_chat_url: logData.live_chat_url || null
-      }]);
-    if (error) throw error;
+      })}
+    `;
   } catch (err) {
     console.error('Error logging interaction:', err);
   }
@@ -80,17 +81,15 @@ async function getChatHistory(chatId, limit = 6) {
 
   if (persistentMemoryAvailable) {
     try {
-      const { data, error } = await supabase
-        .from('bot_chat_messages')
-        .select('role, content')
-        .eq('chat_id', id)
-        .order('id', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return (data || []).reverse();
+      const data = await sql`
+        select role, content from bot_chat_messages
+        where chat_id = ${id}
+        order by id desc
+        limit ${limit}
+      `;
+      return [...data].reverse();
     } catch (err) {
-      console.warn('Memoria persistente no disponible (¿falta supabase_bot_migration.sql?). Usando RAM.', err.message);
+      console.warn('Memoria persistente no disponible (¿falta la tabla bot_chat_messages?). Usando RAM.', err.message);
       persistentMemoryAvailable = false;
     }
   }
@@ -105,10 +104,7 @@ async function saveChatMessage(chatId, role, content) {
 
   if (persistentMemoryAvailable) {
     try {
-      const { error } = await supabase
-        .from('bot_chat_messages')
-        .insert([{ chat_id: id, role, content }]);
-      if (error) throw error;
+      await sql`insert into bot_chat_messages (chat_id, role, content) values (${id}, ${role}, ${content})`;
       return;
     } catch (err) {
       console.warn('No se pudo guardar en memoria persistente. Usando RAM.', err.message);
@@ -131,37 +127,26 @@ async function fetchTouristBusSummary() {
     const horizon = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
       .toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
 
-    const [circuitsResult, departuresResult] = await Promise.all([
-      supabase
-        .from('tourist_circuits')
-        .select('slug, name_es, summary_es, schedule_es, duration_es')
-        .eq('active', true)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('tourist_departures')
-        .select('id, circuit_slug, title, departure_date, departure_time, capacity')
-        .eq('status', 'active')
-        .gte('departure_date', today)
-        .lte('departure_date', horizon)
-        .order('departure_date', { ascending: true })
-        .order('departure_time', { ascending: true })
+    const [circuits, departures] = await Promise.all([
+      sql`
+        select slug, name_es, summary_es, schedule_es, duration_es from tourist_circuits
+        where active = true
+        order by sort_order asc
+      `,
+      sql`
+        select id, circuit_slug, title, departure_date, departure_time, capacity from tourist_departures
+        where status = 'active' and departure_date >= ${today} and departure_date <= ${horizon}
+        order by departure_date asc, departure_time asc
+      `
     ]);
-
-    if (circuitsResult.error) throw circuitsResult.error;
-    if (departuresResult.error) throw departuresResult.error;
-
-    const circuits = circuitsResult.data || [];
-    const departures = departuresResult.data || [];
 
     // Cupos restantes por salida
     let remainingById = {};
     if (departures.length > 0) {
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('tourist_bookings')
-        .select('departure_id, people_count')
-        .in('departure_id', departures.map(d => d.id))
-        .eq('status', 'confirmed');
-      if (bookingsError) throw bookingsError;
+      const bookings = await sql`
+        select departure_id, people_count from tourist_bookings
+        where departure_id in ${sql(departures.map(d => d.id))} and status = 'confirmed'
+      `;
 
       const reserved = {};
       (bookings || []).forEach(b => {
@@ -202,4 +187,4 @@ async function fetchTouristBusSummary() {
   }
 }
 
-module.exports = { supabase, fetchActiveFAQs, logInteraction, getChatHistory, saveChatMessage, fetchTouristBusSummary };
+module.exports = { sql, fetchActiveFAQs, logInteraction, getChatHistory, saveChatMessage, fetchTouristBusSummary };

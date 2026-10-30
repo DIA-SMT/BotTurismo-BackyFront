@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import { sanitizePath } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import {
+  sanitizePath,
+  type BicitourQuestion,
+  type BicitourQuestionProposal,
+  type BicitourRoute,
+  type BicitourStop,
+} from '@/lib/bicitour'
 import { isBicitourAiConfigured } from '@/lib/bicitour-ai'
 
 export const runtime = 'nodejs'
@@ -14,32 +20,31 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   const routeId = Number(id)
   if (!Number.isInteger(routeId)) return NextResponse.json({ error: 'Recorrido inválido.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const [{ data: route }, { data: stops }] = await Promise.all([
-    supabase.from('bicitour_routes').select('*').eq('id', routeId).maybeSingle(),
-    supabase.from('bicitour_stops').select('*').eq('route_id', routeId).order('position'),
+  const sql = getSql()
+  const [[route], stops] = await Promise.all([
+    sql<BicitourRoute[]>`select * from bicitour_routes where id = ${routeId}`,
+    sql<BicitourStop[]>`select * from bicitour_stops where route_id = ${routeId} order by position`,
   ])
   if (!route) return NextResponse.json({ error: 'Recorrido no encontrado.' }, { status: 404 })
 
-  const stopIds = (stops || []).map((stop) => stop.id)
-  const [{ data: questions }, { data: proposals }] = stopIds.length
+  const stopIds = stops.map((stop) => stop.id)
+  const [questions, proposals]: [BicitourQuestion[], BicitourQuestionProposal[]] = stopIds.length
     ? await Promise.all([
-        supabase.from('bicitour_questions').select('*').in('stop_id', stopIds).order('position'),
-        supabase
-          .from('bicitour_question_proposals')
-          .select('*')
-          .in('stop_id', stopIds)
-          .eq('status', 'pending')
-          .order('created_at'),
+        sql<BicitourQuestion[]>`select * from bicitour_questions where stop_id in ${sql(stopIds)} order by position`,
+        sql<BicitourQuestionProposal[]>`
+          select * from bicitour_question_proposals
+          where stop_id in ${sql(stopIds)} and status = ${'pending'}
+          order by created_at
+        `,
       ])
-    : [{ data: [] }, { data: [] }]
+    : [[], []]
 
   return NextResponse.json({
     data: {
       route,
-      stops: stops || [],
-      questions: questions || [],
-      proposals: proposals || [],
+      stops,
+      questions,
+      proposals,
       aiConfigured: isBicitourAiConfigured(),
     },
   })
@@ -81,9 +86,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
   if (body.path !== undefined) payload.path = sanitizePath(body.path)
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase.from('bicitour_routes').update(payload).eq('id', routeId).select('*').single()
-  if (error || !data) return NextResponse.json({ error: 'No se pudo actualizar el recorrido.' }, { status: 500 })
+  const sql = getSql()
+  const [data] = await sql<BicitourRoute[]>`
+    update bicitour_routes set ${rowValues(sql, payload)} where id = ${routeId} returning *
+  `.catch(() => [])
+  if (!data) return NextResponse.json({ error: 'No se pudo actualizar el recorrido.' }, { status: 500 })
   return NextResponse.json({ data })
 }
 
@@ -95,19 +102,21 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
   const routeId = Number(id)
   if (!Number.isInteger(routeId)) return NextResponse.json({ error: 'Recorrido inválido.' }, { status: 400 })
 
-  const supabase = createServerSupabaseClient()
-  const { count } = await supabase
-    .from('bicitour_sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('route_id', routeId)
-  if ((count || 0) > 0) {
+  const sql = getSql()
+  const [{ count }] = await sql<{ count: number }[]>`
+    select count(*)::int as count from bicitour_sessions where route_id = ${routeId}
+  `
+  if (count > 0) {
     return NextResponse.json(
       { error: 'El recorrido tiene sesiones registradas. Archivalo en lugar de eliminarlo.' },
       { status: 409 },
     )
   }
 
-  const { error } = await supabase.from('bicitour_routes').delete().eq('id', routeId)
-  if (error) return NextResponse.json({ error: 'No se pudo eliminar el recorrido.' }, { status: 500 })
+  try {
+    await sql`delete from bicitour_routes where id = ${routeId}`
+  } catch {
+    return NextResponse.json({ error: 'No se pudo eliminar el recorrido.' }, { status: 500 })
+  }
   return NextResponse.json({ data: { id: routeId } })
 }

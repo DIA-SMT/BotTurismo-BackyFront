@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
 import { formatDateTimeToDisplay, formatDateToDisplay, parseBusinessDateParts } from '@/lib/educational-bus-requests'
 import { formatDepartureTime, type TouristBooking, type TouristDeparture } from '@/lib/tourist-bus'
 import { buildSimpleXlsxBuffer, type XlsxCell } from '@/lib/simple-xlsx'
@@ -99,38 +99,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'La fecha desde no puede ser mayor que la fecha hasta.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  let departuresQuery = supabase
-    .from('tourist_departures')
-    .select('*')
-    .gte('departure_date', from)
-    .lte('departure_date', to)
-    .order('departure_date', { ascending: true })
-    .order('departure_time', { ascending: true })
-  if (circuitSlug) {
-    departuresQuery = departuresQuery.eq('circuit_slug', circuitSlug)
-  }
-  const { data: departures, error: departuresError } = await departuresQuery
-
-  if (departuresError) {
+  const sql = getSql()
+  let departureList: TouristDeparture[]
+  try {
+    departureList = await sql<TouristDeparture[]>`
+      select * from tourist_departures
+      where departure_date >= ${from} and departure_date <= ${to}
+        ${circuitSlug ? sql`and circuit_slug = ${circuitSlug}` : sql``}
+      order by departure_date asc, departure_time asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las salidas.' }, { status: 500 })
   }
 
-  const departureList = (departures || []) as TouristDeparture[]
   let bookingList: TouristBooking[] = []
 
   if (departureList.length > 0) {
-    const { data: bookings, error: bookingsError } = await supabase
-      .from('tourist_bookings')
-      .select('*')
-      .in('departure_id', departureList.map((departure) => departure.id))
-      .order('created_at', { ascending: true })
-
-    if (bookingsError) {
+    try {
+      bookingList = await sql<TouristBooking[]>`
+        select * from tourist_bookings
+        where departure_id in ${sql(departureList.map((departure) => departure.id))}
+        order by created_at asc
+      `
+    } catch {
       return NextResponse.json({ error: 'No se pudieron obtener las reservas.' }, { status: 500 })
     }
-
-    bookingList = (bookings || []) as TouristBooking[]
   }
 
   const workbookBuffer = buildSimpleXlsxBuffer([

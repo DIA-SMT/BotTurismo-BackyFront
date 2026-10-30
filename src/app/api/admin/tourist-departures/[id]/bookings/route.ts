@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql } from '@/lib/db'
+import type { TouristBooking, TouristNotificationLog } from '@/lib/tourist-bus'
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const admin = await getAuthenticatedAdminFromCookies()
@@ -14,28 +15,27 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: 'Salida inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('tourist_bookings')
-    .select('*')
-    .eq('departure_id', departureId)
-    .order('created_at', { ascending: true })
-
-  if (error) {
+  const sql = getSql()
+  let data: TouristBooking[]
+  try {
+    data = await sql<TouristBooking[]>`
+      select * from tourist_bookings where departure_id = ${departureId} order by created_at asc
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudieron obtener las reservas.' }, { status: 500 })
   }
 
-  // Historial de avisos enviados para esta salida (si la tabla todavía no
-  // existe en Supabase, se devuelve vacío sin romper el listado de reservas).
-  const { data: notificationLogs, error: logsError } = await supabase
-    .from('tourist_notification_logs')
-    .select('*')
-    .eq('departure_id', departureId)
-    .order('created_at', { ascending: false })
+  // Historial de avisos enviados para esta salida (si la consulta falla, se
+  // devuelve vacío sin romper el listado de reservas).
+  const notificationLogs = await sql<TouristNotificationLog[]>`
+    select * from tourist_notification_logs where departure_id = ${departureId} order by created_at desc
+  `.catch((logsError) => {
+    console.error(
+      'No se pudieron obtener los registros de avisos:',
+      logsError instanceof Error ? logsError.message : logsError,
+    )
+    return [] as TouristNotificationLog[]
+  })
 
-  if (logsError) {
-    console.error('No se pudieron obtener los registros de avisos:', logsError.message)
-  }
-
-  return NextResponse.json({ data: data || [], notificationLogs: notificationLogs || [] })
+  return NextResponse.json({ data, notificationLogs })
 }

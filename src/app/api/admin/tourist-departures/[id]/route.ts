@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import { parseBusinessDateParts } from '@/lib/educational-bus-requests'
 import type { TouristBooking, TouristDeparture } from '@/lib/tourist-bus'
 import { isBookingEmailConfigured, sendTouristDepartureCancellationEmails } from '@/lib/tourist-booking-email'
@@ -88,15 +88,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'No hay cambios para guardar.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data, error } = await supabase
-    .from('tourist_departures')
-    .update(updatePayload)
-    .eq('id', departureId)
-    .select('*')
-    .single()
+  const sql = getSql()
+  const [data] = await sql<TouristDeparture[]>`
+    update tourist_departures set ${rowValues(sql, updatePayload)} where id = ${departureId} returning *
+  `.catch(() => [] as TouristDeparture[])
 
-  if (error || !data) {
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo actualizar la salida.' }, { status: 500 })
   }
 
@@ -110,35 +107,42 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     let failed = 0
 
     if (emailConfigured || isBookingWhatsAppConfigured()) {
-      const { data: bookings } = await supabase
-        .from('tourist_bookings')
-        .select('*')
-        .eq('departure_id', departureId)
-        .eq('status', 'confirmed')
+      const confirmedBookings = await sql<TouristBooking[]>`
+        select * from tourist_bookings where departure_id = ${departureId} and status = ${'confirmed'}
+      `.catch((error) => {
+        console.error('No se pudieron obtener las reservas a avisar:', error)
+        return [] as TouristBooking[]
+      })
 
-      const confirmedBookings = (bookings || []) as TouristBooking[]
       const [emailResult] = await Promise.all([
-        sendTouristDepartureCancellationEmails(confirmedBookings, data as TouristDeparture, cancelReason || undefined),
-        sendTouristDepartureCancellationWhatsApps(confirmedBookings, data as TouristDeparture, cancelReason || undefined),
+        sendTouristDepartureCancellationEmails(confirmedBookings, data, cancelReason || undefined),
+        sendTouristDepartureCancellationWhatsApps(confirmedBookings, data, cancelReason || undefined),
       ])
       sent = emailResult.sent
       failed = emailResult.failed
 
-      // Registro persistente de la tanda (los logs de Vercel se borran a la
-      // hora): si falla el insert no se frena la cancelación, solo se loguea.
+      // Registro persistente de la tanda en la base, consultable después sin
+      // depender de los logs: si falla el insert no se frena la cancelación,
+      // solo se loguea.
       if (confirmedBookings.length > 0) {
-        const { error: logError } = await supabase.from('tourist_notification_logs').insert({
-          departure_id: departureId,
-          kind: 'departure_cancelled',
-          channel: 'email',
-          reason: cancelReason || null,
-          total: confirmedBookings.length,
-          sent,
-          failed,
-          recipients: emailResult.recipients,
-        })
-        if (logError) {
-          console.error('No se pudo guardar el registro de avisos de cancelación:', logError.message)
+        try {
+          await sql`
+            insert into tourist_notification_logs ${rowValues(sql, {
+              departure_id: departureId,
+              kind: 'departure_cancelled',
+              channel: 'email',
+              reason: cancelReason || null,
+              total: confirmedBookings.length,
+              sent,
+              failed,
+              recipients: emailResult.recipients,
+            })}
+          `
+        } catch (logError) {
+          console.error(
+            'No se pudo guardar el registro de avisos de cancelación:',
+            logError instanceof Error ? logError.message : logError,
+          )
         }
       }
     }
@@ -161,15 +165,15 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Salida inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
+  const sql = getSql()
 
-  const { count, error: countError } = await supabase
-    .from('tourist_bookings')
-    .select('*', { count: 'exact', head: true })
-    .eq('departure_id', departureId)
-    .eq('status', 'confirmed')
-
-  if (countError) {
+  let count: number
+  try {
+    ;[{ count }] = await sql<{ count: number }[]>`
+      select count(*)::int as count from tourist_bookings
+      where departure_id = ${departureId} and status = ${'confirmed'}
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudo verificar las reservas de la salida.' }, { status: 500 })
   }
 
@@ -180,9 +184,9 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     )
   }
 
-  const { error } = await supabase.from('tourist_departures').delete().eq('id', departureId)
-
-  if (error) {
+  try {
+    await sql`delete from tourist_departures where id = ${departureId}`
+  } catch {
     return NextResponse.json({ error: 'No se pudo eliminar la salida.' }, { status: 500 })
   }
 

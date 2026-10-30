@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
+import { getSql, rowValues } from '@/lib/db'
 import type { TouristCircuitRecord } from '@/lib/tourist-circuits'
 import { buildEnglishFields, circuitInputToSpanishFields, parseCircuitInput } from '@/lib/tourist-circuits-admin'
 import { isAiTranslationConfigured } from '@/lib/ai-translate'
@@ -27,27 +27,22 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: existing, error: existingError } = await supabase
-    .from('tourist_circuits')
-    .select('*')
-    .eq('id', circuitId)
-    .maybeSingle()
+  const sql = getSql()
+  const [existing] = await sql<TouristCircuitRecord[]>`
+    select * from tourist_circuits where id = ${circuitId}
+  `.catch(() => [] as TouristCircuitRecord[])
 
-  if (existingError || !existing) {
+  if (!existing) {
     return NextResponse.json({ error: 'Circuito no encontrado.' }, { status: 404 })
   }
 
   // Cambio rápido de estado (activar/desactivar) sin tocar el contenido.
   if (body.toggleActive === true) {
-    const { data, error } = await supabase
-      .from('tourist_circuits')
-      .update({ active: !(existing as TouristCircuitRecord).active })
-      .eq('id', circuitId)
-      .select('*')
-      .single()
+    const [data] = await sql<TouristCircuitRecord[]>`
+      update tourist_circuits set active = ${!existing.active} where id = ${circuitId} returning *
+    `.catch(() => [] as TouristCircuitRecord[])
 
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json({ error: 'No se pudo actualizar el circuito.' }, { status: 500 })
     }
     return NextResponse.json({ data, translated: false })
@@ -58,7 +53,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: 'Revisá los campos del circuito.', fieldErrors: errors }, { status: 400 })
   }
 
-  const record = existing as TouristCircuitRecord
+  const record = existing
   const spanishFields = circuitInputToSpanishFields(input)
 
   const contentChanged =
@@ -80,18 +75,17 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     englishFields = result.fields
   }
 
-  const { data, error } = await supabase
-    .from('tourist_circuits')
-    .update({
+  const [data] = await sql<TouristCircuitRecord[]>`
+    update tourist_circuits set ${rowValues(sql, {
       ...spanishFields,
       ...(input.sortOrder !== null ? { sort_order: input.sortOrder } : {}),
       ...englishFields,
-    })
-    .eq('id', circuitId)
-    .select('*')
-    .single()
+    })}
+    where id = ${circuitId}
+    returning *
+  `.catch(() => [] as TouristCircuitRecord[])
 
-  if (error || !data) {
+  if (!data) {
     return NextResponse.json({ error: 'No se pudo actualizar el circuito.' }, { status: 500 })
   }
 
@@ -99,16 +93,17 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   // renombrar el circuito hay que propagar el nombre nuevo, si no el panel de
   // salidas, los exports y los mails siguen mostrando el nombre viejo.
   if (record.name_es !== spanishFields.name_es) {
-    const { error: renameError } = await supabase
-      .from('tourist_departures')
-      .update({ title: spanishFields.name_es })
-      .eq('circuit_slug', record.slug)
-    if (renameError) {
-      console.error('No se pudo propagar el nombre nuevo a las salidas:', renameError.message)
+    try {
+      await sql`update tourist_departures set title = ${spanishFields.name_es} where circuit_slug = ${record.slug}`
+    } catch (renameError) {
+      console.error(
+        'No se pudo propagar el nombre nuevo a las salidas:',
+        renameError instanceof Error ? renameError.message : renameError,
+      )
     }
   }
 
-  return NextResponse.json({ data: data as TouristCircuitRecord, translated })
+  return NextResponse.json({ data, translated })
 }
 
 export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -123,23 +118,21 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Circuito inválido.' }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  const { data: existing, error: existingError } = await supabase
-    .from('tourist_circuits')
-    .select('id, slug')
-    .eq('id', circuitId)
-    .maybeSingle()
+  const sql = getSql()
+  const [existing] = await sql<{ id: number; slug: string }[]>`
+    select id, slug from tourist_circuits where id = ${circuitId}
+  `.catch(() => [] as { id: number; slug: string }[])
 
-  if (existingError || !existing) {
+  if (!existing) {
     return NextResponse.json({ error: 'Circuito no encontrado.' }, { status: 404 })
   }
 
-  const { count, error: countError } = await supabase
-    .from('tourist_departures')
-    .select('*', { count: 'exact', head: true })
-    .eq('circuit_slug', existing.slug)
-
-  if (countError) {
+  let count: number
+  try {
+    ;[{ count }] = await sql<{ count: number }[]>`
+      select count(*)::int as count from tourist_departures where circuit_slug = ${existing.slug}
+    `
+  } catch {
     return NextResponse.json({ error: 'No se pudo verificar las salidas del circuito.' }, { status: 500 })
   }
 
@@ -150,8 +143,9 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     )
   }
 
-  const { error } = await supabase.from('tourist_circuits').delete().eq('id', circuitId)
-  if (error) {
+  try {
+    await sql`delete from tourist_circuits where id = ${circuitId}`
+  } catch {
     return NextResponse.json({ error: 'No se pudo eliminar el circuito.' }, { status: 500 })
   }
 

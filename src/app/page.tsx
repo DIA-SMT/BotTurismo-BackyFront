@@ -4,7 +4,6 @@ import { Bus, GraduationCap } from 'lucide-react'
 import styles from './landing.module.css'
 import { LandingHeroBackground } from '@/components/landing/LandingHeroBackground'
 import { getEducationalSettings } from '@/lib/educational-settings-server'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
 
 export const metadata: Metadata = {
   title: 'Bus Turístico de San Miguel de Tucumán',
@@ -16,7 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const educationalSettings = await getEducationalSettings(createServerSupabaseClient())
+  const educationalSettings = await getEducationalSettings()
   const educationalOpen = educationalSettings.publicRequestsEnabled
   return (
     <main className={styles.page}>

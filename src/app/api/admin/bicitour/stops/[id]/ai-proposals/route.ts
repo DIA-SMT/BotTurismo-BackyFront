@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedAdminFromCookies } from '@/lib/admin-auth'
-import { createServerSupabaseClient } from '@/lib/server-supabase'
-import type { BicitourStop } from '@/lib/bicitour'
+import { getSql, rowValues } from '@/lib/db'
+import type { BicitourQuestionProposal, BicitourStop } from '@/lib/bicitour'
 import {
   generateQuestionProposals,
   isBicitourAiConfigured,
@@ -50,9 +50,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     ? (String(body.category) as BicitourAiCategory)
     : 'historica'
 
-  const supabase = createServerSupabaseClient()
-  const { data: stopRow } = await supabase.from('bicitour_stops').select('*').eq('id', stopId).maybeSingle()
-  const stop = stopRow as BicitourStop | null
+  const sql = getSql()
+  const [stop] = await sql<BicitourStop[]>`select * from bicitour_stops where id = ${stopId}`
   if (!stop) return NextResponse.json({ error: 'Parada no encontrada.' }, { status: 404 })
 
   if (!stop.description && (!stop.fun_facts || stop.fun_facts.length === 0)) {
@@ -70,24 +69,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     )
   }
 
-  const { data: inserted, error } = await supabase
-    .from('bicitour_question_proposals')
-    .insert(
-      proposals.map((proposal) => ({
-        stop_id: stopId,
-        type: proposal.type,
-        prompt: proposal.prompt,
-        options: proposal.options,
-        correct_key: proposal.correctKey,
-        explanation: proposal.explanation || null,
-        difficulty: proposal.difficulty,
-        category: proposal.category,
-        source_excerpt: proposal.sourceExcerpt || null,
-        warning: proposal.warning,
-      })),
-    )
-    .select('*')
-
-  if (error || !inserted) return NextResponse.json({ error: 'No se pudieron guardar las propuestas.' }, { status: 500 })
+  let inserted: BicitourQuestionProposal[]
+  try {
+    inserted = await sql<BicitourQuestionProposal[]>`
+      insert into bicitour_question_proposals ${rowValues(
+        sql,
+        proposals.map((proposal) => ({
+          stop_id: stopId,
+          type: proposal.type,
+          prompt: proposal.prompt,
+          options: proposal.options,
+          correct_key: proposal.correctKey,
+          explanation: proposal.explanation || null,
+          difficulty: proposal.difficulty,
+          category: proposal.category,
+          source_excerpt: proposal.sourceExcerpt || null,
+          warning: proposal.warning,
+        })),
+      )}
+      returning *
+    `
+  } catch {
+    return NextResponse.json({ error: 'No se pudieron guardar las propuestas.' }, { status: 500 })
+  }
   return NextResponse.json({ data: inserted }, { status: 201 })
 }
