@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // 1. Validar todas las variables juntas: mejor no arrancar que arrancar y
 //    contestar mal cuando ya hay alguien esperando.
-const REQUIRED_ENV = ['TELEGRAM_BOT_TOKEN', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'OPENROUTER_API_KEY'];
+const REQUIRED_ENV = ['TELEGRAM_BOT_TOKEN', 'DATABASE_URL', 'OPENROUTER_API_KEY'];
 const missing = REQUIRED_ENV.filter(name => !process.env[name] || !process.env[name].trim());
 if (missing.length > 0) {
   console.error(`[Telegram] Faltan variables de entorno: ${missing.join(', ')}. Revisá el .env del backend.`);

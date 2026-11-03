@@ -4,6 +4,9 @@ import './globals.css'
 import { MigueChat } from '@/components/migue/MigueChat'
 
 export const metadata: Metadata = {
+  // Sin esto, el canonical y las imágenes de openGraph salen con el origen
+  // interno de next start (http://localhost:3004).
+  metadataBase: new URL(process.env.PUBLIC_SITE_URL || 'https://busturistico.smt.gob.ar'),
   title: {
     default: 'Bus Turístico | Municipalidad de San Miguel de Tucumán',
     template: '%s | Municipalidad de San Miguel de Tucumán',
